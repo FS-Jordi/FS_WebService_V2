@@ -145,12 +145,12 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Hints>false</DCC_Hints>
         <DCC_Warnings>false</DCC_Warnings>
         <VerInfo_Locale>1034</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.4;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.5;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
         <VerInfo_Private>true</VerInfo_Private>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MajorVer>2</VerInfo_MajorVer>
         <VerInfo_Release>6</VerInfo_Release>
-        <VerInfo_Build>4</VerInfo_Build>
+        <VerInfo_Build>5</VerInfo_Build>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>

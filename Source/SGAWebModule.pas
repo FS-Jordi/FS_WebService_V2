@@ -2724,7 +2724,7 @@ begin
   sSQL :=
     'SELECT ' +
     '  fsrld.*, agrup.Agrupacion, agrupR.Agrupacion AS AgrupacionRechazos, stu.CodigoAlternativo AS CodigoUbicacionAlternativo, stur.CodigoAlternativo AS CodigoUbicacionRechazosAlternativo, ' +
-    '  fsi.NombreIncidencia, fsrld.Unidades * art.PesoBrutoUnitario_ as PesoBruto, ' +
+    '  fsi.NombreIncidencia, fsrld.Unidades * art.PesoBrutoUnitario_ as PesoBruto, art.TratamientoPartidas, art.TrataNumerosSerieLc, ' +
     '  fsrld.Unidades * art.PesoNetoUnitario_ as PesoNeto, fsrld.Unidades * art.VolumenUnitario_ as Volumen ' +
     'FROM FS_SGA_Recepciones_Lineas_Detalle fsrld WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
@@ -2808,6 +2808,8 @@ begin
       '"Precio":' + SQL_FloatToStr(Q.FieldByName('Precio').AsFloat) + ',' +
       '"UnidadesEntrada":' + SQL_FloatToStr(Q.FieldByName('UnidadesEntrada').AsFloat) + ',' +
       '"UnidadesEntradaBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesEntradaBase').AsFloat) + ',' +
+      '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
+      '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
@@ -3428,7 +3430,7 @@ begin
     'SELECT ' +
     '  fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
-    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' + sFieldTratamientoSeries + ', ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion ' +
     'FROM FS_SGA_Devoluciones_Lineas fsdl WITH (NOLOCK) ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
@@ -3781,7 +3783,7 @@ begin
     'SELECT ' +
     '  fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
-    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' + sFieldTratamientoSeries + ', ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion ' +
     'FROM FS_SGA_DevolucionesP_Lineas fsdl WITH (NOLOCK) ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
@@ -4165,7 +4167,7 @@ begin
           '  fsppl.EjercicioPedido, fsppl.SeriePedido, fsppl.NumeroPedido, fsppl.PreparacionId, fsppl.PickingId, ' +
           '  fsppl.CodigoEmpresa, fsppl.LineasPosicion, fsppl.CodigoArticulo, fsppl.UnidadMedida, fsppl.DescripcionArticulo, fsppl.CodigoAlmacen, fsppl.UnidadMedida, Partida, ' +
           '  art.TratamientoPartidas, fsppl.UdNecesarias, fsppl.UdSaldo, fsppl.UdRetiradas, fsppl.UdExpedidas, fsppl.IdentificadorExpedicion, ' +
-          '  art.CodigoAlternativo AS CodigoArticuloAlternativo, ' + sFieldTratamientoSeries + ' ' +
+          '  art.CodigoAlternativo AS CodigoArticuloAlternativo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
           'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
           'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
           'ON ' +
@@ -4375,7 +4377,7 @@ begin
           '  fsppl.EjercicioPedido, fsppl.SeriePedido, fsppl.NumeroPedido, fsppl.PreparacionId, fsppl.PickingId, ' +
           '  fsppl.CodigoEmpresa, fsppl.LineasPosicion, fsppl.CodigoArticulo, fsppl.UnidadMedida, fsppl.DescripcionArticulo, fsppl.CodigoAlmacen, fsppl.UnidadMedida, Partida, ' +
           '  ISNULL(PartidaSel,'''') AS PartidaSel, art.TratamientoPartidas, fsppl.UdNecesarias, fsppl.UdSaldo, fsppl.UdRetiradas, fsppl.UdExpedidas, fsppl.IdentificadorExpedicion, ' +
-          '  art.CodigoAlternativo AS CodigoArticuloAlternativo, ' + sFieldTratamientoSeries + ', fsppl.RazonSocial, fsppl.CodigoCliente, ' +
+          '  art.CodigoAlternativo AS CodigoArticuloAlternativo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, fsppl.RazonSocial, fsppl.CodigoCliente, ' +
           '  MIN (ISNULL(Preparacion.CantidadPreparada,0)) AS CantidadPendienteExpedir ' +
           'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
           'LEFT JOIN  ' +
@@ -4686,7 +4688,7 @@ begin
 
   sSQL := 'SELECT ' +
           '  fsppl.PreparacionId, fsppl.CodigoEmpresa, fsppl.CodigoArticulo, fsppl.UnidadMedida, ' +
-          '  art.DescripcionArticulo, ' + sFieldTratamientoSeries + ', fsppl.CodigoAlmacen, fsppl.UnidadMedida, Partida, ' +
+          '  art.DescripcionArticulo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, fsppl.CodigoAlmacen, fsppl.UnidadMedida, Partida, ' +
           '  art.TratamientoPartidas, SUM(fsppl.UdNecesarias) as UdNecesarias, MIN(fsppl.UdRetiradas) as UdRetiradas, ' +
           '  SUM(fsppl.UdExpedidas) as UdExpedidas, ' +
           '  ( ' +
@@ -6940,7 +6942,7 @@ begin
     '  fsppl.CodigoArticulo, fsppl.DescripcionArticulo, fsppl.FactorConversion, ' +
     '  fsppl.Partida, fsppl.PreparacionId, fsppl.CodigoCliente, fsppl.RazonSocial, ' +
     '  fsppl.LineaPedidoTalla, fsppl.OrdenDetalleTalla, ' +
-    '  art.TratamientoPartidas, ' + sFieldTratamientoSeries + ', art.CodigoAlternativo, art.CodigoAlternativo2, ' +
+    '  art.TratamientoPartidas, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
     '  fsppl.CodigoTalla01_, fsppl.CodigoColor_, art.GrupoTalla_, ' +
     '  T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
@@ -8497,7 +8499,7 @@ begin
           '  ISNULL(agrup.Agrupacion,''Unidades'') AS Agrupacion, ' +
           '  T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
           '  art.CodigoAlternativo, art.CodigoAlternativo2, CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
-          '  art.Colores_ AS TratamientoColores, art.GrupoTalla_ AS TratamientoTallas, ' + sFieldTratamientoSeries + ' ' +
+          '  art.Colores_ AS TratamientoColores, art.GrupoTalla_ AS TratamientoTallas, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
           'FROM FS_SGA_PreparacionOrdenada fspo WITH (NOLOCK) ' +
           'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
           'ON ' +
@@ -8912,7 +8914,7 @@ begin
   sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'art', '' );
 
   sSQL := 'SELECT ' +
-          '  fsrl.*, art.TratamientoPartidas, art.CodigoAlternativo, ' + sFieldTratamientoSeries + ' ' +
+          '  fsrl.*, art.TratamientoPartidas, art.CodigoAlternativo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
           'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
           'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
           'ON ' +
@@ -10574,7 +10576,8 @@ begin
   Result :=
     '{"Result":"OK","Error":"","Data":[{' +
     '"Servidor":"' + JSON_Str(gsHost) + '",' +
-    '"BBDD":"' + JSON_Str(gsBBDD) + '"' +
+    '"BBDD":"' + JSON_Str(gsBBDD) + '",' +
+    '"VersionWS":"' + JSON_Str(TVSFixedFileInfo.FileVersion) + '"' +
     '}]}';
 
 end;
@@ -14984,7 +14987,7 @@ begin
       'SELECT DISTINCT 0 AS CodigoAgrupacion, 1 AS UnidadesAgrupacion, '''' AS Agrupacion, ubi.CodigoArticulo, ubi.Matricula, ubi.UnidadesSaldo, ubi.FechaCaduca, ubi.UnidadesSaldoBase, ubi.Partida, ubi.CodigoColor_, ' +
       '  ubi.CodigoTalla01_, art.DescripcionArticulo, art.CodigoFamilia, art.CodigoSubfamilia, art.TratamientoPartidas, ' +
       '  art.Colores_, art.GrupoTalla_, ubi.UnidadMedida AS UnidadMedida2_, ubi.UnidadMedidaBase AS UnidadMedidaAlternativa_, ' +
-      '  ubi.FactorConversion_, ' + sFieldTratamientoSeries + ', ' +
+      '  ubi.FactorConversion_, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
       '  art.CodigoAlternativo, art.CodigoAlternativo2, art.Descripcion2Articulo, CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
       '  ubi.UnidadesSaldoBase * art.PesoBrutoUnitario_ AS PesoBruto, ubi.UnidadesSaldoBase * art.PesoNetoUnitario_ AS PesoNeto, ' +
       '  ubi.UnidadesSaldoBase * art.VolumenUnitario_ AS Volumen, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor ' +
@@ -15040,7 +15043,7 @@ begin
       '  fsap.Partida, fsap.CodigoColor_, fsap.CodigoTalla01_, art.DescripcionArticulo, art.CodigoFamilia, art.CodigoSubfamilia, ' +
       '  art.TratamientoPartidas, art.Colores_, art.GrupoTalla_, fsap.UnidadMedida AS UnidadMedida2_, fsap.UnidadMedidaBase AS UnidadMedidaAlternativa_, ' +
       '  art.CodigoAlternativo, art.CodigoAlternativo2, art.Descripcion2Articulo, CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
-      '  T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' + sFieldTratamientoSeries + ', ' +
+      '  T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
       '  fsap.CantidadBase * art.PesoBrutoUnitario_ AS PesoBruto, ' +
       '  fsap.CantidadBase * art.PesoNetoUnitario_ AS PesoNeto, ' +
       '  fsap.CantidadBase * art.VolumenUnitario_ AS Volumen, ' +
@@ -15096,7 +15099,7 @@ begin
       '  '''' AS CodigoAlternativoTC, '''' AS DescripcionColor, '''' AS DescripcionTalla, '''' AS Matricula, ' +
       '  art.PesoBrutoUnitario_ AS PesoBruto, ' +
       '  art.PesoNetoUnitario_ AS PesoNeto, ' +
-      '  art.VolumenUnitario_ AS Volumen, ' + sFieldTratamientoSeries + ', art.FactorConversion_ ' +
+      '  art.VolumenUnitario_ AS Volumen, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, art.FactorConversion_ ' +
       'FROM dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
       'LEFT JOIN UnidadesMedida UM WITH (NOLOCK) ' +
       'ON ' +
@@ -15382,7 +15385,7 @@ begin
     '  fsr.Estado, fsrl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
     'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Recepciones fsr WITH (NOLOCK) ' +
     'ON fsr.RecepcionId = fsrl.RecepcionId ' +
@@ -15729,7 +15732,7 @@ begin
     '  fsd.Estado, fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
     'FROM FS_SGA_Devoluciones_Lineas fsdl WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Devoluciones fsd WITH (NOLOCK) ' +
     'ON ' +
@@ -16054,7 +16057,7 @@ begin
     '  fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
     'FROM FS_SGA_DevolucionesP_Lineas fsdl WITH (NOLOCK) ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
     'ON ' +
@@ -16340,7 +16343,7 @@ begin
     '  fsas.CodigoAlternativo2, fsas.UnidadMedida2_, fsas.UnidadMedidaAlternativa_, fsas.FactorConversion_, ' +
     '  fsas.TratamientoPartidas, fsas.PrecioMedio, fsas.PrecioTotal, art.CodigoAlternativo AS CodigoAlternativoArt, ' +
     '  art.CodigoAlternativo2 AS CodigoAlternativo2Art, CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
-    '  art.DescripcionArticulo AS DescripcionArticuloArt, u.CodigoZona AS Ubi_CodigoZona, ' + sFieldTratamientoSeries + ', ' +
+    '  art.DescripcionArticulo AS DescripcionArticuloArt, u.CodigoZona AS Ubi_CodigoZona, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  u.NombreZona AS Ubi_NombreZona, u.Transito, u.PesoMaxPermitido, c.Color_ AS DescripcionColor, ' +
     '  t.DescripcionTalla01_ AS DescripcionTalla, fsas.FechaPrimeraEntrada, fsas. FechaUltimaEntrada, ' +
     '  fsas.FechaUltimaSalida ' +
@@ -16387,7 +16390,7 @@ begin
     '  fsas.CodigoSubfamilia, fsas.CodigoAlternativo, fsas.CodigoAlternativo2, fsas.UnidadMedida2_, ' +
     '  fsas.UnidadMedidaAlternativa_, fsas.FactorConversion_, fsas.TratamientoPartidas, ' +
     '  CAST(0 AS DECIMAL(28, 10)) AS PrecioMedio, CAST(0 AS DECIMAL(28, 10)) AS PrecioTotal, ' +
-    '  art.CodigoAlternativo AS CodigoAlternativoArt, art.CodigoAlternativo2 AS CodigoAlternativo2Art, ' + sFieldTratamientoSeries + ', ' +
+    '  art.CodigoAlternativo AS CodigoAlternativoArt, art.CodigoAlternativo2 AS CodigoAlternativo2Art, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.DescripcionArticulo AS DescripcionArticuloArt, ' +
     '  u.CodigoZona AS Ubi_CodigoZona, u.NombreZona AS Ubi_NombreZona, u.Transito, u.PesoMaxPermitido, ' +
     '  c.Color_ AS DescripcionColor, t.DescripcionTalla01_ AS DescripcionTalla, MIN(FechaPrimeraEntrada) AS FechaPrimeraEntrada, ' +
@@ -16968,7 +16971,7 @@ begin
     '  FSPDP.Dt_Nombre AS DescripcionPackagingPalet, FSPLC.IdPackaging AS PackagingCaja, CPC.RazonSocial, ' +
     '  FSPDC.Dt_Nombre AS DescripcionPackagingCaja, ISNULL(LPCT.UnidadesAServir, 0) AS AServirTalla, ' +
     '  ART.TratamientoPartidas, ART.Colores_, FSPL.*, ART.PesoBrutoUnitario_, ART.PesoNetoUnitario_, ' +
-    '  ART.VolumenUnitario_,FSPLP.PesoBruto AS Palet_PesoBruto, FSPLP.PesoNeto AS Palet_PesoNeto, ' + sFieldTratamientoSeries + ', ' +
+    '  ART.VolumenUnitario_,FSPLP.PesoBruto AS Palet_PesoBruto, FSPLP.PesoNeto AS Palet_PesoNeto, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  FSPLP.Volumen AS Palet_Volumen, FSPLP.Ancho AS Palet_Ancho, FSPLP.Fondo AS Palet_Fondo, FSPLP.Alto AS Palet_Alto, ' +
     '  FSPLC.PesoBruto AS Caja_PesoBruto, FSPLC.PesoNeto AS Caja_PesoNeto, FSPLC.Volumen AS Caja_Volumen, ' +
     '  FSPLC.Ancho AS Caja_Ancho, FSPLC.Fondo AS Caja_Fondo, FSPLC.Alto AS Caja_Alto ' +
@@ -23396,7 +23399,7 @@ begin
     '  a.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
     '  a.TratamientoPartidas, ' +
-    sFieldTratamientoSeries + ', ' +
+    sFieldTratamientoSeries + 'AS TrataNumerosSerieLc, ' +
     '  a.Colores_, ' +
     '  a.FactorConversion_, ' +
     '  a.GrupoTalla_, ' +
@@ -38321,7 +38324,7 @@ begin
 
   sSQL := 'SELECT fsad.*, ' +
           '  OT.EjercicioFabricacion, OT.SerieFabricacion, OT.NumeroFabricacion, ' +
-          '  ART.DescripcionArticulo, ART.TratamientoPartidas, ' + sFieldTratamientoSeries + ', ' +
+          '  ART.DescripcionArticulo, ART.TratamientoPartidas, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
           '  fssu.CodigoAlternativo AS CodigoUbicacionAlternativo ' +
           'FROM FS_SGA_Aprovisionamientos_Detalle fsad WITH (NOLOCK) ' +
           'LEFT JOIN OrdenesTrabajo OT WITH (NOLOCK) ' +
@@ -38896,7 +38899,7 @@ begin
     '  UBIDESTINO.CodigoAlternativo AS CodigoUbicacionAlternativo, UBIORIGEN.CodigoAlternativo AS CodigoUbicacionAlternativoOrigen, ' +
     '  FSAD.*, ISNULL(FSAT.NumTransito,0) AS NumTransito, ART.DescripcionArticulo, ART.Descripcion2Articulo, ART.CodigoAlternativo, ART.CodigoAlternativo2, ' +
     '  ART.GrupoTalla_, OTRAB.EjercicioFabricacion AS EF, OTRAB.SerieFabricacion AS SF, OTRAB.NumeroFabricacion AS NF, ' +
-    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ART.TratamientoPartidas, ' + sFieldTratamientoSeries + ', ART.Colores_ AS TratamientoColores, ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ART.TratamientoPartidas, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ART.Colores_ AS TratamientoColores, ' +
     '  ART.UnidadMedida2_ AS UnidadMedidaBase, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  ART.FactorConversion_, ISNULL(FSAS.UnidadesSaldo,0) AS UnidadesSaldo, ISNULL(FSAS.UnidadesSaldoBase,0) AS UnidadesSaldoBase, ' +
     '  ISNULL(FSASDestino.UnidadesSaldo,0) AS UnidadesSaldoDestino, ISNULL(FSASDestino.UnidadesSaldoBase,0) AS UnidadesSaldoBaseDestino ' +
@@ -39164,7 +39167,7 @@ begin
     '  UBIDESTINO.CodigoAlternativo AS CodigoUbicacionAlternativo, UBIORIGEN.CodigoAlternativo AS CodigoUbicacionAlternativoOrigen, ' +
     '  FSAD.*, ISNULL(FSAT.NumTransito,0) AS NumTransito, ART.DescripcionArticulo, ART.Descripcion2Articulo, ART.CodigoAlternativo, ART.CodigoAlternativo2, ' +
     '  ART.GrupoTalla_ AS GrupoTallaArticulo, OTRAB.EjercicioFabricacion AS EF, OTRAB.SerieFabricacion AS SF, OTRAB.NumeroFabricacion AS NF, ' +
-    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ART.TratamientoPartidas, ART.Colores_ AS TratamientoColores, ' + sFieldTratamientoSeries + ', ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ART.TratamientoPartidas, ART.Colores_ AS TratamientoColores, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  ART.UnidadMedida2_ AS UnidadMedidaBase, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  ART.FactorConversion_, ISNULL(FSAS.UnidadesSaldo,0) AS UnidadesSaldo, ISNULL(FSAS.UnidadesSaldoBase,0) AS UnidadesSaldoBase, ' +
     '  ISNULL(FSASDestino.UnidadesSaldo,0) AS UnidadesSaldoDestino, ISNULL(FSASDestino.UnidadesSaldoBase,0) AS UnidadesSaldoBaseDestino ' +
@@ -40249,7 +40252,7 @@ begin
           '  ISNULL(fssa.UnidadesSaldo,0) AS UnidadesSaldo, fspo.*, agrup.Agrupacion as Agrupacion, ' +
           '  C.Color_ AS DescripcionColor, T.DescripcionTalla01_ AS DescripcionTalla, ' +
           '  ART.CodigoAlternativo, ART.CodigoAlternativo2, CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
-          '  ART.GrupoTalla_ AS TratamientoTallas, ART.Colores_ AS TratamientoColores, ' + sFieldTratamientoSeries + ' ' +
+          '  ART.GrupoTalla_ AS TratamientoTallas, ART.Colores_ AS TratamientoColores, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
           'FROM FS_SGA_PreparacionOrdenada fspo WITH (NOLOCK) ' +
           'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
           'ON ' +

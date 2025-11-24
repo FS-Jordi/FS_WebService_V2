@@ -1463,12 +1463,13 @@ begin
 
     end else begin
 
-      sSQL := 'EXEC dbo.FS_LICENSE_UPDATE ' +
-              '''' + gsCustomerCode + ''', ' +
-              '''' + CONST_SERVIDOR + ''', ' +
-              '''' + gsMACAddress + ''', ' +
-              '''' + SQL_Str(gsPCName) + ''', ' +
-              '''' + TVSFixedFileInfo.FileVersion + '''';
+      sSQL :=
+        'EXEC dbo.FS_LICENSE_UPDATE ' +
+        '''' + gsCustomerCode + ''', ' +
+        '''' + CONST_SERVIDOR + ''', ' +
+        '''' + gsMACAddress + ''', ' +
+        '''' + SQL_Str(gsPCName) + ''', ' +
+        '''' + TVSFixedFileInfo.FileVersion + '''';
 
       try
         SQLConn.Execute(sSQL);

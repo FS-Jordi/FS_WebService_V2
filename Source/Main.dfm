@@ -27,6 +27,7 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
   end
   object HttpServer: TclHttpServer
     ServerName = 'Clever Internet Suite HTTP service'
+    MaxThreadCount = 50
     OnStart = HttpServerStart
     OnStop = HttpServerStop
     OnAcceptConnection = HttpServerAcceptConnection
