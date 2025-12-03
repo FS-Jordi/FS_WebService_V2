@@ -282,7 +282,7 @@ begin
 
   if sCommand<>'/' then
   begin
-    gaLogFile.Write ( 'Request: ' + sCommand + '?' + sParams, sIDCall, LOG_LEVEL_INFO );
+    gaLogFile.Write ( 'Request: ' + sCommand + '?' + sParams, CONST_LOGID_SGA, LOG_LEVEL_INFO );
   end;
 
   SLHeader := TStringList.Create;
@@ -333,6 +333,10 @@ begin
 
     else if (sCommand='/savescans') then
       WebModule1saveScansAction
+        ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
+
+    else if (sCommand='/savenumerosseriepreparacion') then
+      WebModule1saveNumerosSeriePreparacionAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
     else if (sCommand='/reconnectdb') then
@@ -396,6 +400,10 @@ begin
 
     else if (sCommand='/cerraraprovisionamiento') then
       WebModule1cerrarAprovisionamientoAction
+        ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
+
+    else if (sCommand='/setbloqueoubicacion') then
+      WebModule1setBloqueoUbicacionAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
     else if (sCommand='/generatematricula') then
@@ -674,8 +682,12 @@ begin
       WebModule1findArticulosAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
-    else if (sCommand='/getnumerosserie') then
-      WebModule1getNumerosSerieAction
+    else if (sCommand='/getnumerosserierecepcion') then
+      WebModule1getNumerosSerieRecepcionAction
+        ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
+
+    else if (sCommand='/getnumerosseriepreparacion') then
+      WebModule1getNumerosSeriePreparacionAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
     else if (sCommand='/listfamilias') then
@@ -919,6 +931,10 @@ begin
 
     else if (sCommand='/checknumeroserierecepcion') then
       WebModule1checkNumeroSerieRecepcionAction
+        ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
+
+    else if (sCommand='/checknumeroseriepreparacion') then
+      WebModule1checkNumeroSeriePreparacionAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
     else if (sCommand='/renumerarcajas') then

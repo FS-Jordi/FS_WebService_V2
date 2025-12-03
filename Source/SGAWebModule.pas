@@ -113,7 +113,8 @@ procedure WebModule1traspasarListaAction ( Conn: TADOConnection; sParams, sRemot
 procedure WebModule1listLineasAlbaranVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listArticulosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1refreshStockArticuloAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
-procedure WebModule1getNumerosSerieAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getNumerosSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getNumerosSerieRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1findArticulosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listFamiliasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listSubfamiliasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -131,6 +132,7 @@ procedure WebModule1listAprovisionamientosAction ( Conn: TADOConnection; sParams
 procedure WebModule1getAprovisionamientoDetailAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1refreshAprovisionamientoDetailAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cerrarAprovisionamientoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1setBloqueoUbicacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getAprovisionamientoMovimientosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1detallePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1preparacionUbicacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -222,6 +224,7 @@ procedure WebModule1detallerecuperarPackingListScansAction ( Conn: TADOConnectio
 procedure WebModule1detalleExpedicionTCPartidasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1detallePackingListArticuloAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1saveScansAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1saveNumerosSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1loadScansAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getDetallePartidasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getAgrupacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -244,6 +247,7 @@ procedure WebModule1findPaletMatriculaAction ( Conn: TADOConnection; sParams, sR
 procedure WebModule1generarPackingListAutoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1expedirTodoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1expedirLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1checkNumeroSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkNumeroSerieRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1borrarLineaExpedicionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getLastCajaIdAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -5366,6 +5370,7 @@ begin
 
   PickingId      := StrToIntDef(Trim(contentfields.values['PickingId']),0);
   CodigoArticulo := contentfields.values['CodigoArticulo'];
+  Partida        := contentfields.values['Partida'];
   CodigoTalla    := contentfields.values['CodigoTalla'];
   CodigoColor    := contentfields.values['CodigoColor'];
   UnidadMedida   := AnsiUpperCase(contentfields.values['UnidadMedida']);
@@ -5447,6 +5452,141 @@ begin
 
   end;
 
+
+  Result := '{"Result":"OK","Error":"","Data":[';
+
+  Result := Result + ']}';
+
+  {$ENDREGION}
+
+end;
+
+
+procedure WebModule1saveNumerosSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  iTotalRegs, iTotalRegsFiltered, iNumRegs: Integer;
+  iPageSize, iPage: Integer;
+  iPages: Integer;
+  EmpresaOrigen: Integer;
+  PreparacionId: Integer;
+  PickingId: Integer;
+  AutoId: Integer;
+  DT: TDateTime;
+  CodigoArticulo: String;
+  CodigoTalla: String;
+  CodigoColor: String;
+  UnidadMedida: String;
+  Cantidad: Double;
+  CantidadBase: Double;
+  CodigoUbicacion: String;
+  Partida: String;
+  sSQL: String;
+  Q: TADOQuery;
+  i: Integer;
+  Scans: string;
+  JSonObject: TJSONObject;
+  JSonValue: TJSONValue;
+  JSonArray: TJSONArray;
+  lJSonValue: TJSonValue;
+  CodigoUsuario: Integer;
+  PickingIdAsignado: Integer;
+  Ejercicio: Integer;
+  NumeroSerie: String;
+  NumeroSerieFabricante: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  PreparacionId := StrToIntDef(contentfields.values['PreparacionId'],0);
+  if PreparacionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de preparación no especificado","Data":[]}';
+    Exit;
+  end;
+
+  sSQL := 'SELECT Ejercicio FROM FS_SGA_Picking_Preparaciones WITH (NOLOCK) WHERE PreparacionId = ' + IntToStr(PreparacionId);
+  Ejercicio := SQL_Execute ( Conn, sSQL );
+
+  PickingId      := StrToIntDef(Trim(contentfields.values['PickingId']),0);
+  AutoId         := StrToIntDef(Trim(contentfields.values['AutoId']),0);
+  Scans          := contentfields.values['Scans'];
+
+  JSonObject := _Parse_JSonObject ( Scans );
+  if JSonObject=nil then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El formato JSON del elemento Data es incorrecto","Data":[]}';
+    Exit;
+  end;
+
+  JSonValue  := JSonObject.Get('List').JsonValue;
+  if JSonValue=nil then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Los datos especificados no son válidos","Data":[]}';
+    JSonObject.Free;
+    Exit;
+  end;
+
+  JSonArray := TJSONArray(JSonValue);
+  if JSonArray=nil then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Los datos especificados no contienen un array válido","Data":[]}';
+    JSonObject.Free;
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Guardem les dades'}
+
+  sSQL :=
+    'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ' +
+    'WHERE ' +
+    '  PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+    '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
+    '  AND AutoID = ' + IntToStr(AutoId);
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  for lJSonValue in JSonArray do begin
+
+      NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+      NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
+      Cantidad              := FS_StrToFloatDef( _Get_JSonValue ( lJSonValue, 'Cantidad' ),0);
+
+      sSQL :=
+        'INSERT INTO FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, PreparacionId, PickingId, AutoId, ' +
+        '  Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+        'VALUES ( ' +
+        IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+        IntToStr(PreparacionId) + ', ' +
+        IntToStr(PickingId) + ', ' +
+        IntToStr(AutoId) + ', ' +
+        '0, ' + // Número de serie normal (1: rechazo)
+        '''' + SQL_Str(NumeroSerie) + ''', ' +
+        '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+        SQL_FloatToStr(Cantidad) + ' ' +
+        ')';
+      SQL_Execute_NoRes ( Conn, sSQL );
+
+  end;
 
   Result := '{"Result":"OK","Error":"","Data":[';
 
@@ -8589,6 +8729,7 @@ begin
 
 
   sSQL := sSQL + 'ORDER BY ' + sOrderBy;
+  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -11660,9 +11801,163 @@ end;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ LLISTAT DE NÚMEROS DE SÈRIE DE PREPARACIONS                           │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+procedure WebModule1getNumerosSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  sSQL: String;
+  Q: TADOQuery;
+  iTotalRegs, iNumRegsS, iNumRegsSR: Integer;
+  iPageSize, iPage: Integer;
+  iPages: Integer;
+  PreparacionId: Integer;
+  PickingId: Integer;
+  AutoID: Integer;
+  EmpresaOrigen: Integer;
+  contentfields: TStringList;
+  NSR: String;
+  NS: String;
+  Tipo: Integer;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  iPage     := StrToIntDef(contentfields.values['Page'],0);
+  iPageSize := StrToIntDef(contentfields.values['PageSize'],DEFAULT_PAGE_SIZE);
+  if iPageSize=0 then iPageSize := DEFAULT_PAGE_SIZE;
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  PreparacionId := StrToIntDef(contentfields.values['PreparacionId'],0);
+  if PreparacionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de preparación no especificado","Data":[]}';
+    Exit;
+  end;
+
+  PickingId := StrToIntDef(contentfields.values['PickingId'],0);
+  AutoID := StrToIntDef(contentfields.values['AutoID'],0);
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  sSQL :=
+    'SELECT * ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+    '  AND PickingId = ' + IntToStr(PickingId) + ' ';
+  if AutoID<>0 then
+  begin
+    sSQL := sSQL +
+      '  AND AutoID = ' + IntToStr(AutoID) + ' ';
+  end;
+
+  sSQL := sSQL +
+    'ORDER BY Tipo, IdNumeroSerie';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+  except
+    on E:Exception do begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '"","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  iTotalRegs := Q.RecordCount;
+
+  if Frac(iTotalRegs / iPageSize)=0 then begin
+    iPages := iTotalRegs div iPageSize;
+  end else begin
+    iPages := Trunc(iTotalRegs div iPageSize)+1;
+  end;
+
+  Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumPages":' + IntToStr(iPages) + ',"NumRecords":' + IntToStr(iTotalRegs) + ',"Data":[';
+  iNumRegsS := 0;
+  iNumRegsSR := 0;
+
+  NS := '';
+  NSR := '';
+
+  while not Q.Eof do begin
+
+    Tipo := Q.FieldByName('Tipo').AsInteger;
+
+    if (Tipo=0) then
+    begin
+
+      if iNumRegsS<>0 then
+        NS := NS + ',';
+
+      Inc(iNumRegsS);
+
+      NS := NS +
+        '{' +
+        '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
+        '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
+        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) +
+        '}';
+
+    end else begin
+
+      if iNumRegsSR<>0 then
+        NSR := NSR + ',';
+
+      Inc(iNumRegsSR);
+
+      NSR := NSR +
+        '{' +
+        '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
+        '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
+        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) +
+        '}';
+
+    end;
+
+    Q.Next;
+
+  end;
+
+  Result := Result +
+    '{' +
+    '"NumerosSerie":[' + NS + '],' +
+    '"NumerosSerieRechazos":[' + NSR + ']' +
+    '}' +
+  ']}';
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  {$ENDREGION}
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ LLISTAT DE NÚMEROS DE SÈRIE DE RECEPCIONS                             │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
-procedure WebModule1getNumerosSerieAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getNumerosSerieRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 
 {$REGION 'Declaració de variables'}
 var
@@ -14561,11 +14856,13 @@ begin
         'AND ubi.UnidadMedida = ''' + SQL_Str(AnsiUpperCase(UnidadMedida)) + ''' ';
     end;
 
+    (*
     if (UnidadMedidaBase<>'') then
     begin
       sAndWhere := sAndWhere +
         'AND ubi.UnidadMedidaBase = ''' + SQL_Str(AnsiUpperCase(UnidadMedidaBase)) + ''' ';
     end;
+    *)
 
     if Partida<>'*' then
     begin
@@ -16247,6 +16544,7 @@ var
   sUnidadMedida: string;
   sUnidadMedidaBase: string;
   sFieldTratamientoSeries: string;
+  bBloqueada: Boolean;
 {$ENDREGION}
 
 begin
@@ -16491,6 +16789,7 @@ begin
 
     CodigoUbicacion := Q.FieldByName('CodigoUbicacion').AsString;
     bTransito       := Q.FieldByName('Transito').AsBoolean;
+    bBloqueada      := Q.FieldByName('Bloqueada').AsBoolean;
     fPesoMaximo     := Q.FieldByName('PesoMaxPermitido').AsFloat;
     sPackagings     := FS_SGA_PackagingsUbicacion ( Conn, CodigoEmpresa, CodigoUbicacion );
 
@@ -16555,6 +16854,7 @@ begin
       '"Matricula":"' + JSON_Str(Q.FieldByName('Matricula').AsString) + '",' +
       '"TratamientoPartidas":' + IntToStr(Q.FieldByName('TratamientoPartidas').AsInteger) + ',' +
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
+      '"Bloqueada":' + SQL_BooleanToStr(bBloqueada) + ','+
       '"Transito":' + SQL_BooleanToStr(bTransito) + ',' +
       '"PesoMaximo":' + SQL_FloatToStr(fPesoMaximo) + ',' +
       '"Packagings":[' + sPackagings + ']' +
@@ -16605,6 +16905,7 @@ var
   Fondo: string;
   CodigoAlternativo: string;
   bTransito: Boolean;
+  bBloqueada: Boolean;
 {$ENDREGION}
 
 begin
@@ -16774,6 +17075,7 @@ begin
 
     CodigoUbicacion := Q.FieldByName('ubifav_CodigoUbicacion').AsString;
     bTransito       := Q.FieldByName('Transito').AsBoolean;
+    bBloqueada      := Q.FieldByName('Bloqueada').AsBoolean;
     fPesoMaximo     := Q.FieldByName('PesoMaxPermitido').AsFloat;
     sPackagings     := FS_SGA_PackagingsUbicacion ( Conn, CodigoEmpresa, CodigoUbicacion );
 
@@ -16797,6 +17099,7 @@ begin
       '"Matricula":"",' +
       '"CodigoUbicacion":"' + JSON_Str(CodigoUbicacion) + '",' +
       '"CodigoUbicacionAlternativo":"' + JSON_Str(CodigoAlternativo) + '",' +
+      '"Bloqueada":' + SQL_BooleanToStr(bBloqueada) + ',' +
       '"Transito":' + SQL_BooleanToStr(bTransito) + ',' +
       '"PesoMaximo":' + SQL_FloatToStr(fPesoMaximo) + ',' +
       '"Packagings":[' + sPackagings + ']' +
@@ -18322,6 +18625,81 @@ begin
   {$ENDREGION}
 
 
+
+end;
+
+
+procedure WebModule1checkNumeroSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  CodigoUsuario: Integer;
+  contentfields: TStringList;
+  PreparacionId: Integer;
+  PickingId: Integer;
+  AutoId: Integer;
+  NumeroSerie: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  //CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Articulos' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+
+  PreparacionId := StrToIntDef(contentfields.values['PreparacionId'],0);
+  if PreparacionId=0 then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de preparación no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  PickingId := StrToIntDef(contentfields.values['PickingId'],0);
+  AutoId    := StrToIntDef(contentfields.values['AutoId'],0);
+
+  NumeroSerie := contentfields.values['NumeroSerie'];
+  if NumeroSerie='' then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El número de serie está en blanco","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  sSQL :=
+    'SELECT COUNT(*) ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+    '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
+    '  AND AutoId <> ' + IntToStr(AutoId) + ' ' +
+    '  AND NumeroSerie = ''' + SQL_Str(NumeroSerie) + ''' ';
+  Result := SQL_Execute ( Conn, sSQL );
+
+  {$ENDREGION}
 
 end;
 
@@ -24369,7 +24747,9 @@ var
   i: Integer;
   PBC: TFSParsedBarCode;
   TipoDetectado: Integer;
+  Version: String;
   Save: Boolean;
+  ByPassLocked: Boolean;
 {$ENDREGION}
 
 begin
@@ -24393,6 +24773,8 @@ begin
   );
 
   CodigoAlmacen := contentfields.values['CodigoAlmacenDefecto'];
+  Version       := contentfields.values['Version'];
+  ByPassLocked  := (AnsiLowerCase(contentfields.Values['ByPassLocked'])='true');
 
   Barcode := contentfields.Values['Barcode'];
   if Barcode='' then begin
@@ -24420,7 +24802,7 @@ begin
 
   TipoDetectado := BARCODE_Tipo ( Conn, CodigoEmpresa, CodigoAlmacen, Barcode );
 
-  gaLogFile.Write('Tipo detectado = ' + IntToStr(TipoDetectado) + ', Barcode = ' + Barcode, CONST_LOGID_GENERAL);
+  gaLogFile.Write('Versión PDA = ' + Version + ', Tipo detectado = ' + IntToStr(TipoDetectado) + ', Barcode = ' + Barcode, CONST_LOGID_GENERAL);
 
   // Si hem detectat directament un GS1-128, retornem les dades
   if (TipoDetectado=4) or (TipoDetectado=50) then
@@ -26192,6 +26574,12 @@ begin
     UnidadesBase := FS_StrToFloatDef ( contentfields.values['UnidadesBase'], 0 );
   end;
 
+  if (UnidadMedida<>'') and (UnidadMedidaBase='') then
+  begin
+    UnidadMedidaBase := UnidadMedida;
+    FactorConversion := 1;
+  end;
+
   if (Unidades=0) and (UnidadesBase=0) then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Las unidades no pueden ser 0","Data":[]}';
     Exit;
@@ -27913,6 +28301,12 @@ begin
     FactorConversion := 1;
 
   FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, UnidadMedida, UnidadMedidaBase );
+
+  if (UnidadMedida<>'') and (UnidadMedidaBase='') then
+  begin
+    UnidadMedidaBase := UnidadMedida;
+    FactorConversion := 1;
+  end;
 
   if (Unidades=0) and (UnidadesBase=0) then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Las unidades no pueden ser 0","Data":[]}';
@@ -35915,6 +36309,7 @@ begin
       '"CodigoUsuario":"' + JSON_Str(Q.FieldByName('CodigoUsuario').AsString) + '",' +
       '"NombreUsuario":"' + JSON_Str(Q.FieldByName('NombreUsuario').AsString) + '",' +
       '"NombreCompletoUsuario":"' + JSON_Str(Q.FieldByName('NombreCompletoUsuario').AsString) + '",' +
+      '"RolId": ' + IntToStr(Q.FieldByName('RolId').AsInteger) + ',' +
       '"RolNombre":"' + JSON_Str(Q.FieldByName('RolNombre').AsString) + '",' +
       '"HasPin":' + SQL_BooleanToStr(bPin) +
       '}';
@@ -35959,6 +36354,7 @@ var
   sPackagings: String;
   fPesoMaximo: Double;
   bTransito: Boolean;
+  ByPassLocked: Boolean;
 
 {$ENDREGION}
 
@@ -36013,6 +36409,7 @@ begin
   end;
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  ByPassLocked  := (AnsiLowerCase(contentfields.Values['ByPassLocked'])='true');
 
   {$ENDREGION}
 
@@ -36042,7 +36439,7 @@ begin
     fPesoMaximo       := 0;
   end;
 
-  if Bloqueada then
+  if (Bloqueada and not ByPassLocked) then
   begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La ubicación está bloqueada","Data":[]}';
     Exit;
@@ -36067,6 +36464,7 @@ begin
       '"Altura":"' + JSON_Str(Altura) + '",' +
       '"Fondo":"' + JSON_Str(Fondo) + '",' +
       '"Matricula":"",' +
+      '"Bloqueada":' + SQL_BooleanToStr(Bloqueada) + ',' +
       '"CodigoUbicacion":"' + JSON_Str(CodigoUbicacion) + '",' +
       '"CodigoUbicacionAlternativo":"' + JSON_Str(CodigoAlternativo) + '",' +
       '"Transito":' + SQL_BooleanToStr(bTransito) + ',' +
@@ -42400,8 +42798,6 @@ begin
 
   Result := 0;
 
-  gaLogFile.Write('BARCODE_Tipo');
-
   if LeftStr(Barcode,1)=']' then
     Delete(Barcode,1,3);
 
@@ -46623,7 +47019,7 @@ begin
             '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
             '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
             '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-            '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
+            //'  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
             '  AND UnidadMedida = ''' + UnidadMedida + ''' ';
 
     fCantPrep := SQL_Execute ( Conn, sSQL );
@@ -46842,22 +47238,22 @@ begin
   if not bErr then
   begin
 
-  bErr := FS_SGA_Repartir_Preparacion (
-    Conn,
-    CodigoEmpresa.EmpresaOrigen,
-    YY,
-    CodigoArticulo,
-    PartidaPedido, // Partida,
-    IdPreparacion,
-    Unidades,
-    UnidadMedida,
-    UnidadesBase,
-    UnidadMedidaBase,
-    CodigoTalla,
-    CodigoColor,
-    CodigoAgrupacion,
-    sMsg
-  );
+    bErr := FS_SGA_Repartir_Preparacion (
+      Conn,
+      CodigoEmpresa.EmpresaOrigen,
+      YY,
+      CodigoArticulo,
+      PartidaPedido, // Partida,
+      IdPreparacion,
+      Unidades,
+      UnidadMedida,
+      UnidadesBase,
+      UnidadMedidaBase,
+      CodigoTalla,
+      CodigoColor,
+      CodigoAgrupacion,
+      sMsg
+    );
 
   end;
 
@@ -47085,6 +47481,51 @@ begin
         '''' + SQL_Str(CodigoColor) + ''' ' +
         ')';
 
+      try
+        SQL_Execute_NoRes ( Conn, sSQL );
+      except
+        on E:Exception do
+        begin
+          gaLogFile.Write_DBException(E,sSQL,'Error al guardar del detalle de caja/palet', CONST_LOGID_BBDD);
+        end;
+      end;
+
+      sSQL :=
+        'SELECT TOP 1 ' +
+        '  AutoId ' +
+        'FROM FS_SGA_Picking_Pedido_Lineas_Detalle WITH (NOLOCK) ' +
+        'WHERE ' +
+        '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+        '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+        '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
+        '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+        '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+        '  AND LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ' +
+        '  AND (Unidades > 0 OR UnidadesBase > 0) ' +
+        '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ';
+
+      if sModoPackingList='AUTOMÁTICO' then
+      begin
+        // MODE AUTOMÀTIC
+        if MatriculaActual<>'' then
+        begin
+          sSQL := sSQL +
+            '  AND CajaId = ' + IntToStr(CajaActual) + ' ' +
+            '  AND Matricula = ''' + SQL_Str(MatriculaActual) + ''' ';
+        end else begin
+          sSQL := sSQL +
+            '  AND CajaId = ' + IntToStr(CajaActual) + ' ' +
+            '  AND PaletId = ' + IntToStr(PaletActual) + ' ';
+        end;
+      end;
+
+      sSQL := sSQL +
+        'ORDER BY ' +
+        '  AutoId DESC';
+
+      iAutoID := SQL_Execute ( Conn, sSQL );
+
     end else begin
 
       sSQL :=
@@ -47095,15 +47536,15 @@ begin
         'WHERE ' +
         '  AutoID = ' + IntToStr(iAutoId);
 
-    end;
-
-    try
-      SQL_Execute_NoRes ( Conn, sSQL );
-    except
-      on E:Exception do
-      begin
-        gaLogFile.Write_DBException(E,sSQL,'Error al guardar del detalle de caja/palet', CONST_LOGID_BBDD);
+      try
+        SQL_Execute_NoRes ( Conn, sSQL );
+      except
+        on E:Exception do
+        begin
+          gaLogFile.Write_DBException(E,sSQL,'Error al guardar del detalle de caja/palet', CONST_LOGID_BBDD);
+        end;
       end;
+
     end;
 
   end else begin
@@ -47381,7 +47822,15 @@ begin
   else
     LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'PREPARE-PROD', 'Mover artículo (' + gaMov.CodigoArticulo + ') a la zona de expedición', @LP );
 
-  Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[]}';
+  Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[';
+
+  Result := Result +
+    '{' +
+    '"AutoID":' + IntToStr(iAutoID) +
+    '}';
+
+  Result := Result +
+    ']}';
 
   (*
   Request.QueryFields.AddPair('CodigoAlmacen', aUbicacion.CodigoAlmacen );
@@ -48380,6 +48829,60 @@ begin
   {$ENDREGION}
 
 end;
+
+
+
+procedure WebModule1setBloqueoUbicacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  sSQL: String;
+  Q: TADOQuery;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  CodigoUbicacion: String;
+  Bloqueada: Boolean;
+  contentfields: TStringList;
+  UUID: string;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  UUID            := contentfields.Values['UUID'];
+  CodigoUbicacion := contentfields.Values['CodigoUbicacion'];
+  Bloqueada       := (AnsiLowerCase(contentfields.Values['Bloqueada'])='true');
+
+  sSQL :=
+    'UPDATE FS_SGA_ESTR_UBICA ' +
+    'SET Bloqueada = ' + SQL_BooleanToStr(Bloqueada) + ' ' +
+    'WHERE CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + '''';
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  Result :=
+    '{"Result":"OK","Error":"","TotalRecords":0,"NumPages":0,"NumRecords":0,"Data":[' +
+    ']}';
+
+end;
+
 
 
 procedure WebModule1changePaletPackagingAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
