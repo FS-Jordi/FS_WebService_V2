@@ -4,7 +4,7 @@
         <ProjectVersion>19.3</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -115,11 +115,11 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Warnings>false</DCC_Warnings>
         <DCC_Hints>false</DCC_Hints>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=FactoryStart;FileDescription=$(MSBuildProjectName);FileVersion=1.1.10.218;InternalName=FSSGAWebService;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=FactoryStart;FileDescription=$(MSBuildProjectName);FileVersion=1.1.10.220;InternalName=FSSGAWebService;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <VerInfo_MinorVer>1</VerInfo_MinorVer>
         <VerInfo_Release>10</VerInfo_Release>
         <VerInfo_Debug>true</VerInfo_Debug>
-        <VerInfo_Build>218</VerInfo_Build>
+        <VerInfo_Build>220</VerInfo_Build>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -145,12 +145,12 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Hints>false</DCC_Hints>
         <DCC_Warnings>false</DCC_Warnings>
         <VerInfo_Locale>1034</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.5;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.7;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
         <VerInfo_Private>true</VerInfo_Private>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MajorVer>2</VerInfo_MajorVer>
         <VerInfo_Release>6</VerInfo_Release>
-        <VerInfo_Build>5</VerInfo_Build>
+        <VerInfo_Build>7</VerInfo_Build>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -220,15 +220,15 @@ $(PostBuildEvent)]]></PostBuildEvent>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
-                    <Platform Name="Win64">
-                        <RemoteName>FS_WebServiceSGA.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
                 <DeployFile LocalName="..\..\..\COMMON\products.inc" Configuration="Release" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>FS_WebServiceSGA.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

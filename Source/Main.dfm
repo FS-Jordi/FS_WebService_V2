@@ -27,7 +27,9 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
   end
   object HttpServer: TclHttpServer
     ServerName = 'Clever Internet Suite HTTP service'
-    MaxThreadCount = 50
+    MaxConnectionQueue = 200
+    MaxThreadCount = 30
+    SessionTimeOut = 60000
     OnStart = HttpServerStart
     OnStop = HttpServerStop
     OnAcceptConnection = HttpServerAcceptConnection
@@ -36,7 +38,7 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
     UseTLS = stNone
     OnReceiveRequest = HttpServerReceiveRequest
     OnSendResponse = HttpServerSendResponse
-    Left = 304
+    Left = 305
     Top = 96
   end
   object IdHTTP1: TIdHTTP
@@ -271,7 +273,7 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
     Top = 184
   end
   object DataSource1: TDataSource
-    Left = 224
-    Top = 184
+    Left = 260
+    Top = 186
   end
 end
