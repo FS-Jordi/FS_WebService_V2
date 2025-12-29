@@ -126,6 +126,7 @@ procedure WebModule1updatePedidosListAction ( Conn: TADOConnection; sParams, sRe
 procedure WebModule1startPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1stopPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listPreparacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getPedidosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1saveMetodoRutaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getMetodoRutaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listAprovisionamientosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -12762,6 +12763,8 @@ var
   dtInici: Integer;
   dtNow: Int64;
   iNum: Integer;
+  bErr: Boolean;
+  MetodoExp: string;
 {$ENDREGION}
 
 begin
@@ -12787,11 +12790,15 @@ begin
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
+  MetodoExp     := AnsiUpperCase(contentfields.Values['MetodoExp']);
 
-  if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
+  if MetodoExp<>'ASISTIDO' then
   begin
-    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
-    Exit;
+    if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
+      Exit;
+    end;
   end;
 
   NumEtiquetas  := StrToIntDef(contentfields.Values['NumEtiquetas'], 0);
@@ -12817,51 +12824,40 @@ begin
 
   gaLogFile.Write ( 'Generamos packing list asistido', CONST_LOGID_BBDD, LOG_LEVEL_INFO );
 
-  sOperation := 'GENERARPACKINGLISTASIS';
-  iStatus    := 0;
+  // Verifiquem si ja s'està creant el packing list
+  // perquè alguna altre usuari ho ha demanat manualment
+  dtNow := DateTimeToUnix(Now());
 
-  sParams2 := '{' +
-    '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
-    '"PreparacionId":' + IntToStr(IdPreparacion) + ',' +
-    '"Usuario":' + IntToStr(CodigoUsuario) + ',' +
-    '"NumEtiquetas":' + IntToStr(NumEtiquetas) + ',' +
-    '"InformeAuto":' + IntToStr(InformeAuto) + ',' +
-    '"RemoteAddr":"' + JSON_Str(sRemoteAddr) + '"' +
-  '}';
+{$I-}
+  AssignFile ( F, gsPath + '\GenerarPackingList.tmp' );
+  Rewrite ( F );
+  WriteLn ( F, IntToStr(dtNow) );
+  WriteLn ( F, IntToStr(IdPreparacion) );
+  CloseFile ( F );
+{$I+}
 
-  sSQL := 'INSERT INTO ' +
-          '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
-          '  oper_params, oper_CodigoEmpresa ) ' +
-          'VALUES ( ' +
-          '''' + SQL_Str(CONST_SGA) + ''', ' +
-          '''' + SQL_Str(sOperation) + ''', ' +
-          IntToStr(iStatus) + ', ' +
-          '''' + SQL_Str(sRemoteAddr) + ''', ' +
-          SQL_DateTimeToStr ( Now() ) + ', ' +
-          '''' + sParams2 + ''', ' +
-          IntToStr(CodigoEmpresa.EmpresaOrigen) + ' )';
-
+  if SQL_Procedure_Exists ( Conn, 'FS_SGA_PROC_PackingList_ASIS', sPROCCustom ) then
+  begin
+    sSQL := 'EXEC dbo.[' + sPROCCustom + '] ' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+            IntToStr(IdPreparacion) + ', ' +
+            IntToStr(NumEtiquetas);
     try
-      SQL_Execute_NoRes ( Conn, sSQL );
+      if SQL_Execute_NoRes ( Conn, sSQL, sExcep ) then
+      begin
+        gaLogFile.Write ( 'Packing list asistido generado sin errores', CONST_LOGID_BBDD, LOG_LEVEL_INFO );
+        Result := '{"Result":"OK","Error":"","Data":[]}';
+      end else begin
+        Result := '{"Result":"ERROR","Message":"' + JSON_Str(sExcep) + '","Data":[]}';
+      end;
     except
-      on E:Exception do begin
-        Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
-        Exit;
+      on E:Exception do
+      begin
+        gaLogFile.Write_DBException(E,sSQL,'Error al generar el packing list asistido', CONST_LOGID_BBDD );
+        Result := '{"Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
       end;
     end;
 
-  sSQL :=
-    'UPDATE FS_SGA_Picking_Preparaciones ' +
-    'SET Estado = 3 ' +
-    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND PreparacionId = ' + IntToStr(IdPreparacion);
-  try
-    SQL_Execute_NoRes ( Conn, sSQL );
-  except
-    on E:Exception do begin
-      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
-      Exit;
-    end;
   end;
 
   if InformeAuto <> 0 then
@@ -12911,8 +12907,112 @@ begin
 
   end;
 
+  sParams := sParams + '&PreparacionId=' + IntToStr(IdPreparacion) + '&InformeAuto=' + IntToStr(InformeAuto);
+  WebModule1servirPreparacionAction ( Conn, sParams, sRemoteAddr, statusCode, statusText, Result );
+
 {$I-}
-    (*
+  DeleteFile ( PWideChar(gsPath + '\GenerarPackingList.tmp') );
+{$I+}
+
+  (*
+  sOperation := 'GENERARPACKINGLISTASIS';
+  iStatus    := 0;
+
+  sParams2 := '{' +
+    '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
+    '"PreparacionId":' + IntToStr(IdPreparacion) + ',' +
+    '"Usuario":' + IntToStr(CodigoUsuario) + ',' +
+    '"NumEtiquetas":' + IntToStr(NumEtiquetas) + ',' +
+    '"InformeAuto":' + IntToStr(InformeAuto) + ',' +
+    '"RemoteAddr":"' + JSON_Str(sRemoteAddr) + '"' +
+  '}';
+
+  sSQL := 'INSERT INTO ' +
+          '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
+          '  oper_params, oper_CodigoEmpresa ) ' +
+          'VALUES ( ' +
+          '''' + SQL_Str(CONST_SGA) + ''', ' +
+          '''' + SQL_Str(sOperation) + ''', ' +
+          IntToStr(iStatus) + ', ' +
+          '''' + SQL_Str(sRemoteAddr) + ''', ' +
+          SQL_DateTimeToStr ( Now() ) + ', ' +
+          '''' + sParams2 + ''', ' +
+          IntToStr(CodigoEmpresa.EmpresaOrigen) + ' )';
+
+    try
+      SQL_Execute_NoRes ( Conn, sSQL );
+    except
+      on E:Exception do begin
+        Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+        Exit;
+      end;
+    end;
+
+  sSQL :=
+    'UPDATE FS_SGA_Picking_Preparaciones ' +
+    'SET Estado = 3 ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND PreparacionId = ' + IntToStr(IdPreparacion);
+  try
+    SQL_Execute_NoRes ( Conn, sSQL );
+  except
+    on E:Exception do begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+      Exit;
+    end;
+  end;
+  *)
+
+  (*
+  if InformeAuto <> 0 then
+  begin
+
+    sParams2 := '{' +
+      '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
+      '"Informe":' + IntToStr(InformeAuto) + ',' +
+      '"Objeto":' + IntToStr(IdPreparacion) + ',' +
+      '"Albaran":0,' +
+      '"Usuario":' + IntToStr(CodigoUsuario) +
+    '}';
+
+    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_ActivarCustomReport, bIsCustomReport, CodigoEmpresa.EmpresaOrigen );
+
+    if bIsCustomReport then
+    begin
+      sOperation := 'GENERARINFORME_CUSTOM';
+      iStatus    := 50;
+    end else begin
+      sOperation := 'GENERARINFORME';
+      iStatus    := 0;
+    end;
+
+    // Afegim un 1 a oper_num_retries perquè no intenti generar el document
+    // més d'una vegada
+    sSQL := 'INSERT INTO ' +
+            '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
+            '  oper_params, oper_CodigoEmpresa ) ' +
+            'VALUES ( ' +
+            '''' + SQL_Str(CONST_SGA) + ''', ' +
+            '''' + SQL_Str(sOperation) + ''', ' +
+            IntToStr(iStatus) + ', ' +
+            '''' + SQL_Str(sRemoteAddr) + ''', ' +
+            SQL_DateTimeToStr ( Now() ) + ', ' +
+            '''' + sParams2 + ''', ' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ' )';
+
+    try
+      SQL_Execute_NoRes ( Conn, sSQL );
+    except
+      on E:Exception do begin
+        Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+        Exit;
+      end;
+    end;
+
+  end;
+  *)
+
+  (*
   // Verifiquem si ja s'està creant el packing list
   // perquè alguna altre usuari ho ha demanat manualment
   dtNow := DateTimeToUnix(Now());
@@ -13033,6 +13133,7 @@ var
   contentfields: TStringList;
   SP: TServirPreparacion;
   fUnidadesRetiradas: Double;
+  MetodoExp: String;
 {$ENDREGION}
 
 begin
@@ -13056,21 +13157,20 @@ begin
   );
 
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
+  MetodoExp     := contentfields.Values['MetodoExp'];
 
-  if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
+  if MetodoExp<>'ASISTIDO' then
   begin
-    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
-    Exit;
+    if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
+      Exit;
+    end;
   end;
 
   {$ENDREGION}
 
   {$REGION 'Recuperació de dades'}
-
-  if not FS_SGA_GetServirPrepStats ( Conn, CodigoEmpresa, IdPreparacion, SP ) then begin
-    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha podido recuperar la información de la preparación","Data":[]}';
-    Exit;
-  end;
 
   sSQL := 'SELECT ' +
           '  SUM(UdRetiradas) ' +
@@ -13082,21 +13182,27 @@ begin
   if fUnidadesRetiradas<=0 then
   begin
     Result := '{"Result":"ERROR","Message":"No hay unidades preparadas","Data":[]}';
-  end else begin
-    Result := '{"Result":"OK","Error":"","Data":[{' +
-    '"Estado":' + IntToStr(SP.Estado) + ',' +
-    '"LineasAPreparar":' + IntToStr(SP.LineasAPreparar) + ',' +
-    '"LineasPreparadas":' + IntToStr(SP.LineasPreparadas) + ',' +
-    '"LineasExpedidas":' + IntToStr(SP.LineasExpedidas) + ',' +
-    '"LineasExpedidasTotal":' + IntToStr(SP.LineasExpedidasTotal) + ',' +
-    '"LineasExpedidasParcial":' + IntToStr(SP.LineasExpedidasParcial) + ',' +
-    '"StockNegativoMsg":"' + JSON_Str(SP.StockNegativoMsg) + '",' +
-    '"iStockNegativo":"' + IntToStr(SP.iStockNegativo) + '",' +
-    '"bPendienteExpedir":' + SQL_BooleanToStr(SP.bPendienteExpedir) + ',' +
-    '"Msg":"' + JSON_Str(SP.Msg) + '",' +
-    '"Cajas":' + IntToStr(SP.Cajas) + ',' +
-    '"Palets":' + IntToStr(SP.Palets) + '}]}';
+    Exit;
   end;
+
+  if not FS_SGA_GetServirPrepStats ( Conn, CodigoEmpresa, IdPreparacion, SP ) then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha podido recuperar la información de la preparación","Data":[]}';
+    Exit;
+  end;
+
+  Result := '{"Result":"OK","Error":"","Data":[{' +
+  '"Estado":' + IntToStr(SP.Estado) + ',' +
+  '"LineasAPreparar":' + IntToStr(SP.LineasAPreparar) + ',' +
+  '"LineasPreparadas":' + IntToStr(SP.LineasPreparadas) + ',' +
+  '"LineasExpedidas":' + IntToStr(SP.LineasExpedidas) + ',' +
+  '"LineasExpedidasTotal":' + IntToStr(SP.LineasExpedidasTotal) + ',' +
+  '"LineasExpedidasParcial":' + IntToStr(SP.LineasExpedidasParcial) + ',' +
+  '"StockNegativoMsg":"' + JSON_Str(SP.StockNegativoMsg) + '",' +
+  '"iStockNegativo":"' + IntToStr(SP.iStockNegativo) + '",' +
+  '"bPendienteExpedir":' + SQL_BooleanToStr(SP.bPendienteExpedir) + ',' +
+  '"Msg":"' + JSON_Str(SP.Msg) + '",' +
+  '"Cajas":' + IntToStr(SP.Cajas) + ',' +
+  '"Palets":' + IntToStr(SP.Palets) + '}]}';
 
   {$ENDREGION}
 
@@ -14491,8 +14597,7 @@ begin
     '  FROM FS_SGA_AlmacenesUsuario WITH (NOLOCK) ' +
     '  WHERE CodigoUsuario = ' + IntToStr(CodigoUsuario) + ' ' +
     ') FSAU ' +
-    'ON dbo.FS_GetEmpresaStocks(FSAU.CodigoEmpresa, ''Almacenes'') = FSTA.CodigoEmpresa ' +
-    'AND FSAU.CodigoAlmacen = FSTA.CodigoAlmacen ' +
+    'ON FSAU.CodigoAlmacen = FSTA.CodigoAlmacen ' +
     'WHERE ISNULL(FSTA.VisiblePDA, 1) <> 0 ';
 
   // El rol 5 és el d'aministrador
@@ -14535,10 +14640,8 @@ begin
     '  SELECT * ' +
     '  FROM FS_SGA_AlmacenesUsuario WITH (NOLOCK) ' +
     '  WHERE CodigoUsuario = ' + IntToStr(CodigoUsuario) + ' ' +
-    '    AND CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
     ') FSAU ' +
-    'ON dbo.FS_GetEmpresaStocks(FSAU.CodigoEmpresa, ''Almacenes'') = FSTA.CodigoEmpresa ' +
-    'AND FSAU.CodigoAlmacen = FSTA.CodigoAlmacen ' +
+    'ON FSAU.CodigoAlmacen = FSTA.CodigoAlmacen ' +
     'WHERE ISNULL(FSTA.VisiblePDA, 1) <> 0 ';
 
   // El rol 5 és el d'aministrador
@@ -15284,6 +15387,7 @@ var
   Matricula: String;
   PBT, PNT, VT: Double;
   sFieldTratamientoSeries: string;
+  FactorConversion: Double;
 {$ENDREGION}
 
 begin
@@ -15322,9 +15426,11 @@ begin
   Partida          := (contentfields.values['Partida']);
   UnidadMedida     := (AnsiUpperCase(contentfields.values['UnidadMedida']));
   UnidadMedidaBase := (AnsiUpperCase(contentfields.values['UnidadMedidaBase']));
+  FactorConversion := StrToFloatDef(contentfields.values['FactorConversion'],0);
   IdPreparacion    := StrToIntDef(contentfields.Values['IdPreparacion'],0);
 
-  FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, UnidadMedida, UnidadMedidaBase );
+  if FactorConversion<>0 then
+    FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, UnidadMedida, UnidadMedidaBase );
 
   // Conversió al codi d'article real
   CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
@@ -17525,7 +17631,8 @@ begin
     'ON ' +
     '  FSPDC.Dt_Id = FSPLC.IdPackaging ' +
     'WHERE ' +
-    '  FSPPL.PreparacionId = ' + IntToStr(IdPreparacion) + ' ';
+    '  PaletId IS NOT NULL ' +
+    '  AND FSPPL.PreparacionId = ' + IntToStr(IdPreparacion) + ' ';
 
   if IdExpedicion<>0 then
   begin
@@ -20093,6 +20200,7 @@ var
   bFound: Boolean;
   OldId: Integer;
   UUID: string;
+  iNum: Integer;
 {$ENDREGION}
 
 begin
@@ -20127,16 +20235,50 @@ begin
 
   OldId := StrToIntDef(contentfields.Values['InventarioUbicacionId'],0);
 
+  sSQL :=
+    'SELECT CodigoUbicacion ' +
+    'FROM FS_SGA_Inventario_Detalle WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+    '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
+  CodigoUbicacion := SQL_Execute ( Conn, sSQL );
+
   {$ENDREGION}
 
   {$REGION 'Actualitzem les ubicacions'}
 
   sSQL :=
-    'DELETE FROM FS_SGA_Inventario_Detalle ' +
+    'SELECT COUNT(*) ' +
+    'FROM FS_SGA_Inventario_Detalle WITH (NOLOCK) ' +
     'WHERE ' +
     '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
     '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
-    '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
+    '  AND CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + '''';
+  iNum := SQL_Execute ( Conn, sSQL );
+
+  if iNum>1 then
+  begin
+    sSQL :=
+      'DELETE FROM FS_SGA_Inventario_Detalle ' +
+      'WHERE ' +
+      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+      '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
+  end else begin
+    sSQL :=
+      'UPDATE FS_SGA_Inventario_Detalle ' +
+      'SET ' +
+      '  CodigoArticulo = '''', ' +
+      '  Partida = '''', ' +
+      '  UnidadMedida = '''', ' +
+      '  CodigoTalla01_ = '''', ' +
+      '  CodigoColor_ = '''' ' +
+      'WHERE ' +
+      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+      '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
+  end;
 
   try
     SQL_Execute_NoRes(Conn,sSQL);
@@ -23021,6 +23163,7 @@ var
   UnidadesExpedidas: Integer;
   SP: TServirPreparacion;
   contentfields: TStringList;
+  MetodoExp: String;
 {$ENDREGION}
 
 begin
@@ -23032,7 +23175,6 @@ begin
   EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
   if EmpresaOrigen=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
-
     Exit;
   end;
   //CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Articulos' );
@@ -23051,10 +23193,15 @@ begin
     Exit;
   end;
 
-  if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
+  MetodoExp := contentfields.Values['MetodoExp'];
+
+  if MetodoExp<>'ASISTIDO' then
   begin
-    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
-    Exit;
+    if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
+      Exit;
+    end;
   end;
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
@@ -27715,6 +27862,7 @@ var
   sFechaCaduca: string;
   PickingId: Integer;
   LineasPosicion: String;
+  bSepararPorLinea: Boolean;
 {$ENDREGION}
 
 begin
@@ -27764,7 +27912,6 @@ begin
   CodigoArticulo := (contentfields.values['CodigoArticulo']);
   if CodigoArticulo='' then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de artículo no especificado","Data":[]}';
-
     Exit;
   end;
 
@@ -27798,12 +27945,18 @@ begin
 
   {$REGION 'Recuperació de totals'}
 
-  sSQL :=
-    'SELECT LineasPosicion FROM FS_SGA_Picking_Pedido_Lineas WITH (NOLOCK) ' +
-    'WHERE ' +
-    '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-    '  AND PickingId = ' + IntToStr(PickingId);
-  LineasPosicion := SQL_Execute ( Conn, sSQL );
+  PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_DesglosarPreparacionesPorLinea, bSepararPorLinea, CodigoEmpresa.EmpresaOrigen );
+  if bSepararPorLinea then
+  begin
+    sSQL :=
+      'SELECT LineasPosicion FROM FS_SGA_Picking_Pedido_Lineas WITH (NOLOCK) ' +
+      'WHERE ' +
+      '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PickingId = ' + IntToStr(PickingId);
+    LineasPosicion := SQL_Execute ( Conn, sSQL );
+  end else begin
+    LineasPosicion := GUID0;
+  end;
 
   sSQL := 'SELECT COUNT(DISTINCT Partida) ' +
           'FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) ' +
@@ -27866,7 +28019,7 @@ begin
           '    FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fsap2 ' +
           '    WHERE ' +
           '      fsap2.IdPreparacion = fsap.IdPreparacion ' +
-          '    	 AND fsap2.CodigoArticulo = fsap.CodigoArticulo ' +
+          '      AND fsap2.CodigoArticulo = fsap.CodigoArticulo ' +
           '      AND fsap2.CodigoTalla01_ = fsap.CodigoTalla01_ ' +
           '      AND fsap2.CodigoColor_ = fsap.CodigoColor_ ' +
           '      AND fsap2.Partida = fsap.Partida ' +
@@ -32179,13 +32332,15 @@ begin
 
     sSQL := 'SELECT ' +
             '  COUNT(DISTINCT fstm.CodigoUbicacion) ' +
-            'FROM FS_SGA_TABLE_Movimientos ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fstm ' +
-            'LEFT JOIN FS_SGA_TABLE_Ubicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) u ' +
+            'FROM FS_SGA_MovimientosAlmacen fstm WITH (NOLOCK) ' +
+            'LEFT JOIN FS_SGA_ESTR_UBICA u WITH (NOLOCK) ' +
             'ON ' +
-            '  fstm.CodigoAlmacen = u.CodigoAlmacen ' +
+            '  u.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+            '  AND fstm.CodigoAlmacen = u.CodigoAlmacen ' +
             '  AND fstm.CodigoUbicacion = u.CodigoUbicacion ' +
             'WHERE ' +
-            '  fstm.CodigoAlmacen = ''' + SQL_Str(CodigoAlmacenDestino) + ''' ' +
+            '  fstm.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+            '  AND fstm.CodigoAlmacen = ''' + SQL_Str(CodigoAlmacenDestino) + ''' ' +
             '  AND fstm.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
             '  AND fstm.TipoMovimiento = 2 ' +
             '  AND fstm.CodigoUbicacion NOT IN ( ' +
@@ -32232,6 +32387,7 @@ begin
 
   end;
 
+  (*
   try
     iTotalRegs := SQL_Execute ( Conn, sSQL );
     if iTotalRegs>iPageSize then
@@ -32248,6 +32404,7 @@ begin
   end else begin
     iPages := Trunc(iTotalRegs div iPageSize)+1;
   end;
+  *)
 
   {$ENDREGION}
 
@@ -32262,21 +32419,24 @@ begin
             '  u.CodigoAlternativo AS CodigoUbicacionAlternativo, ' +
             '  MAX(fstm.UnidadMedida) AS UnidadMedida, NULL AS FechaCaduca, ' +
             '  MAX(FechaHora) AS FechaUltimaSalida, fstm.Matricula, FSP.Estado ' +
-            'FROM FS_SGA_TABLE_Movimientos ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fstm ' +
+            'FROM FS_SGA_MovimientosAlmacen fstm WITH (NOLOCK) ' +
             'LEFT JOIN FS_SGA_Palet FSP WITH (NOLOCK) ' +
             'ON ' +
             '  FSP.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
             '  AND FSP.Matricula = fstm.Matricula ' +
-            'LEFT JOIN FS_SGA_TABLE_Ubicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) u ' +
+            'LEFT JOIN FS_SGA_ESTR_UBICA u WITH (NOLOCK) ' +
             'ON ' +
-            '  fstm.CodigoAlmacen = u.CodigoAlmacen ' +
+            '  u.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+            '  AND fstm.CodigoAlmacen = u.CodigoAlmacen ' +
             '  AND fstm.CodigoUbicacion = u.CodigoUbicacion ' +
             'LEFT JOIN ( ' +
             '  SELECT ' +
             '    CodigoEmpresa, CodigoUbicacion, Matricula, SUM(UnidadesSaldo) AS UnidadesSaldo, SUM(UnidadesSaldoBase) AS UnidadesSaldoBase ' +
-            '  FROM dbo.FS_SGA_TABLE_AcumuladoStockActual ( ' + IntToStr(CodigoEmpresa.Stocks) + ', ' + IntToStr(Ejercicio) + ' ) ' +
+            '  FROM dbo.FS_SGA_AcumuladoStock WITH (NOLOCK) ' +
             '  WHERE ' +
-            '    Periodo = 99 ' +
+            '    CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+            '    AND Ejercicio = ' + IntToStr(Ejercicio) + ' ' +
+            '    AND Periodo = 99 ' +
             '    AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
             '  GROUP BY CodigoEmpresa, CodigoUbicacion, Matricula ' +
             ') AC ' +
@@ -32285,7 +32445,8 @@ begin
             '  AND AC.CodigoUbicacion = fstm.CodigoUbicacion ' +
             '  AND AC.Matricula = fstm.Matricula ' +
             'WHERE ' +
-            '  fstm.CodigoAlmacen = ''' + SQL_Str(CodigoAlmacenDestino) + ''' ' +
+            '  fstm.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+            '  AND fstm.CodigoAlmacen = ''' + SQL_Str(CodigoAlmacenDestino) + ''' ' +
             '  AND fstm.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
             '  AND ( ' +
             '    (fstm.CodigoUbicacion NOT IN ( ''' + SQL_Str(CodigoUbicacion) + ''' ) AND fstm.Matricula = '''' ) ' +
@@ -32406,7 +32567,10 @@ begin
     end;
   end;
 
-  iNumRegs := Q.RecordCount;
+  iTotalRegs := Q.RecordCount;
+  iNumRegs   := Q.RecordCount;
+  iPages     := 1;
+
   Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumPages":' + IntToStr(iPages) + ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[';
   iNumRegs := 0;
 
@@ -40224,7 +40388,7 @@ begin
             'AND fsa.CodigoAlmacen = fsa.AlmacenPreparacion ' +
             'LEFT JOIN FS_SGA_Operarios_Preparacion fsop WITH (NOLOCK) ' +
             'ON ' +
-            '  fsop.CodigoEmpresa = p.CodigoEmpresa ' +
+            '  fsop.CodigoEmpresa = 0 ' +
             '  AND fsop.PreparacionId = p.PreparacionId ' +
             'LEFT JOIN ( ' +
             '  SELECT ' +
@@ -40355,6 +40519,90 @@ begin
 
 end;
 
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ LLISTAR COMANDES D'UNA PREPARACIÓ                                     │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+procedure WebModule1getPedidosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  Tipo: Integer;
+  Estado: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  iTotalRegs, iNumRegs: Integer;
+  iPageSize, iPage: Integer;
+  iPages: Integer;
+  Filter: String;
+  sAndWhere: String;
+  sSort: String;
+  sSortType: String;
+  EmpresaOrigen: Integer;
+  PreparacionId: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  contentfields: TStringList;
+  sFechaInicioPreparacion, sFechaFinPreparacion: string;
+  sPROCCustom: String;
+  sPedidos: string;
+  FiltroZona: String;
+  FiltroTransportista: String;
+  FiltroRuta: String;
+  FiltroComisionista: String;
+  lSortItems: TStringList;
+  sortItem: String;
+  sAscDesc: String;
+  sFechaEntrega: String;
+  ObservacionesAlbaran: String;
+  ObservacionesFactura: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  iPage     := StrToIntDef(contentfields.values['Page'],0);
+  iPageSize := StrToIntDef(contentfields.values['PageSize'],DEFAULT_PAGE_SIZE);
+  if iPageSize=0 then iPageSize := DEFAULT_PAGE_SIZE;
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  // CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  UUID          := contentfields.values['UUID'];
+
+  PreparacionId := StrToIntDef(contentfields.values['PreparacionId'],0);
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  sPedidos := FS_SGA_GetPedidos ( Conn, PreparacionId );
+
+  Result :=
+    '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumPages":' + IntToStr(iPages) + ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[' +
+    sPedidos +
+    ']}';
+
+  {$ENDREGION}
+
+end;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
@@ -40498,7 +40746,7 @@ begin
 
   SQL_Procedure_Exists ( Conn, 'FS_SGA_ListPreparaciones', sPROCCustom);
 
-  sSQL := 'EXEC dbo.[' + sPROCCustom + '] ' +
+  (*sSQL := 'EXEC dbo.[' + sPROCCustom + '] ' +
     IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
     IntToStr(CodigoUsuario) + ', ' +
     IntToStr(Tipo) + ', ' +
@@ -40526,7 +40774,7 @@ begin
     iPages := iTotalRegs div iPageSize;
   end else begin
     iPages := Trunc(iTotalRegs div iPageSize)+1;
-  end;
+  end;     *)
 
   {$ENDREGION}
 
@@ -40549,6 +40797,7 @@ begin
 
   try
     Q.Open;
+    iTotalRegs := Q.RecordCount;
   except
     on E:Exception do begin
       Q.Close;
@@ -40565,7 +40814,7 @@ begin
 
   while not Q.Eof do begin
 
-    sPedidos := FS_SGA_GetPedidos ( Conn, Q.FieldByName('PreparacionId').AsInteger );
+    sPedidos := ''; FS_SGA_GetPedidos ( Conn, Q.FieldByName('PreparacionId').AsInteger );
 
     if iNumRegs<>0 then
       Result := Result + ',';
@@ -40831,7 +41080,7 @@ begin
     sOrderBy := 'fspo.rn ' + TipoOrden + ' ';
   end;
 
-  sOrderBy := 'ISNULL(fspo.CodigoUbicacion,''zzzzz'') DESC, ' + sOrderBy;
+  //sOrderBy := 'ISNULL(fspo.CodigoUbicacion,''zzzzz'') DESC, ' + sOrderBy;
 
   sSQL :=
       'SELECT AlmacenPreparacion ' +
@@ -41195,7 +41444,7 @@ begin
     '  AND fspp.PreparacionId = fsppl.PreparacionId ' +
     'LEFT JOIN FS_SGA_Operarios_Preparacion fsop WITH (NOLOCK) ' +
     'ON ' +
-    '  fsop.CodigoEmpresa = fspp.CodigoEmpresa ' +
+    '  fsop.CodigoEmpresa = 0 ' +
     '  AND fsop.PreparacionId = fspp.PreparacionId ' +
     'INNER JOIN CabeceraPedidoCliente cpc WITH (NOLOCK) ' +
     'ON ' +
@@ -41361,7 +41610,7 @@ begin
     '  AND fspp.PreparacionId = fsppl.PreparacionId ' +
     'LEFT JOIN FS_SGA_Operarios_Preparacion fsop WITH (NOLOCK) ' +
     'ON ' +
-    '  fsop.CodigoEmpresa = fspp.CodigoEmpresa ' +
+    '  fsop.CodigoEmpresa = 0 ' +
     '  AND fsop.PreparacionId = fspp.PreparacionId ' +
     'INNER JOIN CabeceraPedidoCliente cpc WITH (NOLOCK) ' +
     'ON ' +
@@ -41529,7 +41778,7 @@ begin
     '  AND fspp.PreparacionId = fsppl.PreparacionId ' +
     'LEFT JOIN FS_SGA_Operarios_Preparacion fsop WITH (NOLOCK) ' +
     'ON ' +
-    '  fsop.CodigoEmpresa = fspp.CodigoEmpresa ' +
+    '  fsop.CodigoEmpresa = 0 ' +
     '  AND fsop.PreparacionId = fspp.PreparacionId ' +
     'INNER JOIN CabeceraPedidoCliente cpc WITH (NOLOCK) ' +
     'ON ' +
@@ -41694,7 +41943,7 @@ begin
     '  AND fspp.PreparacionId = fsppl.PreparacionId ' +
     'LEFT JOIN FS_SGA_Operarios_Preparacion fsop WITH (NOLOCK) ' +
     'ON ' +
-    '  fsop.CodigoEmpresa = fspp.CodigoEmpresa ' +
+    '  fsop.CodigoEmpresa = 0 ' +
     '  AND fsop.PreparacionId = fspp.PreparacionId ' +
     'INNER JOIN CabeceraPedidoCliente cpc WITH (NOLOCK) ' +
     'ON ' +

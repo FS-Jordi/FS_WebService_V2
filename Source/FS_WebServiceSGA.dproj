@@ -4,7 +4,7 @@
         <ProjectVersion>19.3</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -86,6 +86,9 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+        <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
+        <UWP_DelphiLogo44>img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png</UWP_DelphiLogo44>
+        <UWP_DelphiLogo150>img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png</UWP_DelphiLogo150>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
         <DCC_UsePackage>DBXSqliteDriver;vclactnband;vclFireDAC;tethering;FireDACADSDriver;clinetsuite_104;cxLibraryRS27;dxRibbonCustomizationFormRS27;tmsxlsdXE13;PKIECtrl27;vcltouch;vcldb;dxPScxExtCommonRS27;FlexCel_Report;cxTreeListRS27;dxPScxSchedulerLnkRS27;TMSScripter_Memo;VCL_FlexCel_Components;dxRichEditDocumentModelRS27;dxPsPrVwAdvRS27;office2K;QImport3RT;vclx;dxPSdxFCLnkRS27;dxSpellCheckerRS27;dxPDFViewerRS27;RESTBackendComponents;VCLRESTComponents;dxWizardControlRS27;cxSchedulerTreeBrowserRS27;vclie;bindengine;CloudService;dxBarExtDBItemsRS27;FireDACMySQLDriver;cxExportRS27;cxSchedulerWebServiceStorageRS27;bindcompdbx;IndyIPServer;dxPScxPCProdRS27;IndySystem;dxHttpIndyRequestRS27;bindcompvclwinx;dxFlowChartRS27;dsnapcon;FireDACMSAccDriver;fmxFireDAC;dxmdsRS27;vclimg;dxPSPrVwRibbonRS27;FlexCel_XlsAdapter;dxCoreRS27;tmsdXE13;cxSchedulerRibbonStyleEventEditorRS27;soaprtl;DbxCommonDriver;dxRichEditCoreRS27;dxCloudServiceLibraryRS27;xmlrtl;soapmidas;fmxobj;rtl;dxdborRS27;DbxClientDriver;dxdbtrRS27;TMSScripter_IDE;appanalytics;dxSpreadSheetCoreRS27;dxRichEditControlCoreRS27;dxGDIPlusRS27;IndyIPClient;dxFireDACServerModeRS27;dxFlowChartAdvancedCustomizeFormRS27;bindcompvcl;LockBox3DR;dxServerModeRS27;dxorgcRS27;dxPSLnksRS27;FMX_FlexCel_Components;VclSmp;dxDBXServerModeRS27;cxGridRS27;dxFireDACEMFRS27;dxtrmdRS27;dxSpreadSheetCoreConditionalFormattingDialogsRS27;RESTComponents;DBXInterBaseDriver;dxSpreadSheetConditionalFormattingDialogsRS27;FlexCel_Pdf;FMX_FlexCel_Core;dxGaugeControlRS27;dxSpreadSheetReportDesignerRS27;PKIEDB27;dxSpreadSheetRS27;bindcompvclsmp;cxPivotGridOLAPRS27;dxPSRichEditControlLnkRS27;dxBarDBNavRS27;cxPivotGridRS27;dxADOServerModeRS27;TMSScripter;bindcompfmx;inetdb;dxFlowChartDesignerRS27;fmx;FireDACIBDriver;fmxdae;vcledge;dbexpress;IndyCore;dxRibbonRS27;dsnap;FireDACCommon;dxTileControlRS27;cxSchedulerRS27;dxBarExtItemsRS27;soapserver;TMSScripter_Legacy;dxRichEditControlRS27;dxPScxTLLnkRS27;TMSScripter_VCL;DBXMySQLDriver;dxFlowChartLayoutsRS27;dxPSCoreRS27;dxADOEMFRS27;FireDACCommonODBC;FireDACCommonDriver;inet;dxPScxPivotGridLnkRS27;cxPivotGridChartRS27;IndyIPCommon;dxPSdxOCLnkRS27;tmsexdXE13;vcl;dxMapControlRS27;dxPSdxDBOCLnkRS27;dxComnRS27;dxPSdxGaugeControlLnkRS27;dxEMFRS27;dxPSdxPDFViewerLnkRS27;FireDAC;cxTreeListdxBarPopupMenuRS27;dxPScxVGridLnkRS27;dxPSdxSpreadSheetLnkRS27;FireDACSqliteDriver;FireDACPgDriver;OverbyteIcsD104Run;dxSpreadSheetCoreDialogsRS27;dxSpreadSheetInplaceRichEditRS27;dxTabbedMDIRS27;FlexCel_Core;vclwinx;dxPScxCommonRS27;dxRichEditInplaceRS27;CustomIPTransport;vcldsnap;dxSkinsCoreRS27;dxPScxGridLnkRS27;bindcomp;cxSchedulerGridRS27;cxVerticalGridRS27;BMThreadPkgD10;dxDockingRS27;dxNavBarRS27;dbxcds;VCL_FlexCel_Core;adortl;FlexCel_Render;dsnapxml;dbrtl;inetdbxpress;IndyProtocols;dxBarRS27;dxPSdxLCLnkRS27;dxPSdxMapControlLnkRS27;dxPSdxDBTVLnkRS27;fmxase;$(DCC_UsePackage)</DCC_UsePackage>
@@ -94,6 +97,9 @@ $(PreBuildEvent)]]></PreBuildEvent>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+        <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
+        <UWP_DelphiLogo44>img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png</UWP_DelphiLogo44>
+        <UWP_DelphiLogo150>img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png</UWP_DelphiLogo150>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
@@ -120,6 +126,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <VerInfo_Release>10</VerInfo_Release>
         <VerInfo_Debug>true</VerInfo_Debug>
         <VerInfo_Build>220</VerInfo_Build>
+        <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -128,6 +135,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Warnings>false</DCC_Warnings>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
+        <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
@@ -145,12 +153,13 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Hints>false</DCC_Hints>
         <DCC_Warnings>false</DCC_Warnings>
         <VerInfo_Locale>1034</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.7;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.10;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
         <VerInfo_Private>true</VerInfo_Private>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MajorVer>2</VerInfo_MajorVer>
         <VerInfo_Release>6</VerInfo_Release>
-        <VerInfo_Build>7</VerInfo_Build>
+        <VerInfo_Build>10</VerInfo_Build>
+        <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -161,6 +170,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=1.1.15.0;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1034</VerInfo_Locale>
+        <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -214,6 +224,19 @@ $(PostBuildEvent)]]></PostBuildEvent>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
+                <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>FS_WebServiceSGA.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png" Configuration="Release" Class="UWP_DelphiLogo44">
+                    <Platform Name="Win32">
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo44x44.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>FS_WebServiceSGA.exe</RemoteName>
@@ -227,12 +250,6 @@ $(PostBuildEvent)]]></PostBuildEvent>
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
-                    <Platform Name="Win64">
-                        <RemoteName>FS_WebServiceSGA.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>FS_WebServiceSGA.exe</RemoteName>
                         <Overwrite>true</Overwrite>
@@ -247,6 +264,13 @@ $(PostBuildEvent)]]></PostBuildEvent>
                 <DeployFile LocalName="..\..\..\COMMON\products.inc" Configuration="Debug" Class="ProjectFile">
                     <Platform Name="Win64">
                         <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png" Configuration="Release" Class="UWP_DelphiLogo44">
+                    <Platform Name="Win64">
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo44x44.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

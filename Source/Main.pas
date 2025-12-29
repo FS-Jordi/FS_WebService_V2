@@ -536,16 +536,16 @@ begin
       WebModule1userListAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
-    else if (sCommand='/freelicenseOLD') then
+    else if (sCommand='/checklicense') then
+      WebModule1checkLicenseAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/freelicense') then
       WebModule1freeLicenseAction
         ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
 
     else if (sCommand='/encodeurlOLD') then
       WebModule1encodeUrlAction
-        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
-
-    else if (sCommand='/checklicenseOLD') then
-      WebModule1checkLicenseAction
         ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
 
     else if (sCommand='/updateinventariodetailOLD') then
@@ -1761,7 +1761,7 @@ begin
       bAsyncRequest := True;
     end
 
-    else if (sCommand='/freelicense') then
+    else if (sCommand='/freelicenseOLD') then
     begin
       TAsyncWebModuleThread.Create(
         SQLConn.ConnectionString,
@@ -1769,6 +1769,24 @@ begin
       AConnection.PeerIP,
       AConnection.PeerPort,
       @WebModule1freeLicenseAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/checklicenseOLD') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      AConnection.PeerPort,
+      @WebModule1checkLicenseAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,
@@ -1787,24 +1805,6 @@ begin
       AConnection.PeerIP,
       AConnection.PeerPort,
       @WebModule1encodeUrlAction,
-      HttpServer,
-      AConnection,
-      AConnection.ResponseHeader.ContentType,
-      AConnection.ResponseHeader.CharSet,
-      AConnection.ResponseHeader.ContentLanguage,
-      SLHeader
-      );
-      bAsyncRequest := True;
-    end
-
-    else if (sCommand='/checklicense') then
-    begin
-      TAsyncWebModuleThread.Create(
-        SQLConn.ConnectionString,
-      sParams,
-      AConnection.PeerIP,
-      AConnection.PeerPort,
-      @WebModule1checkLicenseAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,
@@ -2060,6 +2060,23 @@ begin
       sParams,
       AConnection.PeerIP,
       @WebModule1listPreparacionesAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/getpedidos') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getPedidosAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,
