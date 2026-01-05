@@ -46,6 +46,7 @@ uses
   Variants,
   Functions,
   jPeg,
+  System.IOUtils,
   ppEndUsr, ppParameter, ppDesignLayer,
   ppBands, ppPrnabl, ppClass, ppCtrls, ppBarCode2D, ppCache, ppProd, ppReport,
   ppDB, ppComm, ppRelatv, ppDBPipe,
@@ -10712,15 +10713,31 @@ end;
 // └───────────────────────────────────────────────────────────────────────┘ \\
 procedure WebModule1logoAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 var
+  contentfields : TStringList;
   sBase64 : String;
   Stream  : TFileStream;
   Encoder : TIdEncoderMIME;
   sLogo   : String;
+  DarkMode: Boolean;
 begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  DarkMode := (AnsiUpperCase(contentfields.values['DarkMode'])='TRUE');
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_Logo, sLogo, 0 );
   if (sLogo='0') or (sLogo='') then
-    sLogo := 'logo.png';
+  begin
+    if DarkMode then
+      sLogo := 'logo_dark.png'
+    else
+      sLogo := 'logo.png';
+  end else begin
+    if DarkMode then
+      sLogo := TPath.GetFileNameWithoutExtension ( sLogo ) + '_dark' + ExtractFileExt ( sLogo );
+    if not FileExists ( gsPath + '\' + sLogo ) then
+      sLogo := 'logo.png';
+  end;
 
   try
     Stream := TFileStream.Create(gsPath + '\' + sLogo, fmOpenRead or fmShareDenyWrite);
@@ -11890,6 +11907,11 @@ var
   PreparacionId: Integer;
   PickingId: Integer;
   AutoID: Integer;
+  CodigoArticulo: String;
+  Partida: String;
+  CodigoTalla: String;
+  CodigoColor: String;
+  UnidadMedida: String;
   EmpresaOrigen: Integer;
   contentfields: TStringList;
   NSR: String;
@@ -11929,25 +11951,40 @@ begin
   PickingId := StrToIntDef(contentfields.values['PickingId'],0);
   AutoID := StrToIntDef(contentfields.values['AutoID'],0);
 
+  CodigoArticulo := contentfields.values['CodigoArticulo'];
+  Partida        := contentfields.values['Partida'];
+  CodigoTalla    := contentfields.values['CodigoTalla'];
+  CodigoColor    := contentfields.values['CodigoColor'];
+  UnidadMedida   := contentfields.values['UnidadMedida'];
+
   {$ENDREGION}
 
   {$REGION 'Recuperació de dades'}
 
   sSQL :=
     'SELECT * ' +
-    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie fsppldns WITH (NOLOCK) ' +
+    'INNER JOIN FS_SGA_Picking_Pedido_Lineas_Detalle fsppld WITH (NOLOCK) ' +
+    'ON ' +
+    '  fsppld.PreparacionId = fsppldns.PreparacionId ' +
+    '  AND fsppld.AutoID = fsppldns.AutoID ' +
+    '  AND fsppld.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '  AND fsppld.UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+    '  AND fsppld.Partida = ''' + SQL_Str(Partida) + ''' ' +
+    '  AND fsppld.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+    '  AND fsppld.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
     'WHERE ' +
-    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
-    '  AND PickingId = ' + IntToStr(PickingId) + ' ';
+    '  fsppldns.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND fsppldns.PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+    '  AND fsppldns.PickingId = ' + IntToStr(PickingId) + ' ';
   if AutoID<>0 then
   begin
     sSQL := sSQL +
-      '  AND AutoID = ' + IntToStr(AutoID) + ' ';
+      '  AND fsppldns.AutoID = ' + IntToStr(AutoID) + ' ';
   end;
 
   sSQL := sSQL +
-    'ORDER BY Tipo, IdNumeroSerie';
+    'ORDER BY fsppldns.Tipo, fsppldns.IdNumeroSerie';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -29868,6 +29905,8 @@ begin
     sSQL := 'INSERT INTO ' +
             '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
             '  oper_params, oper_CodigoEmpresa ) ' +
+            'OUTPUT ' +
+              '  inserted.oper_id ' +
             'VALUES ( ' +
             '''' + SQL_Str(CONST_SGA) + ''', ' +
             '''' + SQL_Str(sOperation) + ''', ' +

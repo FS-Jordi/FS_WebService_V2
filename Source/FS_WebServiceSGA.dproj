@@ -4,7 +4,7 @@
         <ProjectVersion>19.3</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -121,11 +121,11 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Warnings>false</DCC_Warnings>
         <DCC_Hints>false</DCC_Hints>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=FactoryStart;FileDescription=$(MSBuildProjectName);FileVersion=1.1.10.220;InternalName=FSSGAWebService;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=FactoryStart;FileDescription=$(MSBuildProjectName);FileVersion=1.1.10.221;InternalName=FSSGAWebService;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <VerInfo_MinorVer>1</VerInfo_MinorVer>
         <VerInfo_Release>10</VerInfo_Release>
         <VerInfo_Debug>true</VerInfo_Debug>
-        <VerInfo_Build>220</VerInfo_Build>
+        <VerInfo_Build>221</VerInfo_Build>
         <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">

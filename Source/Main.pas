@@ -172,6 +172,7 @@ type
     FTaskId: String;
     FStartTime: TDateTime;
     FMaxExecutionSeconds: Integer;
+    FSyncLock: TCriticalSection; // Nuevo campo para sincronización opcional
     
     procedure SendHttpResponse;
   protected
@@ -185,7 +186,8 @@ type
       AHttpServer: TclHttpServer;
       AConnection: TclHttpUserConnection;
       const AContentType, ACharSet, AContentLanguage: String;
-      AExtraFields: TStringList
+      AExtraFields: TStringList;
+      ASyncLock: TCriticalSection = nil // Lock opcional
     ); overload;
 
     // Nuevo constructor para acciones que requieren puerto
@@ -197,7 +199,8 @@ type
       AHttpServer: TclHttpServer;
       AConnection: TclHttpUserConnection;
       const AContentType, ACharSet, AContentLanguage: String;
-      AExtraFields: TStringList
+      AExtraFields: TStringList;
+      ASyncLock: TCriticalSection = nil // Lock opcional
     ); overload;
     destructor Destroy; override;
   end;
@@ -217,6 +220,9 @@ var
   
   // Critical section para proteger llamadas HTTP desde threads
   gHttpResponseCS: TCriticalSection;
+  
+  // Critical section específica para /generatepackinglistasis (secuencial)
+  gPackingListAsisCS: TCriticalSection;
 
 {$ENDREGION}
 
@@ -544,7 +550,7 @@ begin
       WebModule1freeLicenseAction
         ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
 
-    else if (sCommand='/encodeurlOLD') then
+    else if (sCommand='/encodeurl') then
       WebModule1encodeUrlAction
         ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
 
@@ -1797,7 +1803,7 @@ begin
       bAsyncRequest := True;
     end
 
-    else if (sCommand='/encodeurl') then
+    else if (sCommand='/encodeurlOLD') then
     begin
       TAsyncWebModuleThread.Create(
         SQLConn.ConnectionString,
@@ -3099,15 +3105,16 @@ begin
     begin
       TAsyncWebModuleThread.Create(
         SQLConn.ConnectionString,
-      sParams,
-      AConnection.PeerIP,
-      @WebModule1generatePackingListAsis,
-      HttpServer,
-      AConnection,
-      AConnection.ResponseHeader.ContentType,
-      AConnection.ResponseHeader.CharSet,
-      AConnection.ResponseHeader.ContentLanguage,
-      SLHeader
+        sParams,
+        AConnection.PeerIP,
+        @WebModule1generatePackingListAsis,
+        HttpServer,
+        AConnection,
+        AConnection.ResponseHeader.ContentType,
+        AConnection.ResponseHeader.CharSet,
+        AConnection.ResponseHeader.ContentLanguage,
+        SLHeader,
+        gPackingListAsisCS
       );
       bAsyncRequest := True;
     end
@@ -5812,7 +5819,8 @@ constructor TAsyncWebModuleThread.Create(
   AHttpServer: TclHttpServer;
   AConnection: TclHttpUserConnection;
   const AContentType, ACharSet, AContentLanguage: String;
-  AExtraFields: TStringList
+  AExtraFields: TStringList;
+  ASyncLock: TCriticalSection
 );
 begin
   inherited Create(False); // Iniciar inmediatamente
@@ -5826,6 +5834,7 @@ begin
   FPort := 0;
   FHttpServer := AHttpServer;
   FConnection := AConnection;
+  FSyncLock := ASyncLock; // Almacenar lock
   
   // Copiar configuración de headers
   FContentType := AContentType;
@@ -5880,7 +5889,8 @@ constructor TAsyncWebModuleThread.Create(
   AHttpServer: TclHttpServer;
   AConnection: TclHttpUserConnection;
   const AContentType, ACharSet, AContentLanguage: String;
-  AExtraFields: TStringList
+  AExtraFields: TStringList;
+  ASyncLock: TCriticalSection
 );
 begin
   inherited Create(False); // Iniciar inmediatamente
@@ -5894,6 +5904,7 @@ begin
   FActionProcWithPort := AActionProc;
   FHttpServer := AHttpServer;
   FConnection := AConnection;
+  FSyncLock := ASyncLock; // Almacenar lock
   
   // Copiar configuración de headers
   FContentType := AContentType;
@@ -6009,14 +6020,24 @@ begin
       end;
       
       // Ejecutar la acción del WebModule
-      //if Assigned(gaLogFile) then
-      //  gaLogFile.Write('Ejecutando acción en thread. TaskId: ' + FTaskId,
-      //                 CONST_LOGID_SGA, LOG_LEVEL_INFO);
-        
-      if Assigned(FActionProc) then
-        FActionProc(Conn, FParams, FRemoteAddr, FStatusCode, FStatusText, FResponse)
-      else if Assigned(FActionProcWithPort) then
-        FActionProcWithPort(Conn, FParams, FRemoteAddr, FPort, FStatusCode, FStatusText, FResponse);
+      try
+        if Assigned(FSyncLock) then
+        begin
+          if not FSyncLock.TryEnter then
+          begin
+            if Assigned(gaLogFile) then
+              gaLogFile.Write('Generación de packing list asistido en espera (hay otra petición activa)', CONST_LOGID_WEBSERVER);
+            FSyncLock.Enter; // Ahora sí, nos bloqueamos hasta que nos toque
+          end;
+        end;
+        if Assigned(FActionProc) then
+          FActionProc(Conn, FParams, FRemoteAddr, FStatusCode, FStatusText, FResponse)
+        else if Assigned(FActionProcWithPort) then
+          FActionProcWithPort(Conn, FParams, FRemoteAddr, FPort, FStatusCode, FStatusText, FResponse);
+      finally
+        if Assigned(FSyncLock) then
+          FSyncLock.Leave;
+      end;
       
       // Calcular tiempo de ejecución
       ExecutionTime := SecondsBetween(Now, FStartTime);
@@ -6256,9 +6277,13 @@ end;
 
 initialization
   gHttpResponseCS := TCriticalSection.Create;
+  gPackingListAsisCS := TCriticalSection.Create;
 
 finalization
   if Assigned(gHttpResponseCS) then
     FreeAndNil(gHttpResponseCS);
+    
+  if Assigned(gPackingListAsisCS) then
+    FreeAndNil(gPackingListAsisCS);
 
 end.
