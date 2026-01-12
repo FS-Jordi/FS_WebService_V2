@@ -45,6 +45,7 @@ uses
   IdGlobal,
   Variants,
   Functions,
+  Functions_Types,
   jPeg,
   System.IOUtils,
   ppEndUsr, ppParameter, ppDesignLayer,
@@ -992,8 +993,11 @@ begin
     'DELETE FROM FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ' +
     'WHERE ' +
       '  RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
-      '  AND RecepcionIdLinea = ' + IntToStr(Linea) + ' ' +
+      '  AND RecepcionIdLinea = ' + IntToStr(Linea) + ' ';
+  if LineaDetalle<>0 then
+   sSQL := sSQL +
       '  AND RecepcionIdLineaDetalle = ' + IntToStr(LineaDetalle);
+
   SQL_Execute_NoRes ( Conn, sSQL );
 
   sSQL :=
@@ -5523,6 +5527,7 @@ var
   Ejercicio: Integer;
   NumeroSerie: String;
   NumeroSerieFabricante: String;
+  ScanCode: String;
 {$ENDREGION}
 
 begin
@@ -5596,10 +5601,11 @@ begin
       NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
       NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
       Cantidad              := FS_StrToFloatDef( _Get_JSonValue ( lJSonValue, 'Cantidad' ),0);
+      ScanCode              := _Get_JSonValue ( lJSonValue, 'ScanCode' );
 
       sSQL :=
         'INSERT INTO FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, PreparacionId, PickingId, AutoId, ' +
-        '  Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+        '  Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
         'VALUES ( ' +
         IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
         IntToStr(PreparacionId) + ', ' +
@@ -5608,6 +5614,7 @@ begin
         '0, ' + // Número de serie normal (1: rechazo)
         '''' + SQL_Str(NumeroSerie) + ''', ' +
         '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+        '''' + SQL_Str(ScanCode) + ''', ' +
         SQL_FloatToStr(Cantidad) + ' ' +
         ')';
       SQL_Execute_NoRes ( Conn, sSQL );
@@ -12027,7 +12034,8 @@ begin
         '{' +
         '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
         '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
-        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) +
+        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) + ',' +
+        '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '"' +
         '}';
 
     end else begin
@@ -12041,7 +12049,8 @@ begin
         '{' +
         '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
         '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
-        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) +
+        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) + ',' +
+        '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '"' +
         '}';
 
     end;
@@ -18981,6 +18990,7 @@ var
   PickingId: Integer;
   AutoId: Integer;
   NumeroSerie: String;
+  CodigoArticulo: String;
 {$ENDREGION}
 
 begin
@@ -19012,8 +19022,9 @@ begin
     Exit;
   end;
 
-  PickingId := StrToIntDef(contentfields.values['PickingId'],0);
-  AutoId    := StrToIntDef(contentfields.values['AutoId'],0);
+  PickingId      := StrToIntDef(contentfields.values['PickingId'],0);
+  AutoId         := StrToIntDef(contentfields.values['AutoId'],0);
+  CodigoArticulo := contentfields.values['CodigoArticulo'];
 
   NumeroSerie := contentfields.values['NumeroSerie'];
   if NumeroSerie='' then
@@ -19028,13 +19039,18 @@ begin
 
   sSQL :=
     'SELECT COUNT(*) ' +
-    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie FSPPLDN WITH (NOLOCK) ' +
+    'INNER JOIN FS_SGA_Picking_Pedido_Lineas_Detalle FSPPLD WITH (NOLOCK) ' +
+    'ON ' +
+    '  FSPPLD.PreparacionId = FSPPLDN.PreparacionId ' +
+    '  AND FSPPLD.AutoId = FSPPLDN.AutoId ' +
     'WHERE ' +
-    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
-    '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
-    '  AND AutoId <> ' + IntToStr(AutoId) + ' ' +
-    '  AND NumeroSerie = ''' + SQL_Str(NumeroSerie) + ''' ';
+    '  FSPPLDN.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND FSPPLDN.PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+    '  AND FSPPLDN.PickingId = ' + IntToStr(PickingId) + ' ' +
+    '  AND FSPPLDN.AutoId <> ' + IntToStr(AutoId) + ' ' +
+    '  AND FSPPLDN.NumeroSerie = ''' + SQL_Str(NumeroSerie) + ''' ' +
+    '  AND FSPPLD.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + '''';
   Result := SQL_Execute ( Conn, sSQL );
 
   {$ENDREGION}
@@ -25055,7 +25071,6 @@ begin
   end;
 
   {$ENDREGION}
-
 
   {$REGION 'Recuperació de totals'}
 
