@@ -16327,8 +16327,8 @@ begin
           '  AND ART.CodigoArticulo = LPC.CodigoArticulo ' +
           'WHERE ' +
           '  FSDL.DevolucionId = ' + IntToStr(DevolucionId) + ' ' +
-          //'  AND CPC.Estado = 0 ' +
-          //'  AND LPC.Estado = 0 ' +
+          '  AND CPC.Estado = 0 ' +
+          '  AND LPC.Estado = 0 ' +
           '  AND ART.TipoArticulo = ''M'' ' +
           sPending;
   if Linea<>0 then
@@ -16419,8 +16419,8 @@ begin
     '  AND CTC.CodigoColor_ = fsdl.CodigoColor_ ' +
     'WHERE ' +
     '  fsdl.DevolucionId = ' + IntToStr(DevolucionId) + ' ' +
-    //'  AND CPC.Estado = 0 ' +
-    //'  AND LPC.Estado = 0 ' +
+    '  AND CPC.Estado = 0 ' +
+    '  AND LPC.Estado = 0 ' +
     '  AND ART.TipoArticulo = ''M'' ' +
     sPending;
 
@@ -42125,7 +42125,7 @@ begin
   iPageSize := StrToIntDef(contentfields.values['PageSize'],DEFAULT_PAGE_SIZE);
   if iPageSize=0 then iPageSize := 9999; //DEFAULT_PAGE_SIZE;
 
-  iPageSize := 9999;
+  //iPageSize := 9999;
   EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
   if EmpresaOrigen=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
