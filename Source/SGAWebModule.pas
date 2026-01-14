@@ -79,6 +79,7 @@ procedure WebModule1getConnectionInfoAction  ( Conn: TADOConnection; sParams, sR
 procedure WebModule1listCompaniesAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listAlmacenesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1entradaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1paisesVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cabeceraPedidoVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cabeceraPedidoCompraAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1salidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -10287,6 +10288,9 @@ var
   EmpresaOrigen: Integer;
 
   contentfields: TStringList;
+  OrderBy: String;
+  OrderType: string;
+  sOrderBy: string;
 {$ENDREGION}
 
 begin
@@ -10313,7 +10317,12 @@ begin
     CodigoEmpresa
   );
 
-  Filter := (contentfields.Values['Filtro']);
+  Filter    := (contentfields.Values['Filtro']);
+  OrderBy   := contentfields.Values['OrderBy'];
+  OrderType := contentfields.Values['OrderType'];
+
+  if OrderBy = '' then OrderBy := 'CodigoCliente';
+  sOrderBy := OrderBy + ' ' + OrderType;
 
   {$ENDREGION}
 
@@ -10375,7 +10384,7 @@ begin
           '  c.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Clientes) + ' AND ' +
           '  c.FechaBajaLc IS NULL ' +
           sAndWhere +
-          'ORDER BY ' +
+          'ORDER BY ' + sOrderBy + ' ' +
           '  c.CodigoEmpresa, c.RazonSocial ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
@@ -37430,6 +37439,9 @@ var
   sOrderBy: String;
   EmpresaOrigen: Integer;
   contentfields: TStringList;
+  Estado: Integer;
+  Ejercicios: String;
+  SiglaNacion: string;
 
 {$ENDREGION}
 
@@ -37459,6 +37471,9 @@ begin
 
   CodigoCliente   := (contentfields.values['CodigoCliente']);
   EjercicioPedido := StrToIntDef(contentfields.Values['EjercicioPedido'], 0 );
+  Estado          := StrToIntDef(contentfields.Values['Estado'], -1 );
+  Ejercicios      := (contentfields.values['Ejercicio']);
+  SiglaNacion     := (contentfields.values['SiglaNacion']);
 
   OrdenarPor := AnsiUpperCase((contentfields.values['OrdenarPor']));
   TipoOrden  := AnsiUpperCase((contentfields.values['TipoOrden']));
@@ -37504,13 +37519,29 @@ begin
     sAndWhere := sAndWhere + 'AND EjercicioPedido=' + IntToStr(EjercicioPedido) + ' ';
   end;
 
+  if Estado<>-1 then
+  begin
+    sAndwhere := sAndWhere + 'AND Estado = ' + IntToStr(Estado);
+  end;
+
+  if Ejercicios<>'' then
+  begin
+    sAndwhere := sAndWhere + 'AND EjercicioPedido IN ( ' + Ejercicios + ' ) ';
+  end;
+
+  if SiglaNacion<>'' then
+  begin
+    sAndwhere := sAndWhere + 'AND SiglaNacion = ''' + SQL_Str(SiglaNacion) + ''' ';
+  end;
+
+
+
   sSQL := 'SELECT ' +
           '  COUNT(*) ' +
           'FROM CabeceraPedidoCliente WITH (NOLOCK) ' +
           'WHERE ' +
-          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
+          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
           //'  FechaPedido >= DATEADD(day,-30,GETDATE()) AND ' +
-          '  Estado<>2 ' +
           sAndWhere;
 
   try
@@ -37536,9 +37567,8 @@ begin
           '  * ' +
           'FROM CabeceraPedidoCliente WITH (NOLOCK) ' +
           'WHERE ' +
-          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
+          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
           //'  FechaPedido >= DATEADD(day,-30,GETDATE()) AND ' +
-          '  Estado <> 2 ' +
           sAndWhere + ' ' +
           'ORDER BY ' +
           sOrderBy + ' ' +
@@ -37547,6 +37577,9 @@ begin
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   Q.Open;
+
+  gaLogFile.Write(sSQL);
+
 
   try
     Q.Open;
@@ -37592,6 +37625,7 @@ begin
       '"CodigoPostal":"' + JSON_Str(Q.FieldByName('CodigoPostal').AsString) + '",' +
       '"Municipio":"' + JSON_Str(Q.FieldByName('Municipio').AsString) + '",' +
       '"Provincia":"' + JSON_Str(Q.FieldByName('Provincia').AsString) + '",' +
+      '"SiglaNacion":"' + JSON_Str(Q.FieldByName('SiglaNacion').AsString) + '",' +
       '"Nacion":"' + JSON_Str(Q.FieldByName('Nacion').AsString) + '",' +
       '"Estado":' + Q.FieldByName('Estado').AsString + '' +
       '}';
@@ -42735,6 +42769,92 @@ end;
 {$REGION '--- FUNCIONS DE COMANDES I ALBARANS DE PROVEÏDOR'}
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ LLISTAT DE TOTS ELS PAÏSOS QUE APAREIXCEN A COMANDES DE VENDA         │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+procedure WebModule1paisesVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1cabeceraPedidoCompraAction
+ ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  iTotalRegs, iNumRegs: Integer;
+  contentfields: TStringList;
+  sSQL: String;
+  Q: TADOQuery;
+
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  sSQL :=
+    'SELECT DISTINCT SiglaNacion, Nacion ' +
+    'FROM CabeceraPedidoCliente WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen);
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+
+  try
+    Q.Open;
+  except
+    on E:Exception do begin
+      Q.Close;
+      FreeAndNil(Q);
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '"","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  iNumRegs := Q.RecordCount;
+  Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[';
+  iNumRegs := 0;
+
+  while not Q.Eof do begin
+
+    if iNumRegs<>0 then
+      Result := Result + ',';
+
+    Inc(iNumRegs);
+
+    Result := Result +
+      '{' +
+      '"SiglaNacion":' + JSON_Str(Q.FieldByName('SiglaNacion').AsString) + ',' +
+      '"Nacion":"' + JSON_Str(Q.FieldByName('Nacion').AsString) +
+      '}';
+
+    Q.Next;
+
+  end;
+
+  Result := Result + ']}';
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  {$ENDREGION}
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ LLISTAT DE COMANDES A PROVEÏDOR                                       │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
 procedure WebModule1cabeceraPedidoCompraAction
@@ -43825,6 +43945,9 @@ var
   contentfields: TStringList;
   CodigoUsuario: Integer;
   Filtro: string;
+  OrderBy: String;
+  OrderType: String;
+  sOrderBy: String;
   iPage, iPageSize, iTotalRegs, iNumRegs, iPages: Integer;
 {$ENDREGION}
 
@@ -43853,6 +43976,11 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   Filtro        := (contentfields.Values['Filtro']);
+  OrderBy       := (contentfields.Values['OrderBy']);
+  OrderType     := (contentfields.Values['OrderType']);
+
+  if OrderBy='' then OrderBy := 'RazonSocial';
+  sOrderBy := OrderBy + ' ' + OrderType;
 
   {$ENDREGION}
 
@@ -43909,8 +44037,8 @@ begin
   end;
 
   sSQL := sSQL +
-    'ORDER BY ' +
-    '  RazonSocial ' +
+    'ORDER BY ' + sOrderBy + ' ' +
+    //'  RazonSocial ' +
     'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
     'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
