@@ -79,7 +79,7 @@ procedure WebModule1getConnectionInfoAction  ( Conn: TADOConnection; sParams, sR
 procedure WebModule1listCompaniesAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listAlmacenesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1entradaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
-procedure WebModule1paisesVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1paisesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cabeceraPedidoVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cabeceraPedidoCompraAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1salidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -302,7 +302,7 @@ procedure WebModule1updateAprovisionamientoAction ( Conn: TADOConnection; sParam
 
 
 function FS_SGA_ObtenerMovimientosPreparacion ( Conn: TADOConnection; IdPreparacion: Integer; CodigoEmpresa: TOrigenCodigoEmpresa;
-  LineasPosicion, CodigoArticulo, Partida, CodigoTalla, CodigoColor, CodigoAlmacen: String; MostrarPartidas: Integer;
+  LineasPosicion, CodigoArticulo, Partida, CodigoTalla, CodigoColor, CodigoAlmacen: String; CodigoAgrupacion: Integer; MostrarPartidas: Integer;
   var Error: Boolean; var iStockTotal: Double ): String;
 
 function FS_SGA_ObtenerUbicaciones ( Conn: TADOConnection; IdPreparacion: Integer; CodigoEmpresa: TOrigenCodigoEmpresa;
@@ -1699,6 +1699,8 @@ begin
           UnidadMedida,
           UnidadesBase,
           UnidadMedidaBase,
+          CodigoAgrupacion,
+          UnidadesAgrupacion,
           IdentificadorExpedicion,
           CajaId,
           PaletId,
@@ -7171,7 +7173,7 @@ begin
     '  fsppl.CodigoTalla01_, fsppl.CodigoColor_, art.GrupoTalla_, ' +
     '  T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  fsppl.CodigoAgrupacion, fsppl.UnidadesAgrupacion, ISNULL(agrup.Agrupacion, ''Unidades'') as Agrupacion, ' +
-    '  USADAS.Cantidad AS UdUsadas, USADAS.CantidadBase AS UdUsadasBase, ' +
+    '  ISNULL(USADAS.Cantidad,0) AS UdUsadas, ISNULL(USADAS.CantidadBase,0) AS UdUsadasBase, ' +
     '  ISNULL(fspl_last.CajaActual,1) AS CajaActual, ' + // <— canvia fspl per fspl_last
     '  art.Colores_ AS TratamientoColores ' +
     'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
@@ -7187,34 +7189,36 @@ begin
   begin
     sSQL := sSQL +
       'LEFT JOIN ( ' +
-      '  SELECT LineaPedidoAsignada, CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, ' +
+      '  SELECT LineaPedidoAsignada, CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, CodigoAgrupacion, ' +
       '         SUM(Cantidad) AS Cantidad, SUM(CantidadBase) AS CantidadBase ' +
       '  FROM FS_SGA_AcumuladoPendiente WITH (NOLOCK) ' +
       '  WHERE IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
       '    AND LineaPedidoCliente <> ''' + SQL_Str(GUID0) + ''' ' +
-      '  GROUP BY LineaPedidoAsignada, CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida ' +
+      '  GROUP BY LineaPedidoAsignada, CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, CodigoAgrupacion ' +
       ') USADAS ' +
       'ON USADAS.CodigoArticulo = fsppl.CodigoArticulo ' +
       ' AND USADAS.CodigoTalla01_ = fsppl.CodigoTalla01_ ' +
       ' AND USADAS.CodigoColor_ = fsppl.CodigoColor_ ' +
       ' AND USADAS.UnidadMedida = fsppl.UnidadMedida ' +
-      ' AND USADAS.LineaPedidoAsignada = fsppl.LineasPosicion ';
+      ' AND USADAS.LineaPedidoAsignada = fsppl.LineasPosicion ' +
+      ' AND USADAS.CodigoAgrupacion = fsppl.CodigoAgrupacion ';
   end
   else
   begin
     sSQL := sSQL +
       'LEFT JOIN ( ' +
-      '  SELECT CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, ' +
+      '  SELECT CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, CodigoAgrupacion, ' +
       '         SUM(Cantidad) AS Cantidad, SUM(CantidadBase) AS CantidadBase ' +
       '  FROM FS_SGA_AcumuladoPendiente WITH (NOLOCK) ' +
       '  WHERE IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
       '    AND LineaPedidoCliente <> ''' + SQL_Str(GUID0) + ''' ' +
-      '  GROUP BY CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida ' +
+      '  GROUP BY CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, CodigoAgrupacion ' +
       ') USADAS ' +
       'ON USADAS.CodigoArticulo = fsppl.CodigoArticulo ' +
       ' AND USADAS.CodigoTalla01_ = fsppl.CodigoTalla01_ ' +
       ' AND USADAS.CodigoColor_ = fsppl.CodigoColor_ ' +
-      ' AND USADAS.UnidadMedida = fsppl.UnidadMedida ';
+      ' AND USADAS.UnidadMedida = fsppl.UnidadMedida ' +
+      ' AND USADAS.CodigoAgrupacion = fsppl.CodigoAgrupacion ';
   end;
 
   sSQL := sSQL +
@@ -7280,6 +7284,7 @@ begin
     'OFFSET ' + IntToStr(iPage * iPageSize) + ' ROWS ' +
     'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
+  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -8731,12 +8736,12 @@ begin
           'LEFT JOIN ( ' +
           '  SELECT ' +
           '    PreparacionId, CodigoEmpresa, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, UnidadMedida, ' +
-          '    UnidadMedidaBase, CodigoCliente, COUNT(PickingId) AS NumLineas, MIN(EjercicioPedido) AS EjercicioPedido, ' +
+          '    UnidadMedidaBase, CodigoCliente, CodigoAgrupacion, COUNT(PickingId) AS NumLineas, MIN(EjercicioPedido) AS EjercicioPedido, ' +
           '    MIN(SeriePedido) AS SeriePedido, MIN(NumeroPedido) AS NumeroPedido ' +
           '  FROM FS_SGA_Picking_Pedido_Lineas WITH (NOLOCK) ' +
           '  GROUP BY ' +
           '    PreparacionId, CodigoEmpresa, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, UnidadMedida, ' +
-          '    UnidadMedidaBase, CodigoCliente ' +
+          '    CodigoAgrupacion, UnidadMedidaBase, CodigoCliente ' +
           ') PEDIDO ' +
           'ON ' +
           '  PEDIDO.PreparacionId = fspo.PreparacionId ' +
@@ -8813,6 +8818,8 @@ begin
 
 
   sSQL := sSQL + 'ORDER BY ' + sOrderBy;
+
+  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -8893,6 +8900,7 @@ begin
       Q.FieldByName('CodigoTalla01_').AsString,
       Q.FieldByName('CodigoColor_').AsString,
       CodigoAlmacen,
+      Q.FieldByName('CodigoAgrupacion').AsInteger,
       MostrarPartidas,
       bError,
       iStockTotal
@@ -11983,7 +11991,7 @@ begin
     'INNER JOIN FS_SGA_Picking_Pedido_Lineas_Detalle fsppld WITH (NOLOCK) ' +
     'ON ' +
     '  fsppld.PreparacionId = fsppldns.PreparacionId ' +
-    '  AND fsppld.AutoID = fsppldns.AutoID ' +
+    //'  AND fsppld.AutoID = fsppldns.AutoID ' +
     '  AND fsppld.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
     '  AND fsppld.UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
     '  AND fsppld.Partida = ''' + SQL_Str(Partida) + ''' ' +
@@ -14424,6 +14432,7 @@ var
   EmpresaOrigen: Integer;
 
   contentfields: TStringList;
+  sFieldTratamientoSeries: string;
 {$ENDREGION}
 
 begin
@@ -14496,21 +14505,46 @@ begin
 
   {$REGION 'Recuperació de dades'}
 
-  sSQL := 'SELECT ' +
-          '  * ' +
-          'FROM LineasPedidoCliente WITH (NOLOCK) ' +
-          'WHERE ' +
-          '  CodigoEmpresa = ' + IntToStr(EmpresaOrigen) + ' AND ' +
-          '  EjercicioPedido = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
-          '  SeriePedido = ''' + SQL_Str(SeriePedido) + ''' AND ' +
-          '  NumeroPedido = ' + IntToStr(NumeroPedido ) + ' ' +
-          'ORDER BY ' +
-          '  Orden ' +
-          'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
-          'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+  sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'ART', '' );
+
+  sSQL :=
+    'SELECT ' +
+    '  lpc.*, art.TratamientoPartidas, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
+    '  art.Colores_, art.GrupoTalla_, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
+    '  art.CodigoAlternativo, art.CodigoAlternativo2, CTC.CodigoAlternativo AS CodigoAlternativoTC ' +
+    'FROM LineasPedidoCliente lpc WITH (NOLOCK) ' +
+    'LEFT JOIN Articulos art WITH (NOLOCK) ' +
+    'ON ' +
+    '  art.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Articulos) + ' ' +
+    '  AND art.CodigoArticulo = lpc.CodigoArticulo ' +
+    'LEFT JOIN Colores_ C WITH (NOLOCK) ' +
+    'ON ' +
+    '  C.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Colores) + ' ' +
+    '  AND C.CodigoColor_ = lpc.CodigoColor_ ' +
+    'LEFT JOIN Vis_VistaTallas T WITH (NOLOCK) ' +
+    'ON ' +
+    '  T.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.GrupoTallas) + ' ' +
+    '  AND T.GrupoTalla_= art.GrupoTalla_ ' +
+    '  AND T.CodigoTalla01_ = lpc.CodigoTalla01_ ' +
+    'LEFT JOIN CodigosTallaColor CTC WITH (NOLOCK) ' +
+    'ON ' +
+    '  CTC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.CodigosTallaColor) + ' ' +
+    '  AND CTC.CodigoArticulo = lpc.CodigoArticulo ' +
+    '  AND CTC.CodigoTalla01_ = lpc.CodigoTalla01_ ' +
+    '  AND CTC.CodigoColor_ = lpc.CodigoColor_ ' +
+    'WHERE ' +
+    '  lpc.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
+    '  lpc.EjercicioPedido = ' + IntToStr(EjercicioPedido) + ' AND ' +
+    '  lpc.SeriePedido = ''' + SQL_Str(SeriePedido) + ''' AND ' +
+    '  lpc.NumeroPedido = ' + IntToStr(NumeroPedido ) + ' ' +
+    'ORDER BY ' +
+    '  Orden ' +
+    'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
+    'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
+  galogfile.Write(sSQL);
   try
     Q.Open;
   except
@@ -14543,22 +14577,34 @@ begin
       '"LineasPosicion":"' + JSON_Str(Q.FieldByName('LineasPosicion').AsString) + '",' +
       '"FechaRegistro":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaRegistro').AsDateTime) + '",' +
       '"CodigoArticulo":"' + JSON_Str(Q.FieldByName('CodigoArticulo').AsString) + '",' +
+      '"CodigoAlternativo":"' + JSON_Str(Q.FieldByName('CodigoAlternativo').AsString) + '",' +
+      '"CodigoAlternativo2":"' + JSON_Str(Q.FieldByName('CodigoAlternativo2').AsString) + '",' +
+      '"CodigoAlternativoTC":"' + JSON_Str(Q.FieldByName('CodigoAlternativoTC').AsString) + '",' +
       '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
       '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '",' +
       '"CodigoFamilia":"' + JSON_Str(Q.FieldByName('CodigoFamilia').AsString) + '",' +
+      '"TratamientoPartidas":' + IntToStr(Q.FieldByName('TratamientoPartidas').AsInteger) + ',' +
+      '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
+      '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('Colores_').AsInteger<>0) + ',' +
       '"CodigoSubfamilia":"' + JSON_Str(Q.FieldByName('CodigoSubfamilia').AsString) + '",' +
       '"DescripcionArticulo":"' + JSON_Str(Q.FieldByName('DescripcionArticulo').AsString) + '",' +
+      '"Descripcion2Articulo":"' + JSON_Str(Q.FieldByName('Descripcion2Articulo').AsString) + '",' +
       '"CodigodelCliente":"' + JSON_Str(Q.FieldByName('CodigodelCliente').AsString) + '",' +
       '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"FechaEntrega":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaEntrega').AsDateTime) + '",' +
       '"SuPedido":"' + JSON_Str(Q.FieldByName('SuPedido').AsString) + '",' +
       '"Estado":' + Q.FieldByName('Estado').AsString + ',' +
-      '"CodigoColor_":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
-      '"GrupoTalla_":"' + JSON_Str(Q.FieldByName('GrupoTalla_').AsString) + '",' +
-      '"CodigoTalla01_":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
+      '"CodigoColor":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
+      '"GrupoTalla":"' + JSON_Str(Q.FieldByName('GrupoTalla_').AsString) + '",' +
+      '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
+      '"DescripcionTalla":"' + JSON_Str(Q.FieldByName('DescripcionTalla').AsString) + '",' +
+      '"DescripcionColor":"' + JSON_Str(Q.FieldByName('DescripcionColor').AsString) + '",' +
       '"UnidadesPedidas":' + SQL_FloatToStr(Q.FieldByName('UnidadesPedidas').AsFloat) + ',' +
+      '"UnidadesPedidasBase":' + SQL_FloatToStr(Q.FieldByName('Unidades2_').AsFloat) + ',' +
       '"UnidadesServidas":' + SQL_FloatToStr(Q.FieldByName('UnidadesServidas').AsFloat) + ',' +
-      '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '"' +
+      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
+      '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida2_').AsString)) + '"' +
       '}';
 
     Q.Next;
@@ -15216,7 +15262,7 @@ begin
     end;
     *)
 
-    if Partida<>'*' then
+    if (Partida<>'*') and (Partida<>'') then
     begin
       sAndWhere := sAndWhere +
         'AND ubi.Partida = ''' + SQL_Str(Partida) + ''' ';
@@ -15320,6 +15366,8 @@ begin
       'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
       'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
   end;
+
+  gaLogfile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -21690,7 +21738,8 @@ begin
     '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
     '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
     '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-    '  AND LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ) ';
+    '  AND LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ) ' +
+    '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion);
   Q := SQL_PrepareQuery ( Conn, sSQL );
   Q.Open;
 
@@ -22118,6 +22167,7 @@ var
   DataArray: TJSONArray;
   Item: TJSONObject;
   UUID: string;
+  CodigoAgrupacion: Integer;
 {$ENDREGION}
 
 begin
@@ -22164,6 +22214,7 @@ begin
   Tipo             := AnsiUpperCase(Trim(contentfields.values['Tipo']));
   PaletPackagingId := StrToIntDef(contentfields.values['PaletPackagingId'],0);
   CajaPackagingId  := StrToIntDef(contentfields.values['CajaPackagingId'],0);
+  CodigoAgrupacion := StrToIntDef(contentfields.values['CodigoAgrupacion'],-1);
 
   if Matricula<>'' then
   begin
@@ -22192,7 +22243,8 @@ begin
             IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
             IntToStr(IdPreparacion) + ', ' +
             IntToStr(IdExpedicion) + ', ' +
-            IntToStr(PickingId);
+            IntToStr(PickingId) + ', ' +
+            IntToStr(CodigoAgrupacion);
     try
       SQL_Execute_NoRes ( Conn, sSQL );
     except
@@ -22250,8 +22302,10 @@ begin
             IntToStr(PickingId) + ', ' +
             IntToStr(PaletId) + ', ' +
             '''' + SQL_Str(Matricula) + ''', ' +
-            IntToStr(CajaId);
+            IntToStr(CajaId) + ', ' +
+            IntToStr(CodigoAgrupacion);
 
+    gaLogFile.Write(sSQL);
 
     try
       SQL_Execute_NoRes ( Conn, sSQL );
@@ -24057,8 +24111,8 @@ begin
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedida2)) + '",' +
       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
       '"ExtraField01":"' + JSON_Str(sExtraField01) + '",' +
-      '"Cantidad":0,' +
-      '"CantidadBase":0,' +
+      '"Cantidad":1,' +
+      '"CantidadBase":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
       JSonUnidadesMedida +
       '}';
 
@@ -27924,6 +27978,8 @@ var
   PickingId: Integer;
   LineasPosicion: String;
   bSepararPorLinea: Boolean;
+  CodigoAgrupacion: Integer;
+  UnidadesAgrupacion: Double;
 {$ENDREGION}
 
 begin
@@ -27960,7 +28016,9 @@ begin
     Exit;
   end;
 
-  PickingId := StrToIntDef(contentfields.values['PickingId'],0);
+  PickingId        := StrToIntDef(contentfields.values['PickingId'],0);
+  CodigoAgrupacion := StrToIntDef(contentfields.values['CodigoAgrupacion'],-1);
+
   (*
   if PickingId=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Identificador de línea no especificado","Data":[]}';
@@ -28030,6 +28088,7 @@ begin
           '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
           '  AND Partida IS NOT NULL ' +
           '  AND CantidadBase > 0 ' +
+          '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
           'GROUP BY LineaPedidoAsignada';
   try
     iTotalRegs := SQL_Execute ( Conn, sSQL );
@@ -28073,6 +28132,7 @@ begin
           '      AND fsap2.CodigoColor_ = fsap.CodigoColor_ ' +
           '      AND fsap2.Partida = fsap.Partida ' +
           '      AND fsap2.LineaPedidoCliente <> ''00000000-0000-0000-0000-000000000000'' ' +
+          '      AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
           '  ) AS CantidadExpedida, ' +
           '  ( ' +
           '    SELECT ' +
@@ -28085,6 +28145,7 @@ begin
           '      AND fsap2.CodigoColor_ = fsap.CodigoColor_ ' +
           '      AND fsap2.Partida = fsap.Partida ' +
           '      AND fsap2.LineaPedidoCliente <> ''00000000-0000-0000-0000-000000000000'' ' +
+          '      AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
           '  ) AS CantidadExpedidaBase ' +
           'FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fsap ' +
           'WHERE ' +
@@ -28097,10 +28158,13 @@ begin
           '  AND fsap.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
           '  AND fsap.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
           '  AND fsap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ) ' +
+          '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
           'ORDER BY ' +
           '  fsap.Partida ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+
+  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -28580,6 +28644,8 @@ begin
                 sUdMedida,
                 fAsignar,
                 sUdMedida,
+                0, // OJO OJO OJO: CodigoAgrupacion,
+                1, // OJO OJO OJO: UnidadesAgrupacion,
                 iIdExpedicion,
                 1,
                 1,
@@ -37442,6 +37508,7 @@ var
   Estado: Integer;
   Ejercicios: String;
   SiglaNacion: string;
+  Busqueda: string;
 
 {$ENDREGION}
 
@@ -37474,6 +37541,7 @@ begin
   Estado          := StrToIntDef(contentfields.Values['Estado'], -1 );
   Ejercicios      := (contentfields.values['Ejercicio']);
   SiglaNacion     := (contentfields.values['SiglaNacion']);
+  Busqueda        := (contentfields.values['Busqueda']);
 
   OrdenarPor := AnsiUpperCase((contentfields.values['OrdenarPor']));
   TipoOrden  := AnsiUpperCase((contentfields.values['TipoOrden']));
@@ -37483,7 +37551,7 @@ begin
     if TipoOrden='DESC' then begin
       sOrderBy := 'EjercicioPedido DESC, NumeroPedido DESC, SeriePedido DESC ';
     end else begin
-      sOrderBy := 'EjercicioPedido DESC, NumeroPedido, SeriePedido ';
+      sOrderBy := 'EjercicioPedido, NumeroPedido, SeriePedido ';
     end;
   end else if OrdenarPor='CLIENTE' then begin
     if TipoOrden='DESC' then begin
@@ -37495,13 +37563,13 @@ begin
     if TipoOrden='DESC' then begin
       sOrderBy := 'EjercicioPedido DESC, FechaPedido DESC, NumeroPedido DESC, SeriePedido DESC ';
     end else begin
-      sOrderBy := 'EjercicioPedido DESC, FechaPedido, NumeroPedido, SeriePedido ';
+      sOrderBy := 'EjercicioPedido, FechaPedido, NumeroPedido, SeriePedido ';
     end;
   end else begin
     if TipoOrden='DESC' then begin
       sOrderBy := 'EjercicioPedido DESC, SeriePedido DESC, NumeroPedido DESC ';
     end else begin
-      sOrderBy := 'EjercicioPedido DESC, NumeroPedido, SeriePedido ';
+      sOrderBy := 'EjercicioPedido, NumeroPedido, SeriePedido ';
     end;
   end;
 
@@ -37510,6 +37578,21 @@ begin
   {$REGION 'Recuperació de totals'}
 
   sAndWhere := '';
+
+  if Busqueda<>'' then
+  begin
+    sAndWhere := sAndWhere + 'AND ( ' +
+      '  SeriePedido LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR NumeroPedido = ' + IntToStr(StrToIntDef(Busqueda, 0 )) + ' ' +
+      '  OR CONCAT(EjercicioPedido,''/'',SeriePedido,''/'',NumeroPedido) LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR CodigoCliente LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR RazonSocial LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR CifEuropeo LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR CodigoPostal LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR Municipio LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR SuPedido LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      ') ';
+  end;
 
   if CodigoCliente<>'' then begin
     sAndWhere := sAndWhere + 'AND CodigoCliente=''' + SQL_Str(CodigoCliente) + ''' ';
@@ -37533,8 +37616,6 @@ begin
   begin
     sAndwhere := sAndWhere + 'AND SiglaNacion = ''' + SQL_Str(SiglaNacion) + ''' ';
   end;
-
-
 
   sSQL := 'SELECT ' +
           '  COUNT(*) ' +
@@ -37576,10 +37657,6 @@ begin
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
-  Q.Open;
-
-  gaLogFile.Write(sSQL);
-
 
   try
     Q.Open;
@@ -42771,9 +42848,7 @@ end;
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ LLISTAT DE TOTS ELS PAÏSOS QUE APAREIXCEN A COMANDES DE VENDA         │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
-procedure WebModule1paisesVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
-procedure WebModule1cabeceraPedidoCompraAction
- ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1paisesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 
 {$REGION 'Declaració de variables'}
 var
@@ -42807,8 +42882,8 @@ begin
 
   sSQL :=
     'SELECT DISTINCT SiglaNacion, Nacion ' +
-    'FROM CabeceraPedidoCliente WITH (NOLOCK) ' +
-    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen);
+    'FROM Naciones WITH (NOLOCK) ' +
+    'ORDER BY Nacion';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -42827,7 +42902,8 @@ begin
   Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[';
   iNumRegs := 0;
 
-  while not Q.Eof do begin
+  while not Q.Eof do
+  begin
 
     if iNumRegs<>0 then
       Result := Result + ',';
@@ -42836,8 +42912,8 @@ begin
 
     Result := Result +
       '{' +
-      '"SiglaNacion":' + JSON_Str(Q.FieldByName('SiglaNacion').AsString) + ',' +
-      '"Nacion":"' + JSON_Str(Q.FieldByName('Nacion').AsString) +
+      '"SiglaNacion":"' + JSON_Str(Q.FieldByName('SiglaNacion').AsString) + '",' +
+      '"Nacion":"' + JSON_Str(Q.FieldByName('Nacion').AsString) + '"' +
       '}';
 
     Q.Next;
@@ -42876,6 +42952,10 @@ var
   sOrderBy: String;
   EmpresaOrigen: Integer;
   contentfields: TStringList;
+  Estado: Integer;
+  Ejercicios: string;
+  SiglaNacion: string;
+  Busqueda: string;
 
 {$ENDREGION}
 
@@ -42905,6 +42985,10 @@ begin
 
   CodigoProveedor := (contentfields.values['CodigoProveedor']);
   EjercicioPedido := StrToIntDef(contentfields.Values['EjercicioPedido'], 0 );
+  Estado          := StrToIntDef(contentfields.Values['Estado'], -1 );
+  Ejercicios      := (contentfields.values['Ejercicio']);
+  SiglaNacion     := (contentfields.values['SiglaNacion']);
+  Busqueda        := (contentfields.values['Busqueda']);
 
   OrdenarPor := AnsiUpperCase((contentfields.values['OrdenarPor']));
   TipoOrden  := AnsiUpperCase((contentfields.values['TipoOrden']));
@@ -42914,7 +42998,7 @@ begin
     if TipoOrden='DESC' then begin
       sOrderBy := 'EjercicioPedido DESC, NumeroPedido DESC, SeriePedido DESC ';
     end else begin
-      sOrderBy := 'EjercicioPedido DESC, NumeroPedido, SeriePedido ';
+      sOrderBy := 'EjercicioPedido, NumeroPedido, SeriePedido ';
     end;
   end else if OrdenarPor='CLIENTE' then begin
     if TipoOrden='DESC' then begin
@@ -42926,13 +43010,13 @@ begin
     if TipoOrden='DESC' then begin
       sOrderBy := 'EjercicioPedido DESC, FechaPedido DESC, NumeroPedido DESC, SeriePedido DESC ';
     end else begin
-      sOrderBy := 'EjercicioPedido DESC, FechaPedido, NumeroPedido, SeriePedido ';
+      sOrderBy := 'EjercicioPedido, FechaPedido, NumeroPedido, SeriePedido ';
     end;
   end else begin
     if TipoOrden='DESC' then begin
       sOrderBy := 'EjercicioPedido DESC, SeriePedido DESC, NumeroPedido DESC ';
     end else begin
-      sOrderBy := 'EjercicioPedido DESC, NumeroPedido, SeriePedido ';
+      sOrderBy := 'EjercicioPedido, NumeroPedido, SeriePedido ';
     end;
   end;
 
@@ -42942,6 +43026,21 @@ begin
 
   sAndWhere := '';
 
+  if Busqueda<>'' then
+  begin
+    sAndWhere := sAndWhere + 'AND ( ' +
+      '  SeriePedido LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR NumeroPedido = ' + IntToStr(StrToIntDef(Busqueda, 0 )) + ' ' +
+      '  OR CONCAT(EjercicioPedido,''/'',SeriePedido,''/'',NumeroPedido) LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR CodigoProveedor LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR RazonSocial LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR CifEuropeo LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR CodigoPostal LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR Municipio LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      '  OR SuPedido LIKE ''%' + SQL_Str(Busqueda) + '%'' ' +
+      ') ';
+  end;
+
   if CodigoProveedor<>'' then begin
     sAndWhere := sAndWhere + 'AND CodigoProveedor=''' + SQL_Str(CodigoProveedor) + ''' ';
   end;
@@ -42950,14 +43049,30 @@ begin
     sAndWhere := sAndWhere + 'AND EjercicioPedido=' + IntToStr(EjercicioPedido) + ' ';
   end;
 
+  if Estado<>-1 then
+  begin
+    sAndwhere := sAndWhere + 'AND Estado = ' + IntToStr(Estado);
+  end;
+
+  if Ejercicios<>'' then
+  begin
+    sAndwhere := sAndWhere + 'AND EjercicioPedido IN ( ' + Ejercicios + ' ) ';
+  end;
+
+  if SiglaNacion<>'' then
+  begin
+    sAndwhere := sAndWhere + 'AND SiglaNacion = ''' + SQL_Str(SiglaNacion) + ''' ';
+  end;
+
   sSQL := 'SELECT ' +
           '  COUNT(*) ' +
           'FROM CabeceraPedidoProveedor WITH (NOLOCK) ' +
           'WHERE ' +
-          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
+          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
           //'  FechaPedido >= DATEADD(day,-30,GETDATE()) AND ' +
-          '  Estado <> 2 ' +
           sAndWhere;
+
+  gaLogFile.Write(sSQL);
 
   try
     iTotalRegs := SQL_Execute ( Conn, sSQL );
@@ -42982,14 +43097,15 @@ begin
           '  * ' +
           'FROM CabeceraPedidoProveedor WITH (NOLOCK) ' +
           'WHERE ' +
-          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
+          '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
           //'  FechaPedido >= DATEADD(day,-30,GETDATE()) AND ' +
-          '  Estado <> 2 ' +
           sAndWhere +
           'ORDER BY ' +
           sOrderBy + ' ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+
+  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -43022,13 +43138,20 @@ begin
       '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
       '"SeriePedido":"' + Q.FieldByName('SeriePedido').AsString + '",' +
       '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
-      '"CodigoProveedor":"' + Q.FieldByName('CodigoProveedor').AsString + '",' +
+      '"SuPedido":"' + Q.FieldByName('SuPedido').AsString + '",' +
+      '"FechaPedido":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaPedido').AsDateTime ) + '",' +
+      '"FechaRecepcion":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaRecepcion').AsDateTime ) + '",' +
+      '"FechaTope":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaTope').AsDateTime ) + '",' +
+      '"FechaNecesaria":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaNecesaria').AsDateTime ) + '",' +
+      '"NumeroLineas":' + Q.FieldByName('NumeroLineas').AsString + ',' +
+      '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
       '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"Domicilio":"' + JSON_Str(Q.FieldByName('Domicilio').AsString) + '",' +
       '"CodigoPostal":"' + JSON_Str(Q.FieldByName('CodigoPostal').AsString) + '",' +
       '"Municipio":"' + JSON_Str(Q.FieldByName('Municipio').AsString) + '",' +
       '"Provincia":"' + JSON_Str(Q.FieldByName('Provincia').AsString) + '",' +
+      '"SiglaNacion":"' + JSON_Str(Q.FieldByName('SiglaNacion').AsString) + '",' +
       '"Nacion":"' + JSON_Str(Q.FieldByName('Nacion').AsString) + '",' +
       '"FechaPedido":"' + FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaPedido').AsDateTime) + '",' +
       '"NumeroLineas":' + Q.FieldByName('NumeroLineas').AsString + ',' +
@@ -43049,8 +43172,6 @@ begin
 
   {$ENDREGION}
 
-
-
 end;
 
 {$ENDREGION}
@@ -43068,7 +43189,7 @@ end;
 
 
 function FS_SGA_ObtenerMovimientosPreparacion ( Conn: TADOConnection; IdPreparacion: Integer; CodigoEmpresa: TOrigenCodigoEmpresa;
-  LineasPosicion, CodigoArticulo, Partida, CodigoTalla, CodigoColor, CodigoAlmacen: String; MostrarPartidas: Integer;
+  LineasPosicion, CodigoArticulo, Partida, CodigoTalla, CodigoColor, CodigoAlmacen: String; CodigoAgrupacion: Integer; MostrarPartidas: Integer;
   var Error: Boolean; var iStockTotal: Double ): String;
 
 {$REGION 'Declaració de variables'}
@@ -43172,6 +43293,7 @@ begin
     '  AND fsap.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
     '  AND fsap.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
     '  AND fsap.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+    '  AND fsap.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
     '  AND fsap.PickingId = 0 ' +
     '  AND (fsap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''')) ' +
     '  AND (fsap.Cantidad<>0 OR fsap.CantidadBase<>0) ' +
@@ -45505,6 +45627,7 @@ var
   Matricula: String;
   CodigoUsuario: Integer;
   UUID: string;
+  CodigoAgrupacion: Integer;
 {$ENDREGION}
 
 begin
@@ -45539,16 +45662,17 @@ begin
     Exit;
   end;
 
-  IdExpedicion  := StrToIntDef(contentfields.values['IdExpedicion'],0);
-  PickingId     := StrToIntDef(contentfields.values['PickingId'],0);
-  PaletId       := StrToIntDef(contentfields.values['PaletId'],0);
-  Matricula     := contentfields.values['Matricula'];
-  CajaId        := StrToIntDef(contentfields.values['CajaId'],0);
-  bCajaNeg      := (CajaId<0);
-  CodigoAlmacen := contentfields.Values['CodigoAlmacenDefecto'];
-  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'],0);
-  UUID          := contentfields.values['UUID'];
-  
+  IdExpedicion     := StrToIntDef(contentfields.values['IdExpedicion'],0);
+  PickingId        := StrToIntDef(contentfields.values['PickingId'],0);
+  PaletId          := StrToIntDef(contentfields.values['PaletId'],0);
+  Matricula        := contentfields.values['Matricula'];
+  CajaId           := StrToIntDef(contentfields.values['CajaId'],0);
+  bCajaNeg         := (CajaId<0);
+  CodigoAlmacen    := contentfields.Values['CodigoAlmacenDefecto'];
+  CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'],0);
+  UUID             := contentfields.values['UUID'];
+  CodigoAgrupacion := StrToIntDef(contentfields.values['CodigoAgrupacion'],-1);
+
   {$ENDREGION}
 
   {$REGION 'Retornem a expedició els materials que estiguin en un palet'}
@@ -45563,7 +45687,10 @@ begin
     IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
     IntToStr(IdPreparacion) + ', ' +
     IntToStr(IdExpedicion) + ', ' +
-    IntToStr(PickingId);
+    IntToStr(PickingId) + ', ' +
+    IntToStr(CodigoAgrupacion);
+
+  gaLogFile.Write(sSQL);
 
   try
     SQL_Execute_NoRes ( Conn, sSQL );
@@ -47907,6 +48034,12 @@ begin
 
     iIntents := 1;
 
+    if (CodigoAgrupacion>0) and (CodigoAgrupacionPedido=0) then
+    begin
+      CodigoAgrupacion   := 0;
+      UnidadesAgrupacion := 1;
+    end;
+
     while (iIntents<=3) do begin
 
       bErr := not SGA_Reservar_stock_pedido_TC (
@@ -47926,7 +48059,7 @@ begin
         UnidadMedida,
         UnidadesBase,
         UnidadMedidaBase,
-        0, // CodigoAgrupacion, // NO AGRUPAREM MAI A L'ACUMULADO PENDIENTE
+        CodigoAgrupacion, // CodigoAgrupacion, // NO AGRUPAREM MAI A L'ACUMULADO PENDIENTE
         dFechaCaduca,
         sMsg
       );
@@ -48407,12 +48540,15 @@ begin
     '  AND Partida=''' + SQL_Str(PartidaPedido) + ''' ' +
     '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
     '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-    '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ';
-    //'  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacionPedido)
+    '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+    '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion);
   if (LineasPosicion<>'') and (LineasPosicion<>'00000000-0000-0000-0000-000000000000') then
   begin
     sSQL := sSQL + 'AND LineasPosicion = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ';
   end;
+
+  gaLogFile.Write(sSQL);
+
   SQL_Execute_NoRes ( Conn, sSQL );
 
   if (not bErr) and (bRecalcularRuta) then begin

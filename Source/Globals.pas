@@ -80,6 +80,12 @@ var
   gbGS1Estandar: Boolean;
   gsGS1GroupSeparator: String;
 
+  gsWhereAlbaranVenta: String;
+  gsWhereDevolucionVenta: String;
+  gsWhereDevolucionCompra: String;
+  gsWhereAlbaranCompra: String;
+
+
   globalYY: Integer;      // Ejercicio de trabajo de Sage
 
   //JSonObject : TJSonObject;

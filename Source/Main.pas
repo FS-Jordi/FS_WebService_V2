@@ -2314,6 +2314,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/paises') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1paisesAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/cabecerapedidocompra') then
     begin
       TAsyncWebModuleThread.Create(
