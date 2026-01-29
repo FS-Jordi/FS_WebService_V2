@@ -5741,6 +5741,8 @@ begin
 
   Result := Result + ']}';
 
+  gaLogFile.Write(Result);
+
   {$ENDREGION}
 
 end;
@@ -20037,6 +20039,7 @@ begin
 
   Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[';
 
+  gaLogfile.Write(gsPathRepositorio + '\' + Template + '\*.*');
   sTemplate := '';
   if FindFirst ( gsPathRepositorio + '\' + Template + '\*.*', faArchive, SR) = 0 then
   begin
@@ -21417,6 +21420,7 @@ var
   IdPackagingCajas: Integer;
   dtNow: Int64;
   F: TextFile;
+  CodigoAgrupacion: Integer;
 {$ENDREGION}
 
 begin
@@ -21458,6 +21462,7 @@ begin
   NumCajas          := StrToIntDef(Trim(contentfields.values['NumCajas']),1);
   IdPackagingPalets := StrToIntDef(Trim(contentfields.values['PaletPackagingId']),0);
   IdPackagingCajas  := StrToIntDef(Trim(contentfields.values['CajaPackagingId']),0);
+  CodigoAgrupacion  := StrToIntDef(Trim(contentfields.values['CodigoAgrupacion']),-1);
 
   {$ENDREGION}
 
@@ -21483,6 +21488,8 @@ begin
       IntToStr(IdPackagingPalets) + ', ' +
       IntToStr(NumCajas) + ', ' +
       IntToStr(IdPackagingCajas);
+
+    gaLogFile.Write(sSQL);
 
     SQL_Execute_NoRes ( Conn, sSQL );
 

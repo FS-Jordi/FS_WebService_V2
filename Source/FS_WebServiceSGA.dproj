@@ -4,7 +4,7 @@
         <ProjectVersion>19.3</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -153,12 +153,12 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_Hints>false</DCC_Hints>
         <DCC_Warnings>false</DCC_Warnings>
         <VerInfo_Locale>1034</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.11;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=FactoryStart, SL;FileDescription=$(MSBuildProjectName);FileVersion=2.1.6.12;InternalName=FSSGAWebService;LegalCopyright=Desarrollado por FactoryStart, SL;LegalTrademarks=;OriginalFilename=FS_WebServiceSGA.exe;ProgramID=com.factorystart.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1;Comments=FS SGA WebService;PrivateBuild=</VerInfo_Keys>
         <VerInfo_Private>true</VerInfo_Private>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MajorVer>2</VerInfo_MajorVer>
         <VerInfo_Release>6</VerInfo_Release>
-        <VerInfo_Build>11</VerInfo_Build>
+        <VerInfo_Build>12</VerInfo_Build>
         <Icon_MainIcon>favicon (1).ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
@@ -225,16 +225,16 @@ $(PostBuildEvent)]]></PostBuildEvent>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
+                <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>FS_WebServiceSGA.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="img\6e93e570-1c59-4a9a-95ee-4dec7bb1ed1db.png" Configuration="Release" Class="UWP_DelphiLogo44">
                     <Platform Name="Win32">
                         <RemoteDir>Assets\</RemoteDir>
                         <RemoteName>Logo44x44.png</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="..\..\FS_LICENSESERVER\FS_WebServiceSGA.exe" Configuration="Debug" Class="ProjectOutput">
-                    <Platform Name="Win64">
-                        <RemoteName>FS_WebServiceSGA.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
