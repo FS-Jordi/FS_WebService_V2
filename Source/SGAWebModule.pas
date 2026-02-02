@@ -2028,12 +2028,18 @@ begin
 
   sSQL := 'SELECT ' +
           '  fspl.unidades, fspl.cajaId, fspl.cajaRef, fspl.paletId, fspl.paletRef, ' +
-          '  fspl.Fecha, fsppl.* ' +
+          '  fspl.Fecha, fsppl.*, CPC.Nombre ' +
           'FROM FS_SGA_PACKINGLIST fspl WITH (NOLOCK) ' +
           'INNER JOIN FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
           'ON ' +
           '  fspl.preparacionId = fsppl.PreparacionId AND ' +
           '  fspl.pickingId = fsppl.PickingId ' +
+          'INNER JOIN CabeceraPedidoCliente CPC WITH (NOLOCK) ' +
+          'ON ' +
+          '  CPC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+          '  AND CPC.EjercicioPedido = fsppl.EjercicioPedido ' +
+          '  AND CPC.SeriePedido = fsppl.SeriePedido ' +
+          '  AND CPC.NumeroPedido = fsppl.NumeroPedido ' +
           'WHERE ' +
           '  fspl.preparacionId = ' + IntToStr(iIdExpedicion) + ' AND ' +
           '  fspl.identificadorExpedicion = ' + IntToStr(iIdentificadorExpedicion) + ' AND ' +
@@ -2080,6 +2086,7 @@ begin
       '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '", ' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '", ' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '", ' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '", ' +
       '"Unidades":' + SQL_FloatToStr(Q.FieldByName('unidades').AsFloat) + ', ' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '", ' +
       '"CajaId":' + Q.FieldByName('cajaId').AsString + ', ' +
@@ -3468,7 +3475,7 @@ begin
     '  fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, CPC.Nombre ' +
     'FROM FS_SGA_Devoluciones_Lineas fsdl WITH (NOLOCK) ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
     'ON ' +
@@ -3647,6 +3654,7 @@ begin
                        '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
                        '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
                        '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+                       '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
                        '"IdAlbaranCli":"' + JSON_Str(Q.FieldByName('IdAlbaranCli').AsString) + '",' +
                        '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
                        '"FechaRecepcion":"' + Q.FieldByName('FechaRecepcion').AsString + '",' +
@@ -3821,7 +3829,7 @@ begin
     '  fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, CPP.Nombre ' +
     'FROM FS_SGA_DevolucionesP_Lineas fsdl WITH (NOLOCK) ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
     'ON ' +
@@ -4000,6 +4008,7 @@ begin
                        '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
                        '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
                        '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+                       '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
                        '"IdAlbaranPro":"' + JSON_Str(Q.FieldByName('IdAlbaranPro').AsString) + '",' +
                        '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
                        '"FechaRecepcion":"' + Q.FieldByName('FechaRecepcion').AsString + '",' +
@@ -4415,8 +4424,14 @@ begin
           '  fsppl.CodigoEmpresa, fsppl.LineasPosicion, fsppl.CodigoArticulo, fsppl.UnidadMedida, fsppl.DescripcionArticulo, fsppl.CodigoAlmacen, fsppl.UnidadMedida, Partida, ' +
           '  ISNULL(PartidaSel,'''') AS PartidaSel, art.TratamientoPartidas, fsppl.UdNecesarias, fsppl.UdSaldo, fsppl.UdRetiradas, fsppl.UdExpedidas, fsppl.IdentificadorExpedicion, ' +
           '  art.CodigoAlternativo AS CodigoArticuloAlternativo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, fsppl.RazonSocial, fsppl.CodigoCliente, ' +
-          '  MIN (ISNULL(Preparacion.CantidadPreparada,0)) AS CantidadPendienteExpedir ' +
+          '  MIN (ISNULL(Preparacion.CantidadPreparada,0)) AS CantidadPendienteExpedir, CPC.Nombre ' +
           'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
+          'INNER JOIN CabeceraPedidoCliente CPC WITH (NOLOCK) ' +
+          'ON ' +
+          '  CPC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+          '  AND CPC.EjercicioPedido = fsppl.EjercicioPedido ' +
+          '  AND CPC.SeriePedido = fsppl.SeriePedido ' +
+          '  AND CPC.NumeroPedido = fsppl.NumeroPedido ' +
           'LEFT JOIN  ' +
           '( SELECT  ' +
           '    IdPreparacion, CodigoArticulo,	Partida AS PartidaSel, SUM(Cantidad) AS CantidadPreparada  ' +
@@ -4441,7 +4456,7 @@ begin
           '  fsppl.CodigoEmpresa, fsppl.LineasPosicion, fsppl.CodigoArticulo, fsppl.UnidadMedida, Partida, PartidaSel, ' +
           '  fsppl.DescripcionArticulo, fsppl.CodigoAlmacen, ' +
           '  art.TratamientoPartidas, fsppl.UdNecesarias, fsppl.UdSaldo, fsppl.UdRetiradas, fsppl.UdExpedidas, fsppl.IdentificadorExpedicion, ' +
-          '  art.CodigoAlternativo, fsppl.RazonSocial, fsppl.CodigoCliente ' +
+          '  art.CodigoAlternativo, fsppl.RazonSocial, fsppl.CodigoCliente, CL.Nombre ' +
           'ORDER BY ' +
           '  IdentificadorExpedicion';
 
@@ -4550,6 +4565,7 @@ begin
                        '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
                        '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
                        '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+                       '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
                        '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
                        '"SeriePedido":"' + JSON_Str(Q.FieldByName('SeriePedido').AsString) + '",' +
                        '"LineasPosicion":"' + JSON_Str(Q.FieldByName('LineasPosicion').AsString) + '",' +
@@ -7177,8 +7193,14 @@ begin
     '  fsppl.CodigoAgrupacion, fsppl.UnidadesAgrupacion, ISNULL(agrup.Agrupacion, ''Unidades'') as Agrupacion, ' +
     '  ISNULL(USADAS.Cantidad,0) AS UdUsadas, ISNULL(USADAS.CantidadBase,0) AS UdUsadasBase, ' +
     '  ISNULL(fspl_last.CajaActual,1) AS CajaActual, ' + // <— canvia fspl per fspl_last
-    '  art.Colores_ AS TratamientoColores ' +
+    '  art.Colores_ AS TratamientoColores, CPC.Nombre ' +
     'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
+    'INNER JOIN CabeceraPedidoCliente CPC WITH (NOLOCK) ' +
+    'ON ' +
+    '  CPC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND CPC.EjercicioPedido = fsppl.EjercicioPedido ' +
+    '  AND CPC.SeriePedido = fsppl.SeriePedido ' +
+    '  AND CPC.NumeroPedido = fsppl.NumeroPedido ' +
     'INNER JOIN LineasPedidoCliente lpc WITH (NOLOCK) ' +
     'ON ' +
     '  fsppl.CodigoEmpresa = lpc.CodigoEmpresa ' +
@@ -7445,6 +7467,7 @@ begin
       '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"Orden":' + Q.FieldByName('OrdenLineaPedido').AsString + ',' +
       '"LineasPosicion":"' + SQL_GUID_ToStr(Q.FieldByName('LineasPosicion').AsString) + '",' +
       '"CodigoArticulo":"' + JSON_Str(CodigoArticulo) + '",' +
@@ -9148,8 +9171,12 @@ begin
   sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'art', '' );
 
   sSQL := 'SELECT ' +
-          '  fsrl.*, art.TratamientoPartidas, art.CodigoAlternativo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
+          '  fsrl.*, PR.Nombre, art.TratamientoPartidas, art.CodigoAlternativo, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
           'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
+          'INNER JOIN Proveedores PR WITH (NOLOCK) ' +
+          'ON ' +
+          '  PR.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Proveedores) + ' ' +
+          '  AND PR.CodigoProveedor = fsrl.CodigoProveedor ' +
           'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
           'ON ' +
           '  fsrl.CodigoArticulo = art.CodigoArticulo ' +
@@ -9285,6 +9312,7 @@ begin
       '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
       '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranPro":"' + JSON_Str(Q.FieldByName('IdAlbaranPro').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"FechaRecepcion":"' + Q.FieldByName('FechaRecepcion').AsString + '",' +
@@ -10430,6 +10458,7 @@ begin
       '"CifEuropeo":"' + JSON_Str(Q.FieldByName('CifEuropeo').AsString) + '",' +
       '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"Domicilio":"' + JSON_Str(Q.FieldByName('Domicilio').AsString) + '",' +
       '"CodigoPostal":"' + JSON_Str(Q.FieldByName('CodigoPostal').AsString) + '",' +
       '"Municipio":"' + JSON_Str(Q.FieldByName('Municipio').AsString) + '",' +
@@ -11155,14 +11184,14 @@ begin
     '      AND (dl.UdSaldo<0 OR dl.UdSaldoBase<0) ' +
     '      AND ART.TipoArticulo = ''M'' ' +
     '  ) AS NumLineasPendientes, ' +
-    '  d.* ' +
+    '  d.*, CPC.Nombre ' +
     'FROM FS_SGA_Devoluciones d WITH (NOLOCK) ' +
-    'INNER JOIN CabeceraPedidoCliente cpc WITH (NOLOCK) ' +
+    'INNER JOIN CabeceraPedidoCliente CPC WITH (NOLOCK) ' +
     'ON ' +
-    '  d.CodigoEmpresa = cpc.CodigoEmpresa AND ' +
-    '  d.EjercicioPedido = cpc.EjercicioPedido AND ' +
-    '  d.SeriePedido = cpc.SeriePedido AND ' +
-    '  d.NumeroPedido = cpc.NumeroPedido ' +
+    '  d.CodigoEmpresa = CPC.CodigoEmpresa AND ' +
+    '  d.EjercicioPedido = CPC.EjercicioPedido AND ' +
+    '  d.SeriePedido = CPC.SeriePedido AND ' +
+    '  d.NumeroPedido = CPC.NumeroPedido ' +
     'INNER JOIN FS_SGA_Devoluciones_Lineas dl WITH (NOLOCK) ' +
     'ON ' +
     '  d.CodigoEmpresa = dl.CodigoEmpresa ' +
@@ -11228,6 +11257,7 @@ begin
       '"Fecha":"' + sFecha + '",' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranCli":"' + JSON_Str(Q.FieldByName('IdAlbaranCli').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"Observaciones":"' + JSON_Str(Q.FieldByName('Observaciones').AsString) + '",' +
@@ -11411,7 +11441,7 @@ begin
     '      AND d.DevolucionId = dl.DevolucionId ' +
     '      AND (dl.UdSaldo<0 OR dl.UdSaldoBase<0) ' +
     '  ) AS NumLineasPendientes, ' +
-    '  d.* ' +
+    '  d.*, CPP.Nombre ' +
     'FROM FS_SGA_DevolucionesP d WITH (NOLOCK) ' +
     'INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
     'ON ' +
@@ -11484,6 +11514,7 @@ begin
       '"Fecha":"' + sFecha + '",' +
       '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranPro":"' + JSON_Str(Q.FieldByName('IdAlbaranPro').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"Observaciones":"' + JSON_Str(Q.FieldByName('Observaciones').AsString) + '",' +
@@ -16087,7 +16118,8 @@ begin
     '  fsr.Estado, fsrl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
+    '  CPP.Nombre ' +
     'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Recepciones fsr WITH (NOLOCK) ' +
     'ON fsr.RecepcionId = fsrl.RecepcionId ' +
@@ -16211,6 +16243,7 @@ begin
       '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
       '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranPro":"' + JSON_Str(Q.FieldByName('IdAlbaranPro').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
@@ -16434,7 +16467,8 @@ begin
     '  fsd.Estado, fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
+    '  CPC.Nombre ' +
     'FROM FS_SGA_Devoluciones_Lineas fsdl WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Devoluciones fsd WITH (NOLOCK) ' +
     'ON ' +
@@ -16556,6 +16590,7 @@ begin
       '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranCli":"' + JSON_Str(Q.FieldByName('IdAlbaranCli').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
@@ -16759,7 +16794,8 @@ begin
     '  fsdl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
-    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
+    '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
+    '  CPP.Nombre ' +
     'FROM FS_SGA_DevolucionesP_Lineas fsdl WITH (NOLOCK) ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
     'ON ' +
@@ -16875,6 +16911,7 @@ begin
       '"CodigoAlmacen":"' + JSON_Str(Q.FieldByName('CodigoAlmacen').AsString) + '",' +
       '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranPro":"' + JSON_Str(Q.FieldByName('IdAlbaranPro').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
@@ -17682,7 +17719,7 @@ begin
     '  ART.VolumenUnitario_,FSPLP.PesoBruto AS Palet_PesoBruto, FSPLP.PesoNeto AS Palet_PesoNeto, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  FSPLP.Volumen AS Palet_Volumen, FSPLP.Ancho AS Palet_Ancho, FSPLP.Fondo AS Palet_Fondo, FSPLP.Alto AS Palet_Alto, ' +
     '  FSPLC.PesoBruto AS Caja_PesoBruto, FSPLC.PesoNeto AS Caja_PesoNeto, FSPLC.Volumen AS Caja_Volumen, ' +
-    '  FSPLC.Ancho AS Caja_Ancho, FSPLC.Fondo AS Caja_Fondo, FSPLC.Alto AS Caja_Alto ' +
+    '  FSPLC.Ancho AS Caja_Ancho, FSPLC.Fondo AS Caja_Fondo, FSPLC.Alto AS Caja_Alto, CPC.Nombre ' +
     'FROM FS_SGA_Picking_Pedido_Lineas FSPPL WITH (NOLOCK) ' +
     'LEFT JOIN FS_SGA_PackingList FSPL WITH (NOLOCK) ' +
     'ON ' +
@@ -17872,6 +17909,7 @@ begin
         '"LineasPosicion":"' + JSON_Str(Q.FieldByName('LineasPosicion').AsString) + '",' +
         '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
         '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+        '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
         '"Expanded":true,' +
         '"Palets":[';
     end;
@@ -37703,8 +37741,8 @@ begin
       '"PesoNeto":' + SQL_FloatToStr(Q.FieldByName('PesoNeto_').AsFloat) + ',' +
       '"Volumen":' + SQL_FloatToStr(Q.FieldByName('Volumen_').AsFloat) + ',' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
-      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"Domicilio":"' + JSON_Str(Q.FieldByName('Domicilio').AsString) + '",' +
       '"CodigoPostal":"' + JSON_Str(Q.FieldByName('CodigoPostal').AsString) + '",' +
       '"Municipio":"' + JSON_Str(Q.FieldByName('Municipio').AsString) + '",' +
@@ -40965,6 +41003,7 @@ begin
     IntToStr(PreparacionId) + ', ' +
     '''' + SQL_Str(sSort) + '''';
 
+    gaLogFile.Write(sSQL);
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
   try
@@ -41028,6 +41067,7 @@ begin
       '"AlmacenPreparacion":"' + JSON_Str(Q.FieldByName('AlmacenPreparacion').AsString) + '",' +
       '"UbicacionExpedicion":"' + JSON_Str(Q.FieldByName('UbicacionExpedicion').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"FechaEntrega":"' + sFechaEntrega + '",' +
       '"FechaInicioPreparacion":"' + sFechaInicioPreparacion + '",' +
       '"FechaFinPreparacion":"' + sFechaFinPreparacion + '",' +
@@ -42357,6 +42397,7 @@ begin
       '"CifEuropeo":"' + JSON_Str(Q.FieldByName('CifEuropeo').AsString) + '",' +
       '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"Domicilio":"' + JSON_Str(Q.FieldByName('Domicilio').AsString) + '",' +
       '"CodigoPostal":"' + JSON_Str(Q.FieldByName('CodigoPostal').AsString) + '",' +
       '"Municipio":"' + JSON_Str(Q.FieldByName('Municipio').AsString) + '",' +
@@ -42581,7 +42622,7 @@ begin
           '      AND lpp.Estado = 0 ' +
           '      AND (rl.UdSaldo>0 OR rl.UdSaldoBase>0) ' +
           '  ) AS NumLineasPendientes, ' +
-          '  r.* ' +
+          '  r.*, cpp.Nombre ' +
           'FROM FS_SGA_Recepciones r WITH (NOLOCK) ' +
           'INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
           'ON ' +
@@ -42662,6 +42703,7 @@ begin
       '"FechaFinRecepcion":"' + JSON_Str(sFechaFinRecepcion) + '",' +
       '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"IdAlbaranPro":"' + JSON_Str(Q.FieldByName('IdAlbaranPro').AsString) + '",' +
       '"Albaran":"' + JSON_Str(Q.FieldByName('Albaran').AsString) + '",' +
       '"Observaciones":"' + JSON_Str(Q.FieldByName('Observaciones').AsString) + '",' +
@@ -43984,7 +44026,7 @@ begin
   {$REGION 'Mirem si hi ha palets a la ubicació'}
 
   sSQL :=
-    'SELECT FSP.*, FSPD.Dt_Nombre, C.RazonSocial, CAD.Cadena_ AS RazonSocialCadena, FSPMB.DescripcionMotivo ' +
+    'SELECT FSP.*, FSPD.Dt_Nombre, C.Nombre, C.RazonSocial, CAD.Cadena_ AS RazonSocialCadena, FSPMB.DescripcionMotivo ' +
     'FROM FS_SGA_Palet FSP WITH (NOLOCK) ' +
     'LEFT JOIN FS_SGA_PackagingDetalle FSPD WITH (NOLOCK) ' +
     'ON ' +
@@ -44035,6 +44077,7 @@ begin
       '"TipoReserva":' + IntToStr(Q.FieldByName('TipoReserva').AsInteger) + ',' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"CodigoCadena":"' + JSON_Str(Q.FieldByName('CodigoCadena').AsString) + '",' +
       '"RazonSocialCadena":"' + JSON_Str(Q.FieldByName('RazonSocialCadena').AsString) + '",' +
       '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
