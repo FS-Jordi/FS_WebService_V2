@@ -33,7 +33,6 @@ var
   FS: TFS_MainWebServiceSGA;
 
 begin
-
   // Windows 2003 Server requires StartServiceCtrlDispatcher to be
   // called before CoRegisterClassObject, which can be called indirectly
   // by Application.Initialize. TServiceApplication.DelayInitialize allows

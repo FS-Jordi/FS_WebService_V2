@@ -449,6 +449,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   Matricula := (contentfields.Values['Matricula']);
   CodigoAlmacenDefecto := (contentfields.Values['CodigoAlmacenDefecto']);
@@ -944,6 +945,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   CodigoAlmacenDefecto := (contentfields.Values['CodigoAlmacenDefecto']);
   if CodigoAlmacenDefecto='' then
@@ -1118,6 +1120,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   CodigoAlmacenDefecto := (contentfields.Values['CodigoAlmacenDefecto']);
   if CodigoAlmacenDefecto='' then
@@ -1281,6 +1284,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   CodigoAlmacenDefecto := (contentfields.Values['CodigoAlmacenDefecto']);
   if CodigoAlmacenDefecto='' then
@@ -1819,6 +1823,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   FromMenu      := (StrToIntDef(contentfields.Values['FromMenu'],0)<>0);
 
   sConsiderarReservas         := contentfields.Values['ConsiderarReservas'];
@@ -2344,8 +2349,6 @@ begin
           'WHERE ' +
           '  Inventario_Id = ' + IntToStr(InventarioId);
   TipoUbicaciones := SQL_Execute ( Conn, sSQL );
-
-  //gaLogFile.Write('Tipo ubicaciones = ' + TipoUbicaciones);
 
   // Tipus d'ubicació (TODAS,PENDIENTES,VERIFICADAS)
   CodigoUbicacion := (contentfields.Values['CodigoUbicacion']);
@@ -5757,8 +5760,6 @@ begin
 
   Result := Result + ']}';
 
-  gaLogFile.Write(Result);
-
   {$ENDREGION}
 
 end;
@@ -5938,6 +5939,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'],0);
   UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
 
   LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'RESTART-SERVICE', 'Solicitud de reinicio del webservice', nil );
   gbFinalitzar := TRUE;
@@ -6350,6 +6352,8 @@ begin
 
   CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID            := contentfields.Values['UUID'];
+  gaLogFile.MAC   := UUID;
+
   CodigoUbicacion := (contentfields.Values['CodigoUbicacion']);
   if CodigoUbicacion<>'' then
   begin
@@ -7307,8 +7311,6 @@ begin
     '  fsppl.LineasPosicionCompuesto, fsppl.CodigoArticulo ' +
     'OFFSET ' + IntToStr(iPage * iPageSize) + ' ROWS ' +
     'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
-
-  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -8559,8 +8561,6 @@ begin
     Exit;
   end;
 
-  gaLogFile.Write('CodigoAlmacenDefecto= ' + CodigoAlmacenDefecto);
-
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
 
   sSQL1           := Trim(contentfields.Values['SQL']);
@@ -8843,8 +8843,6 @@ begin
 
 
   sSQL := sSQL + 'ORDER BY ' + sOrderBy;
-
-  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -12773,6 +12771,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
+
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
 
   if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then
@@ -12885,6 +12885,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
+
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
   MetodoExp     := AnsiUpperCase(contentfields.Values['MetodoExp']);
 
@@ -13342,6 +13344,7 @@ begin
 
   CodigoUsuario        := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
   UUID                 := contentfields.Values['UUID'];
+  gaLogFile.MAC        := UUID;
   IdPreparacion        := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
   ObservacionesAlbaran := contentfields.Values['ObservacionesAlbaran'];
   ObservacionesFactura := contentfields.Values['ObservacionesFactura'];
@@ -14577,7 +14580,6 @@ begin
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
-  galogfile.Write(sSQL);
   try
     Q.Open;
   except
@@ -14685,6 +14687,7 @@ var
 begin
 
   REQUEST_Split ( sParams, contentfields );
+  gaLogFile.MAC := contentfields.Values['UUID'];
 
   {$REGION 'Recuperació de paràmetres'}
 
@@ -15399,8 +15402,6 @@ begin
       'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
       'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
   end;
-
-  gaLogfile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -18014,7 +18015,6 @@ begin
     '"Volumen":' + SQL_FloatToStr(VolumenTotal) +
     '}}]}';
 
-  gaLogFile.Write(Result);
   Q.Close;
   FreeAndNil(Q);
 
@@ -19396,7 +19396,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   RecepcionId := StrToIntDef(contentfields.values['RecepcionId'],0);
   if RecepcionId=0 then
   begin
@@ -19540,6 +19541,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
   if IdPreparacion=0 then
@@ -19660,6 +19662,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   MACAddress    := contentfields.Values['UUID'];
+  gaLogFile.MAC := MACAddress;
   Matricula     := (contentfields.Values['Matricula']);
   Impresora     := contentfields.Values['Impresora'];
   Impresora     := TNetEncoding.URL.Decode(Impresora);
@@ -20207,7 +20210,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   IdInventario := StrToIntDef(contentfields.values['IdInventario'],0);
   if IdInventario=0 then
   begin
@@ -20288,6 +20292,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdInventario := StrToIntDef(contentfields.values['IdInventario'],0);
   if IdInventario=0 then
@@ -20376,7 +20381,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   IdInventario := StrToIntDef(contentfields.values['IdInventario'],0);
   if IdInventario=0 then
   begin
@@ -20501,7 +20507,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.Values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   IdInventario := StrToIntDef(contentfields.values['IdInventario'],0);
   if IdInventario=0 then
   begin
@@ -20651,7 +20658,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   IdInventario := StrToIntDef(contentfields.values['IdInventario'],0);
   if IdInventario=0 then
   begin
@@ -21030,6 +21038,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   MACAddress    := contentfields.Values['UUID'];
+  gaLogFile.MAC := MACAddress;
 
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
   if IdPreparacion=0 then
@@ -21482,6 +21491,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   MACAddress    := contentfields.Values['UUID'];
+  gaLogFile.MAC := MACAddress;
+
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
   if IdPreparacion=0 then
   begin
@@ -21526,8 +21537,6 @@ begin
       IntToStr(IdPackagingPalets) + ', ' +
       IntToStr(NumCajas) + ', ' +
       IntToStr(IdPackagingCajas);
-
-    gaLogFile.Write(sSQL);
 
     SQL_Execute_NoRes ( Conn, sSQL );
 
@@ -21641,6 +21650,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   MACAddress    := contentfields.Values['UUID'];
+  gaLogFile.MAC := MACAddress;
+
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
   if IdPreparacion=0 then
   begin
@@ -22255,6 +22266,7 @@ begin
   CajaId           := StrToIntDef(contentfields.values['CajaId'],1);
   CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID             := contentfields.values['UUID'];
+  gaLogFile.MAC    := UUID;
   CodigoAlmacen    := contentfields.Values['CodigoAlmacenDefecto'];
   Tipo             := AnsiUpperCase(Trim(contentfields.values['Tipo']));
   PaletPackagingId := StrToIntDef(contentfields.values['PaletPackagingId'],0);
@@ -22349,8 +22361,6 @@ begin
             '''' + SQL_Str(Matricula) + ''', ' +
             IntToStr(CajaId) + ', ' +
             IntToStr(CodigoAgrupacion);
-
-    gaLogFile.Write(sSQL);
 
     try
       SQL_Execute_NoRes ( Conn, sSQL );
@@ -22626,6 +22636,7 @@ begin
   MatriculaActual   := contentfields.values['Matricula'];
   CodigoUsuario     := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID              := contentfields.values['UUID'];
+  gaLogFile.MAC     := UUID;
 
   // TOTES AQUESTES VARIABLES SÓN 'FALSE' SEMPRE
   UpdatingMatricula := (StrToIntDef(contentfields.values['UpdatingMatricula'],0)<>0);
@@ -23691,6 +23702,7 @@ begin
   Impresora := contentfields.Values['Impresora'];
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   {$ENDREGION}
 
@@ -23818,6 +23830,7 @@ begin
   Barcode := contentfields.values['CodigoArticulo'];
   Save    := (StrToIntDef(contentfields.Values['Save'], 0 )<>0);
   UUID    := (contentfields.Values['UUID']);
+  gaLogFile.MAC := UUID;
   Id      := 0;
 
   gaLogFile.Write('Procesando código de barras: ' + Barcode, CONST_LOGID_GENERAL );
@@ -24234,6 +24247,7 @@ begin
   );
 
   UUID := (contentfields.Values['UUID']);
+  gaLogFile.MAC := UUID;
 
   Matricula := contentfields.values['Matricula'];
   CodigoAlmacen := contentfields.values['CodigoAlmacen'];
@@ -25880,6 +25894,7 @@ begin
 
   CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID            := (contentfields.Values['UUID']);
+  gaLogFile.MAC   := UUID;
   Matricula       := (contentfields.Values['Matricula']);
   CodigoUbicacion := contentfields.values['CodigoUbicacion'];
 
@@ -26440,6 +26455,7 @@ begin
   Matricula       := (contentfields.Values['Matricula']);
   CodigoUbicacion := contentfields.values['CodigoUbicacion'];
   UUID            := contentfields.values['UUID'];
+  gaLogFile.MAC   := UUID;
 
   // Conversió al codi d'article real
   CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
@@ -26646,8 +26662,6 @@ begin
   end;
 
   MovOrigen := SQL_Execute ( Conn, 'SELECT NEWID()' );
-
-  gaLogFile.Write(sNewFechaCaduca);
 
   if (sNewFechaCaduca='') or (sNewFechaCaduca='0') then begin
     dFechaCaduca := 0;
@@ -27075,6 +27089,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
 
   CodigoAlmacen := contentfields.values['CodigoAlmacen'];
   if CodigoAlmacen='' then begin
@@ -28209,8 +28224,6 @@ begin
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
-  gaLogFile.Write(sSQL);
-
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
     Q.Open;
@@ -28591,6 +28604,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'], 0 );
   if IdPreparacion=0 then begin
@@ -28845,6 +28859,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   Matricula     := contentfields.values['Matricula'];
   CodigoAlmacen := contentfields.values['CodigoAlmacen'];
@@ -29828,6 +29843,7 @@ begin
 
   CodigoUsuario      := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID               := contentfields.values['UUID'];
+  gaLogFile.MAC      := UUID;
   bIgnorarPendientes := StrToBoolDef(contentfields.values['IgnorarPendientes'], false);
   ImprimirAlbaran    := StrToBoolDef(contentfields.Values['ImprimirAlbaran'], false );
   ImprimirFactura    := StrToBoolDef(contentfields.Values['ImprimirFactura'], false );
@@ -30284,8 +30300,9 @@ begin
   );
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
-  UUID          := contentfields.values['UUID'];                  
-  
+  UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
+
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
 
   DevolucionId := StrToIntDef(contentfields.values['DevolucionId'],0);
@@ -30788,7 +30805,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
 
   DevolucionId := StrToIntDef(contentfields.values['DevolucionId'],0);
@@ -31278,6 +31296,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );  
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
 
@@ -31788,6 +31807,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdAprovisionamiento := StrToIntDef(contentfields.Values['IdAprovisionamiento'], 0 );
   if IdAprovisionamiento<>0 then
@@ -33005,6 +33025,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdRecepcion := StrToIntDef(contentfields.values['IdRecepcion'],0);
   if IdRecepcion=0 then begin
@@ -33134,6 +33155,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdDevolucion := StrToIntDef(contentfields.values['IdDevolucion'],0);
   if IdDevolucion=0 then begin
@@ -33261,6 +33283,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdDevolucion := StrToIntDef(contentfields.values['IdDevolucion'],0);
   if IdDevolucion=0 then begin
@@ -33391,6 +33414,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   CodigoUbicacion := contentfields.values['CodigoUbicacion'];
   CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
@@ -33825,6 +33849,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   sConsiderarReservas         := contentfields.Values['ConsiderarReservas'];
   sSoloReservas               := contentfields.Values['SoloReservas'];
@@ -35186,7 +35211,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   InventarioId := StrToIntDef(contentfields.Values['InventarioId'], 0 );
   if InventarioId=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Identificador de inventario no especificado","Data":[]}';
@@ -35513,6 +35539,7 @@ begin
 
   CodigoUsuario  := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID           := contentfields.values['UUID'];
+  gaLogFile.MAC  := UUID;
   CodigoArticulo := (contentfields.values['CodigoArticulo']);
 
   // Conversió al codi d'article real
@@ -35702,10 +35729,6 @@ begin
   end;}
 
   if (not bErr) then begin
-
-    gaLogFile.Write(JSonArrayD.ToString);
-    gaLogFile.Write(JSonArrayS.ToString);
-    gaLogFile.Write(JSonArraySR.ToString);
 
     // Conversió al codi d'article real
     Caja                      := StrToIntDef(_Get_JSonValue ( JSonArrayD, 'Caja' ),1);
@@ -36029,6 +36052,7 @@ begin
 
   CodigoUsuario  := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID           := contentfields.values['UUID'];
+  gaLogFile.MAC  := UUID;
   CodigoArticulo := (contentfields.values['CodigoArticulo']);
   
   // Conversió al codi d'article real
@@ -36209,8 +36233,6 @@ begin
   end;}
 
   if (not bErr) then begin
-
-    gaLogFile.Write(JSonArray.ToString);
 
     // Conversió al codi d'article real
     Caja                      := StrToIntDef(_Get_JSonValue ( JSonArray, 'Caja' ),1);
@@ -36471,6 +36493,7 @@ begin
 
   CodigoUsuario  := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID           := contentfields.values['UUID'];
+  gaLogFile.MAC  := UUID;
   CodigoArticulo := (contentfields.values['CodigoArticulo']);
 
   // Conversió al codi d'article real
@@ -36651,8 +36674,6 @@ begin
   end;}
 
   if (not bErr) then begin
-
-    gaLogFile.Write(JSonArray.ToString);
 
     // Conversió al codi d'article real
     Caja                      := StrToIntDef(_Get_JSonValue ( JSonArray, 'Caja' ),1);
@@ -37125,6 +37146,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   MAC           := contentfields.Values['UUID'];
+  gaLogFile.MAC := MAC;
   Username      := contentfields.Values['Username'];
   IP            := sRemoteAddr;
   bPaletizacion := TRUE;
@@ -37274,9 +37296,10 @@ begin
     Exit;
   end;
 
-  inactividad := (AnsiLowerCase(contentfields.Values['inactividad']) = 'true');
-  UUID        := contentfields.Values['UUID'];
-  IP          := sRemoteAddr;
+  inactividad   := (AnsiLowerCase(contentfields.Values['inactividad']) = 'true');
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  IP            := sRemoteAddr;
 
   if inactividad then
     LOG_Add ( Conn, CodigoUsuario, UUID, IP, 'LOGOUT-OK', 'Logout por inactividad del usuario "' + Usuario + '"' )
@@ -37324,6 +37347,9 @@ begin
 
   {$REGION 'Recuperació de paràmetres'}
 
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+
   Usuario := Trim(contentfields.values['Usuario']);
   if Usuario='' then begin
     LOG_Add ( Conn, 0, UUID, IP, 'LOGIN-ERROR', 'Nombre de usuario no especificado' );
@@ -37338,7 +37364,6 @@ begin
     'WHERE CodigoUsuario = ' + IntToStr(iUsuario);
   sUsuario := SQL_Execute ( Conn, sSQL );
 
-  UUID     := contentfields.Values['UUID'];
   IP       := sRemoteAddr;
   Password := (contentfields.values['Password']);
   Pin      := (contentfields.values['Pin']);
@@ -37844,6 +37869,7 @@ begin
 
   CodigoUsuario        := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID                 := contentfields.values['UUID'];
+  gaLogFile.MAC        := UUID;
   IdAprovisionamiento  := StrToIntDef(contentfields.values['IdAprovisionamiento'],0);
   EjercicioTrabajo     := StrToIntDef(contentfields.values['EjercicioTrabajo'],0);
   NumeroTrabajo        := StrToIntDef(contentfields.values['NumeroTrabajo'],0);
@@ -38307,6 +38333,7 @@ begin
 
   CodigoUsuario       := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID                := contentfields.values['UUID'];
+  gaLogFile.MAC       := UUID;
   IdAprovisionamiento := StrToIntDef(contentfields.values['IdAprovisionamiento'],0);
   EjercicioTrabajo    := StrToIntDef(contentfields.values['EjercicioTrabajo'],0);
   NumeroTrabajo       := StrToIntDef(contentfields.values['NumeroTrabajo'],0);
@@ -38645,7 +38672,8 @@ begin
   );
 
   CodigoUsuario       := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
-  UUID                 := contentfields.values['UUID'];
+  UUID                := contentfields.values['UUID'];
+  gaLogFile.MAC       := UUID;
   IdAprovisionamiento := StrToIntDef(contentfields.values['IdAprovisionamiento'],0);
   YY                  := SAGE_Fecha_AnoActivo ( Conn, CodigoEmpresa, Now() );
   CodigoAlmacen       := contentfields.Values['CodigoAlmacen'];
@@ -38752,6 +38780,7 @@ begin
 
   CodigoUsuario        := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID                 := contentfields.values['UUID'];
+  gaLogFile.MAC        := UUID;
   IdAprovisionamiento  := StrToIntDef(contentfields.values['IdAprovisionamiento'],0);
   EjercicioTrabajo     := StrToIntDef(contentfields.values['EjercicioTrabajo'],0);
   NumeroTrabajo        := StrToIntDef(contentfields.values['NumeroTrabajo'],0);
@@ -39502,6 +39531,7 @@ begin
 
   CodigoUsuario       := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID                := contentfields.Values['UUID'];
+  gaLogFile.MAC       := UUID;
   IdAprovisionamiento := StrToIntDef(contentfields.values['IdAprovisionamiento'],0);
 
   if IdAprovisionamiento=0 then
@@ -40796,6 +40826,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   PreparacionId := StrToIntDef(contentfields.values['PreparacionId'],0);
 
@@ -40803,7 +40834,7 @@ begin
 
   {$REGION 'Recuperació de dades'}
 
-  sPedidos := FS_SGA_GetPedidos ( Conn, PreparacionId );
+  sPedidos := FS_SGA_GetPedidos ( Conn, CodigoEmpresa, PreparacionId );
 
   Result :=
     '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumPages":' + IntToStr(iPages) + ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[' +
@@ -40881,6 +40912,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   Tipo          := StrToIntDef(contentfields.values['Tipo'],-1);
   PreparacionId := StrToIntDef(contentfields.values['PreparacionId'],0);
@@ -41003,7 +41035,8 @@ begin
     IntToStr(PreparacionId) + ', ' +
     '''' + SQL_Str(sSort) + '''';
 
-    gaLogFile.Write(sSQL);
+  galogfile.Write(sSQL);
+
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
   try
@@ -41025,7 +41058,7 @@ begin
 
   while not Q.Eof do begin
 
-    sPedidos := ''; FS_SGA_GetPedidos ( Conn, Q.FieldByName('PreparacionId').AsInteger );
+    sPedidos := ''; FS_SGA_GetPedidos ( Conn, CodigoEmpresa, Q.FieldByName('PreparacionId').AsInteger );
 
     if iNumRegs<>0 then
       Result := Result + ',';
@@ -41203,8 +41236,6 @@ begin
   {$REGION 'Recuperació de paràmetres'}
 
   EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
-  gaLogFile.Write ( 'EmpresaOrigen = ' + IntToStr(EmpresaOrigen), sIDCall  );
-
   if EmpresaOrigen=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
     Exit;
@@ -41238,7 +41269,6 @@ begin
   end;
 
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
-  gaLogFile.Write ( 'YY = ' + IntToStr(YY), sIDCall  );
 
   MostrarPartidas := 1; //StrToIntDef(contentfields.values['MostrarPartidas'],0);
   Pendientes      := (AnsiLowerCase(trim(contentfields.values['Pendientes']))='true');
@@ -41254,7 +41284,6 @@ begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de preparación no especificado","Data":[]}';
     Exit;
   end;
-  gaLogFile.Write ( 'IdPreparacion = ' + IntToStr(IdPreparacion), sIDCall  );
 
   PaletActual     := 1;
   CajaActual      := 1;
@@ -41319,8 +41348,6 @@ begin
   if CodigoAlmacen='' then begin
     CodigoAlmacen := FS_SGA_CodigoAlmacen ( CodigoUbicacionExpedicion );
   end;
-
-  gaLogFile.Write ( 'CodigoAlmacen = ' + CodigoAlmacen, sIDCall  );
 
   {$ENDREGION}
 
@@ -41777,6 +41804,7 @@ var
   Tipo: Integer;
   Estado: Integer;
   sCUSTOMFunc: string;
+  UUID: String;
 {$ENDREGION}
 
 begin
@@ -41795,6 +41823,9 @@ begin
     Exit;
   end;
   // CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
+
+  UUID := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
 
   SAGE_GetEmpresasStocks (
     Conn,
@@ -42135,6 +42166,8 @@ begin
     '',
     CodigoEmpresa
   );
+
+  gaLogFile.MAC := contentfields.Values['UUID'];
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   Tipo          := StrToIntDef(contentfields.values['Tipo'],-1);
@@ -43121,8 +43154,6 @@ begin
           //'  FechaPedido >= DATEADD(day,-30,GETDATE()) AND ' +
           sAndWhere;
 
-  gaLogFile.Write(sSQL);
-
   try
     iTotalRegs := SQL_Execute ( Conn, sSQL );
   except
@@ -43153,8 +43184,6 @@ begin
           sOrderBy + ' ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
-
-  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -43276,7 +43305,6 @@ begin
 
   {$REGION 'Preparació de paràmetres'}
 
-  gaLogFile.Write('empresa origen=' + Inttostr(Codigoempresa.EmpresaOrigen));
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
 
   sMostrarPartidas := '';
@@ -43447,7 +43475,6 @@ begin
 
   {$REGION 'Preparació de paràmetres'}
 
-  gaLogFile.Write('empresa origen=' + Inttostr(Codigoempresa.EmpresaOrigen));
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
 
   sMostrarAlmacenes := 'AND CodigoAlmacen=''' + SQL_Str(CodigoAlmacen) + ''' ';
@@ -44233,6 +44260,7 @@ begin
       '{' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
       '"RazonSocial":"' + JSON_Str(Q.FieldByName('RazonSocial').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
       '"Domicilio":"' + JSON_Str(Q.FieldByName('Domicilio').AsString) + '",' +
       '"CodigoPostal":"' + JSON_Str(Q.FieldByName('CodigoPostal').AsString) + '",' +
       '"Municipio":"' + JSON_Str(Q.FieldByName('Municipio').AsString) + '",' +
@@ -44624,6 +44652,7 @@ begin
 
   CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID            := contentfields.values['UUID'];
+  gaLogFile.MAC   := UUID;
   CodigoUbicacion := contentfields.values['CodigoUbicacion'];
   Matricula       := contentfields.values['Matricula'];
   TipoReserva     := StrToIntDef(contentfields.Values['TipoReserva'], 0 );
@@ -44701,6 +44730,7 @@ begin
 
   CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID            := contentfields.values['UUID'];
+  gaLogFile.MAC   := UUID;
   CodigoUbicacion := contentfields.values['CodigoUbicacion'];
   Matricula       := contentfields.values['Matricula'];
   CodigoMotivo    := StrToIntDef(contentfields.Values['CodigoMotivo'], 0 );
@@ -44768,6 +44798,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );   
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   Matricula     := contentfields.values['Matricula'];
   Estado        := StrToIntDef(contentfields.Values['Estado'], 0 );
 
@@ -44881,6 +44912,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
   UbicacionOrigen := contentfields.values['UbicacionOrigen'];
 
   Matricula        := contentfields.values['Matricula'];
@@ -45594,6 +45626,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
   if IdPreparacion=0 then
@@ -45721,6 +45754,7 @@ begin
   CodigoAlmacen    := contentfields.Values['CodigoAlmacenDefecto'];
   CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'],0);
   UUID             := contentfields.values['UUID'];
+  gaLogFile.MAC    := UUID;
   CodigoAgrupacion := StrToIntDef(contentfields.values['CodigoAgrupacion'],-1);
 
   {$ENDREGION}
@@ -45739,8 +45773,6 @@ begin
     IntToStr(IdExpedicion) + ', ' +
     IntToStr(PickingId) + ', ' +
     IntToStr(CodigoAgrupacion);
-
-  gaLogFile.Write(sSQL);
 
   try
     SQL_Execute_NoRes ( Conn, sSQL );
@@ -45964,6 +45996,7 @@ begin
 
   CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID             := contentfields.values['UUID'];
+  gaLogFile.MAC    := UUID;
   UbicacionOrigen  := contentfields.Values['UbicacionOrigen'];
   UbicacionDestino := contentfields.Values['UbicacionDestino'];
 
@@ -46228,6 +46261,7 @@ begin
 
   CodigoArticulo := contentfields.values['CodigoArticulo'];
   UUID           := contentfields.values['UUID'];
+  gaLogFile.MAC  := UUID;
   Partida        := contentfields.values['Partida'];
   UnidadMedida   := AnsiUpperCase(contentfields.values['UnidadMedida']);
   CodigoTalla    := contentfields.values['CodigoTalla'];
@@ -46308,6 +46342,7 @@ begin
 
   CodigoUsuario := StrToIntDef ( contentfields.values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   Expedicion    := StrToIntDef ( contentfields.values['Expedicion'], 0 );
 
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
@@ -46401,6 +46436,7 @@ begin
 
   CodigoUsuario := StrToIntDef ( contentfields.values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   Expedicion    := StrToIntDef ( contentfields.values['Expedicion'], 0 );
 
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
@@ -46476,7 +46512,7 @@ begin
 
   {$REGION 'Recuperació de dades'}
 
-  sPedidos := FS_SGA_GetPedidos ( Conn, IdPreparacion );
+  sPedidos := FS_SGA_GetPedidos ( Conn, CodigoEmpresa, IdPreparacion );
 
   Result := '{"Result":"OK","Error":"","Data":[';
 
@@ -46628,7 +46664,8 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID          := contentfields.values['UUID'];
-  
+  gaLogFile.MAC := UUID;
+
   IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
   if IdPreparacion=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de preparación no especificado","Data":[]}';
@@ -47677,6 +47714,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
 
   CodigoAlmacenDefecto := (contentfields.Values['CodigoAlmacenDefecto']);
   if CodigoAlmacenDefecto='' then
@@ -48597,8 +48635,6 @@ begin
     sSQL := sSQL + 'AND LineasPosicion = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ';
   end;
 
-  gaLogFile.Write(sSQL);
-
   SQL_Execute_NoRes ( Conn, sSQL );
 
   if (not bErr) and (bRecalcularRuta) then begin
@@ -48790,6 +48826,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   MAC           := contentfields.Values['UUID'];
+  gaLogFile.MAC := MAC;
   Username      := contentfields.Values['Username'];
   IP            := sRemoteAddr;
 
@@ -48867,6 +48904,7 @@ begin
     try
       sParams2 := LICENSE_TwoFish_DEC ( contentfields.values['data'] );
       REQUEST_Split ( sParams2, contentfields );
+      gaLogFile.MAC := contentfields.Values['UUID'];
     except
     end;
   end;
@@ -48894,7 +48932,6 @@ begin
   Res := LICENSE_Check ( Conn, 'PDA', MAC, IP, Username, Port, gsCustomerCode, CONST_SGA, license_code, grace_period);
 
   endtime := GetTickCount();
-  gaLogFile.Write('Time = ' + IntToStr(endtime-starttime), CONST_LOGID_GENERAL, LOG_LEVEL_INFO );
 
   Result := '{"Result":"OK","Message":"","Data":[]}';
 
@@ -49054,7 +49091,7 @@ begin
   {$REGION 'Recuperació de paràmetres'}
 
   MAC           := contentfields.Values['UUID'];
-
+  gaLogFile.MAC := MAC;
   try
     Conn.Close;
   except
@@ -49465,6 +49502,7 @@ begin
 
   CodigoUsuario   := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID            := contentfields.values['UUID'];
+  gaLogFile.MAC   := UUID;
   IdPreparacion   := StrToIntDef(contentfields.Values['IdPreparacion'], 0 );
   Matricula       := contentfields.Values['Matricula'];
   IdCaja          := StrToIntDef(contentfields.Values['CajaActual'],0);
@@ -49689,6 +49727,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0 );
   Matricula     := contentfields.Values['Matricula'];
   IdPalet       := StrToIntDef(contentfields.Values['PaletId'], 0 );
@@ -49777,6 +49816,7 @@ begin
 
   CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
   UUID            := contentfields.Values['UUID'];
+  gaLogFile.MAC   := UUID;
   CodigoUbicacion := contentfields.Values['CodigoUbicacion'];
   Bloqueada       := (AnsiLowerCase(contentfields.Values['Bloqueada'])='true');
 
@@ -49844,7 +49884,8 @@ begin
   );
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
-  UUID          := contentfields.Values['UUID'];  
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
   Matricula     := contentfields.Values['Matricula'];
   PackagingId   := StrToIntDef(contentfields.Values['PackagingId'], 0 );
   
@@ -50071,6 +50112,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0 );
   PaletId       := StrToIntDef(contentfields.Values['PaletId'], 0 );
   PackagingId   := StrToIntDef(contentfields.Values['PackagingId'], 0 );
@@ -50190,6 +50232,7 @@ begin
 
   CodigoUsuario := StrToIntDef(contentfields.values['CodigoUsuario'],0);
   UUID          := contentfields.values['UUID'];
+  gaLogFile.MAC := UUID;
   IdPreparacion := StrToIntDef(contentfields.Values['IdPreparacion'], 0 );
   PaletId       := StrToIntDef(contentfields.Values['PaletId'], 0 );
   Matricula     := contentfields.Values['Matricula'];

@@ -318,7 +318,11 @@ var
   st: TSTringList;
   sURL: String;
   bAsyncRequest: Boolean;
+  contentfields: TStringList;
+  UUID: String;
+  sParams2: String;
 begin
+
   bAsyncRequest := False;
 
   (Sender as TclHttpServer).BeginWork;
@@ -358,6 +362,7 @@ begin
     sParams := CanonicalizeUrl ( sParams, ICU_DECODE or ICU_NO_ENCODE );
   end;
 
+
   sCommand := AnsiLowerCase ( sCommand );
   {aIdURI := TIdURI.Create(TIdURI.URLDecode(sParams));
   sParams := aIdUri.GetPathAndParams; // .Document;
@@ -365,8 +370,24 @@ begin
 
   sIDCall := LOG_GenerateRandomHash ( 12 );
 
+  REQUEST_Split ( sParams, contentfields );
+  UUID := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+
   if sCommand<>'/' then
   begin
+    if (sCommand='/checklicense') or (sCommand='/freelicense') then
+    begin
+      if contentfields.values['data']<>'' then
+      begin
+        try
+          sParams2 := LICENSE_TwoFish_DEC ( contentfields.values['data'] );
+          REQUEST_Split ( sParams2, contentfields );
+          gaLogFile.MAC := contentfields.Values['UUID'];
+        except
+        end;
+      end;
+    end;
     gaLogFile.Write ( 'Request: ' + sCommand + '?' + sParams, CONST_LOGID_SGA, LOG_LEVEL_INFO );
   end;
 
@@ -5588,11 +5609,17 @@ begin
   bCleanLog  := INIFile.ReadBool ( 'SGA' + sCustomer, 'CleanLog', False );
   INIFile.Free;
 
+  gsMACAddress     := NETWORK_LocalMAC();
+  gsPCName         := NETWORK_PCName();
+
   if bCleanLog then
   begin
     gaLogFile2                := TLogFile.Create;
     gaLogFile2.Enabled        := TRUE;
     gaLogFile2.ShowLevel      := FALSE;
+    gaLogFile2.ShowMAC        := TRUE;
+    gaLogFile2.ShowSection    := FALSE;
+    gaLogFile2.DefaultMAC     := '------------';
     gaLogFile2.MinLevel       := 0;
     gaLogFile2.PurgeDays      := iPurgeDays;
     gaLogFile2.DefaultSection := CONST_LOGID_WEBSERVER;
@@ -5603,6 +5630,9 @@ begin
   gaLogFile                := TLogFile.Create;
   gaLogFile.Enabled        := bActive;
   gaLogFile.ShowLevel      := TRUE;
+  gaLogFile.ShowMAC        := TRUE;
+  gaLogFile.ShowSection    := FALSE;
+  gaLogFile.DefaultMAC     := '------------';
   gaLogFile.MinLevel       := iMinLevel;
   gaLogFile.PurgeDays      := iPurgeDays;
   gaLogFile.DefaultSection := CONST_LOGID_WEBSERVER;
@@ -5623,9 +5653,6 @@ begin
       gaLogFile.Write ( 'No hay información de versión: ' + E.Message, CONST_LOGID_WEBSERVER );
     end;
   end;
-
-  gsMACAddress     := NETWORK_LocalMAC();
-  gsPCName         := NETWORK_PCName();
 
   gaLogFile.Write ( 'Lectura de configuración', CONST_LOGID_WEBSERVER );
   if not CONFIG_Read() then begin

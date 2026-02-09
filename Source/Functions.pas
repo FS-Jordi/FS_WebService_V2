@@ -404,6 +404,8 @@ var
   sSQL: String;
 begin
 
+  gaLogFile.MAC := UUID;
+
   sSQL :=
     'INSERT INTO FS_SGA_TraceLog ( ' +
     '  UUID, Ejercicio, CodigoUsuario, IP, Accion, Observaciones ';
