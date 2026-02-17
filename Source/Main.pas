@@ -2097,6 +2097,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/updatedescripcionlinea') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updateDescripcionLineaAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/getpedidos') then
     begin
       TAsyncWebModuleThread.Create(
@@ -5604,7 +5621,7 @@ begin
   gbMultiInstance := INIFile.ReadBool ( 'GENERAL', 'MultiInstance', FALSE );
   if not gbMultiInstance then sCustomer := '';
   bActive    := INIFile.ReadBool ( 'SGA' + sCustomer, 'LogActive', TRUE );
-  iMinLevel  := LOG_LevelFromName ( INIFile.ReadString ( 'SGA' + sCustomer, 'MinLogLevel', 'ERRO' ) );
+  iMinLevel  := LOG_LevelFromName ( INIFile.ReadString ( 'SGA' + sCustomer, 'MinLogLevel', 'ERROR' ) );
   iPurgeDays := INIFile.ReadInteger ( 'SGA' + sCustomer, 'PurgeDays', 0 );
   bCleanLog  := INIFile.ReadBool ( 'SGA' + sCustomer, 'CleanLog', False );
   INIFile.Free;

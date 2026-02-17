@@ -234,6 +234,7 @@ procedure WebModule1getDetallePartidasAction ( Conn: TADOConnection; sParams, sR
 procedure WebModule1getAgrupacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getInfoPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkUnidadesPreparadas ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1updateDescripcionLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1updateObservacionesPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1generatePackingListAuto ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1generatePackingListAsis ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -6856,6 +6857,8 @@ var
   UnidadMedida: String;
   UnidadMedidaBase: String;
   sFieldTratamientoSeries: string;
+  sTiposArt: String;
+  sMostrarTipos: String;
 {$ENDREGION}
 
 begin
@@ -6899,6 +6902,11 @@ begin
   CodigoColor    := contentfields.values['CodigoColor'];
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_DesglosarPreparacionesPorLinea, bSepararPorLinea, CodigoEmpresa.EmpresaOrigen );
+  PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_MostrarTiposArticuloEXP, sMostrarTipos, CodigoEmpresa.EmpresaOrigen );
+
+  sTiposArt := '''M''';
+  if Pos('I',sMostrarTipos)>0 then sTiposArt := sTiposArt + ',''I''';
+  if Pos('C',sMostrarTipos)>0 then sTiposArt := sTiposArt + ',''C''';
 
   {$ENDREGION}
 
@@ -7197,7 +7205,7 @@ begin
     '  fsppl.CodigoAgrupacion, fsppl.UnidadesAgrupacion, ISNULL(agrup.Agrupacion, ''Unidades'') as Agrupacion, ' +
     '  ISNULL(USADAS.Cantidad,0) AS UdUsadas, ISNULL(USADAS.CantidadBase,0) AS UdUsadasBase, ' +
     '  ISNULL(fspl_last.CajaActual,1) AS CajaActual, ' + // <— canvia fspl per fspl_last
-    '  art.Colores_ AS TratamientoColores, CPC.Nombre ' +
+    '  art.Colores_ AS TratamientoColores, CPC.Nombre, art.TipoArticulo, fsppl.DescripcionLinea ' +
     'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
     'INNER JOIN CabeceraPedidoCliente CPC WITH (NOLOCK) ' +
     'ON ' +
@@ -7282,7 +7290,7 @@ begin
     ') fspl_last ' + // ▲▲ fi OUTER APPLY
     'WHERE ' +
     '  fsppl.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-    '  AND (art.TipoArticulo = ''M'' ' +
+    '  AND (art.TipoArticulo IN ( ' + sTiposArt + ' ) ' +
     '       OR fsppl.LineasPosicionCompuesto = ''00000000-0000-0000-0000-000000000001'') ';
 
   if PickingId <> 0 then
@@ -7473,10 +7481,12 @@ begin
       '"Orden":' + Q.FieldByName('OrdenLineaPedido').AsString + ',' +
       '"LineasPosicion":"' + SQL_GUID_ToStr(Q.FieldByName('LineasPosicion').AsString) + '",' +
       '"CodigoArticulo":"' + JSON_Str(CodigoArticulo) + '",' +
+      '"TipoArticulo":"' + JSON_Str(Q.FieldByName('TipoArticulo').AsString) + '",' +
       '"CodigoAlternativo":"' + JSON_Str(Q.FieldByName('CodigoAlternativo').AsString) + '",' +
       '"CodigoAlternativo2":"' + JSON_Str(Q.FieldByName('CodigoAlternativo2').AsString) + '",' +
       '"CodigoAlternativoTC":"' + JSON_Str(Q.FieldByName('CodigoAlternativoTC').AsString) + '",' +
       '"DescripcionArticulo":"' + JSON_Str(Q.FieldByName('DescripcionArticulo').AsString) + '",' +
+      '"DescripcionLinea":"' + JSON_Str(Q.FieldByName('DescripcionLinea').AsString) + '",' +
       '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('TratamientoColores').AsInteger<>0) + ',' +
       '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
@@ -13307,6 +13317,94 @@ begin
 end;
 
 
+
+procedure WebModule1updateDescripcionLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  IdPreparacion: Integer;
+  PickingId: Integer;
+  DescripcionLinea: String;
+  sSQL: String;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  // CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario        := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID                 := contentfields.Values['UUID'];
+  gaLogFile.MAC        := UUID;
+
+  IdPreparacion        := StrToIntDef(contentfields.Values['PreparacionId'], 0);
+  PickingId            := StrToIntDef(contentfields.Values['PickingId'], 0);
+  DescripcionLinea     := Trim(contentfields.Values['DescripcionLinea']);
+
+  DescripcionLinea := StringReplace ( DescripcionLinea, '\n', #13 + #10, [rfReplaceAll] );
+  DescripcionLinea := StringReplace ( DescripcionLinea, '\n', #13 + #10, [rfReplaceAll] );
+
+  {$ENDREGION}
+
+  {$REGION 'Actualització de dades'}
+
+  sSQL :=
+    'UPDATE FS_SGA_Picking_Pedido_Lineas ' +
+    'SET ' +
+    '  DescripcionLinea = ''' + SQL_Str(DescripcionLinea) + ''' ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND PickingId = ' + IntToStr(PickingId);
+
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  sSQL :=
+    'UPDATE T1 ' +
+    '  SET T1.DescripcionLinea = ''' + SQL_Str(DescripcionLinea) + ''' ' +
+    'FROM LineasPedidoCliente T1 ' +
+    'INNER JOIN FS_SGA_Picking_Pedido_Lineas T2 ' +
+    'ON T1.CodigoEmpresa = T2.CodigoEmpresa ' +
+    '  AND T1.EjercicioPedido = T2.EjercicioPedido ' +
+    '  AND T1.SeriePedido = T2.SeriePedido ' +
+    '  AND T1.NumeroPedido = T2.NumeroPedido ' +
+    '  AND T1.LineasPosicion = T2.LineasPosicion ' +
+    'WHERE ' +
+    '  T1.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND T2.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND T2.PickingId = ' + IntToStr(PickingId);
+
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_OBS_PREP', 'Actualizar descripción línea', @LP );
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Error":"","Data":[';
+  Result := Result + ']}';
+
+end;
+
+
 procedure WebModule1updateObservacionesPreparacionAction
  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 {$REGION 'Declaració de variables'}
@@ -13371,6 +13469,8 @@ begin
   LP.IdPreparacion := IdPreparacion;
 
   LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_OBS_PREP', 'Actualizar observaciones preparación', @LP );
+
+  {$ENDREGION}
 
   Result := '{"Result":"OK","Error":"","Data":[';
   Result := Result + ']}';
@@ -20149,7 +20249,7 @@ begin
   Printer.Refresh;
   ip := 1;
 
-  Result := Result + '"<<Impresora por defecto>>"';
+  //Result := Result + '"<<Impresora por defecto>>"';
 
   for i := 0 to Printer.Printers.Count-1 do
   begin
@@ -20157,7 +20257,7 @@ begin
     sName := Printer.Printers[i];
     if (Pos('redireccionado)', sName)=0) and (Pos('redirected)', sName)=0) then
     begin
-      if ip>0 then
+      if ip>1 then
         Result := Result + ',';
       Result := Result + '"' + JSON_Str(sName) + '"';
       ip := ip + 1;
@@ -23471,6 +23571,11 @@ begin
   sMsg := '';
 
   bTallerExterno := FS_SGA_CheckTallerExterno ( Conn, CodigoEmpresa, IdRecepcion, sResult, sMsg );
+
+  if sResult='OK' then
+  begin
+    FS_SGA_Partidas_Correctas ( Conn, CodigoEmpresa, IdRecepcion, sResult, sMsg );
+  end;
 
   {$ENDREGION}
 
@@ -29795,6 +29900,7 @@ var
   iSQLidx: Integer;
   bClientDiferent: Boolean;
   bPedidoServido: Boolean;
+  informesAuto: String;
   informeAuto: Integer;
   bIsCustomReport: Boolean;
   iStatus: Integer;
@@ -29802,6 +29908,9 @@ var
   TipoFechaAlbaran: String;
   FechaAlbaran: string;
   UUID: string;
+  sGUIDOperacion: string;
+  Impresora: string;
+  lInformes: TStringList;
 {$ENDREGION}
 
 begin
@@ -29847,7 +29956,8 @@ begin
   bIgnorarPendientes := StrToBoolDef(contentfields.values['IgnorarPendientes'], false);
   ImprimirAlbaran    := StrToBoolDef(contentfields.Values['ImprimirAlbaran'], false );
   ImprimirFactura    := StrToBoolDef(contentfields.Values['ImprimirFactura'], false );
-  informeAuto        := StrToIntDef(contentfields.Values['InformeAuto'], 0);
+  informesAuto       := contentfields.Values['InformeAuto'];
+  Impresora          := contentfields.Values['Printer'];
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_FechaAlbaran, paramFechaAlbaran, CodigoEmpresa.EmpresaOrigen );
   if paramFechaAlbaran='FECHA DE PROCESO' then
@@ -29944,8 +30054,13 @@ begin
     if (iUltimoPedido=1) or (not bAgruparAlbaranes) or (CodigoCliente<>CodigoClienteOld) then
     begin
 
-      bClientDiferent := (CodigoClienteOld<>CodigoCliente);
+      bClientDiferent  := (CodigoClienteOld<>CodigoCliente);
       CodigoClienteOld := CodigoCliente;
+
+      if (informesAuto<>'') then
+        sGUIDOperacion   := SQL_GUID_ToStr(TGUID.NewGuid.ToString)
+      else
+        sGUIDOperacion   := '';
 
       // Enviem la instrucció al servei per generar l'albarà
       if bAgruparAlbaranes then
@@ -29966,7 +30081,9 @@ begin
           '"ImprimirFactura":"' + SQL_BooleanToStr(ImprimirFactura) + '",' +
           '"TipoFechaAlbaran":"' + TipoFechaAlbaran + '",' +
           '"FechaAlbaran":"' + FechaAlbaran + '",' +
-          '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '"' + '}';
+          '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '",' +
+          '"IDOperacion":"' + sGUIDOperacion + '"' +
+          '}';
 
       end else begin
 
@@ -29987,7 +30104,9 @@ begin
           '"ImprimirFactura":"' + SQL_BooleanToStr(ImprimirFactura) + '",' +
           '"TipoFechaAlbaran":"' + TipoFechaAlbaran + '",' +
           '"FechaAlbaran":"' + FechaAlbaran + '",' +
-          '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '"' + '}';
+          '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '",' +
+          '"IDOperacion":"' + sGUIDOperacion + '"' +
+          '} ';
 
       end;
 
@@ -30012,6 +30131,81 @@ begin
       end else begin
         lstSQL.Add(sSQL);
         Inc(iSQLidx);
+
+        // Afegim un 1 a oper_num_retries perquè no intenti generar el document
+        // més d'una vegada
+        if sGUIDOperacion='' then sGUIDOperacion := 'NULL'
+        else sGUIDOperacion := '''' + sGUIDOperacion + '''';
+
+        if informesAuto<>'' then
+        begin
+
+          lInformes := TStringList.Create;
+          lInformes.Delimiter := ',';
+          lInformes.StrictDelimiter := true;
+          lInformes.DelimitedText := informesAuto;
+
+          if (lInformes.Count>0) then
+            informeAuto := StrToIntDef(lInformes[0],0)
+          else
+            informeAuto := 0;
+
+          while (informeAuto>0) do
+          begin
+
+            sOperParams := '{' +
+              '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
+              '"Informe":' + IntToStr(InformeAuto) + ',' +
+              '"Objeto":' + IntToStr(PreparacionId) + ',' +
+              '"EjercicioDocumento":' + IntToStr(iEjercicio) + ',' +
+              '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
+              '"SeriePedido":"' + JSON_Str(Q.FieldbyName('SeriePedido').asString) + '",' +
+              '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
+              '"Impresora":"' + JSON_Str(Impresora) + '",' +
+              '"Usuario":' + IntToStr(CodigoUsuario) +
+            '}';
+
+            PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_ActivarCustomReport, bIsCustomReport, CodigoEmpresa.EmpresaOrigen );
+
+            if bIsCustomReport then
+              sOperation := 'GENERARINFORME_CUSTOM'
+            else
+              sOperation := 'GENERARINFORME';
+
+            iStatus    := 0;
+
+            sSQL := 'INSERT INTO ' +
+                    '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
+                    '  oper_params, oper_CodigoEmpresa, oper_IdAlbaran ) ' +
+                    'OUTPUT ' +
+                      '  inserted.oper_id ' +
+                    'VALUES ( ' +
+                    '''' + SQL_Str(CONST_SGA) + ''', ' +
+                    '''' + SQL_Str(sOperation) + ''', ' +
+                    IntToStr(iStatus) + ', ' +
+                    '''' + SQL_Str(sRemoteAddr) + ''', ' +
+                    SQL_DateTimeToStr ( Now() ) + ', ' +
+                    '''' + sOperParams + ''', ' +
+                    IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+                    sGUIDOperacion +
+                    ' );';
+
+            lstSQL.Add(sSQL);
+            Inc(iSQLidx);
+
+            lInformes.Delete(0);
+
+            if (lInformes.Count>0) then
+              informeAuto := StrToIntDef(lInformes[0],0)
+            else
+              informeAuto := 0;
+
+          end;
+
+          FreeAndNil(lInformes);
+
+        end;
+
       end;
 
       bPedidoServido := TRUE;
@@ -30035,42 +30229,7 @@ begin
 
   end;
 
-  if (informeAuto>0) then
-  begin
 
-    sOperParams := '{' +
-      '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
-      '"Informe":' + IntToStr(InformeAuto) + ',' +
-      '"Objeto":' + IntToStr(PreparacionId) + ',' +
-      '"Albaran":1,' +
-      '"Usuario":' + IntToStr(CodigoUsuario) +
-    '}';
-
-    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_ActivarCustomReport, bIsCustomReport, CodigoEmpresa.EmpresaOrigen );
-
-    sOperation := 'GENERARINFORME';
-    iStatus    := 0;
-
-    // Afegim un 1 a oper_num_retries perquè no intenti generar el document
-    // més d'una vegada
-    sSQL := 'INSERT INTO ' +
-            '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
-            '  oper_params, oper_CodigoEmpresa ) ' +
-            'OUTPUT ' +
-              '  inserted.oper_id ' +
-            'VALUES ( ' +
-            '''' + SQL_Str(CONST_SGA) + ''', ' +
-            '''' + SQL_Str(sOperation) + ''', ' +
-            IntToStr(iStatus) + ', ' +
-            '''' + SQL_Str(sRemoteAddr) + ''', ' +
-            SQL_DateTimeToStr ( Now() ) + ', ' +
-            '''' + sOperParams + ''', ' +
-            IntToStr(CodigoEmpresa.EmpresaOrigen) + ' )';
-
-    lstSQL.Add(sSQL);
-    Inc(iSQLidx);
-
-  end;
 
   if iSQLidx > 0 then try
     OperId := SQL_Insert_Identity ( Conn, lstSQL.Text, 'oper_id' );
