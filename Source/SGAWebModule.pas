@@ -234,8 +234,13 @@ procedure WebModule1getDetallePartidasAction ( Conn: TADOConnection; sParams, sR
 procedure WebModule1getAgrupacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getInfoPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkUnidadesPreparadas ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1updateDescripcionLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1updateDescripcionLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1updateObservacionesPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1updateObservacionesRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1updateExtraInfoLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1uploadFotosLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getExtraInfoLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1generatePackingListAuto ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1generatePackingListAsis ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getexpedicioncajaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -13317,8 +13322,271 @@ begin
 end;
 
 
+procedure WebModule1updateDescripcionLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  RecepcionId: Integer;
+  RecepcionIdLinea: Integer;
+  DescripcionLinea: String;
+  sSQL: String;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  // CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario        := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID                 := contentfields.Values['UUID'];
+  gaLogFile.MAC        := UUID;
+
+  RecepcionId          := StrToIntDef(contentfields.Values['RecepcionId'], 0);
+  RecepcionIdLinea     := StrToIntDef(contentfields.Values['RecepcionIdLinea'], 0);
+  DescripcionLinea     := Trim(contentfields.Values['DescripcionLinea']);
+
+  DescripcionLinea := StringReplace ( DescripcionLinea, '\n', #13 + #10, [rfReplaceAll] );
+  DescripcionLinea := StringReplace ( DescripcionLinea, '\n', #13 + #10, [rfReplaceAll] );
+
+  {$ENDREGION}
+
+  {$REGION 'Actualització de dades'}
+
+  sSQL :=
+    'UPDATE FS_SGA_Recepciones_Lineas ' +
+    'SET ' +
+    '  DescripcionLinea = ''' + SQL_Str(DescripcionLinea) + ''' ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+    '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  sSQL :=
+    'UPDATE T1 ' +
+    '  SET T1.DescripcionLinea = ''' + SQL_Str(DescripcionLinea) + ''' ' +
+    'FROM LineasPedidoProveedor T1 ' +
+    'INNER JOIN FS_SGA_Recepciones_Lineas T2 ' +
+    'ON T1.CodigoEmpresa = T2.CodigoEmpresa ' +
+    '  AND T1.EjercicioPedido = T2.EjercicioPedido ' +
+    '  AND T1.SeriePedido = T2.SeriePedido ' +
+    '  AND T1.NumeroPedido = T2.NumeroPedido ' +
+    '  AND T1.LineasPosicion = T2.LineasPosicion ' +
+    'WHERE ' +
+    '  T1.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND T2.RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+    '  AND T2.RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_OBS_LIN_REC', 'Actualizar descripción línea', @LP );
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Error":"","Data":[';
+  Result := Result + ']}';
+
+end;
+procedure WebModule1updateExtraInfoLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  RecepcionIdLinea: Integer;
+  Comentarios: String;
+  Estado: Integer;
+  sSQL: String;
+  RecepcionId: Integer;
+  contentfields: TStringList;
+  bExists: Boolean;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID             := contentfields.Values['UUID'];
+  gaLogFile.MAC    := UUID;
+
+  RecepcionId      := StrToIntDef(contentfields.Values['RecepcionId'], 0);
+  RecepcionIdLinea := StrToIntDef(contentfields.Values['RecepcionIdLinea'], 0);
+  Comentarios      := Trim(contentfields.Values['Comentarios']);
+  Estado           := StrToIntDef(contentfields.Values['Estado'], 0);
+
+  Comentarios := StringReplace ( Comentarios, '\n', #13 + #10, [rfReplaceAll] );
+
+  {$ENDREGION}
+
+  {$REGION 'Actualització de dades'}
+
+  sSQL := 'SELECT 1 FROM FS_SGA_Recepciones_Lin_Info WHERE RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+  bExists := (SQL_Execute ( Conn, sSQL ) <> 0);
+
+  if bExists then
+  begin
+    sSQL :=
+      'UPDATE FS_SGA_Recepciones_Lin_Info ' +
+      'SET ' +
+      '  Comentarios = ''' + SQL_Str(Comentarios) + ''', ' +
+      '  EstadoRecep = ' + IntToStr(Estado) + ' ' +
+      'WHERE ' +
+      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+      '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+  end else begin
+    sSQL :=
+      'INSERT INTO FS_SGA_Recepciones_Lin_Info ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, Comentarios, EstadoRecep) ' +
+      'VALUES (' +
+      IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+      IntToStr(RecepcionId) + ', ' +
+      IntToStr(RecepcionIdLinea) + ', ' +
+      '''' + SQL_Str(Comentarios) + ''', ' + IntToStr(Estado) + ')';
+  end;
+
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_EXTRA_LIN_REC', 'Actualizar info extra línea recepción', @LP );
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Error":"","Data":[]}';
+
+end;
+
+
+procedure WebModule1uploadFotosLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  RecepcionId: Integer;
+  RecepcionIdLinea: Integer;
+  sFotosJSON: String;
+  sSQL: String;
+  contentfields: TStringList;
+  jArray: TJSONArray;
+  jValue: TJSONValue;
+  i: Integer;
+  sFotoBase64: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID             := contentfields.Values['UUID'];
+  gaLogFile.MAC    := UUID;
+
+  RecepcionId      := StrToIntDef(contentfields.Values['RecepcionId'], 0);
+  RecepcionIdLinea := StrToIntDef(contentfields.Values['RecepcionIdLinea'], 0);
+  sFotosJSON       := contentfields.Values['Fotos'];
+
+  {$ENDREGION}
+
+  {$REGION 'Actualització de dades'}
+
+  // Borramos las fotos anteriores para esta línea
+  sSQL := 'DELETE FROM FS_SGA_Recepciones_Lin_Fotos WHERE RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  if sFotosJSON <> '' then
+  begin
+    jValue := TJSONObject.ParseJSONValue(sFotosJSON);
+    if (jValue <> nil) and (jValue is TJSONArray) then
+    begin
+      jArray := jValue as TJSONArray;
+      for i := 0 to jArray.Count - 1 do
+      begin
+        // Cada elemento puede ser la URL o el objeto foto. En el frontend mandamos fotos tal cual.
+        // Si mandamos un array de strings (base64) o un array de objetos...
+        // Según el código anterior: this.Fotos = res.data.fotos;
+        // El frontend manda res.data.fotos que es un array de lo que sea que tenga fotos.
+        
+        sFotoBase64 := jArray.Items[i].Value;
+        // Si el frontend manda objetos {url: ...} o {DataFotoBase64: ...}
+        // En modal-edit-descripcion.component.html veíamos [src]="foto.url || foto"
+        // En modal-edit-descripcion.component.ts:
+        // const base64 = await this.readAsBase64(photo.webPath);
+        // this.fotos.push({ DataFotoBase64: base64, ... });
+        
+        // Vamos a intentar sacar el campo DataFotoBase64 si es un objeto
+        if jArray.Items[i] is TJSONObject then
+          sFotoBase64 := TJSONObject(jArray.Items[i]).GetValue('DataFotoBase64').Value;
+
+        if sFotoBase64 <> '' then
+        begin
+          sSQL :=
+            'INSERT INTO FS_SGA_Recepciones_Lin_Fotos ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, DataFotoBase64) ' +
+            'VALUES (' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+            IntToStr(RecepcionId) + ', ' +
+            IntToStr(RecepcionIdLinea) + ', ' +
+            '''' + SQL_Str(sFotoBase64) + ''')';
+          SQL_Execute_NoRes ( Conn, sSQL );
+        end;
+      end;
+    end;
+    if jValue <> nil then jValue.Free;
+  end;
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPLOAD_FOTOS_LIN_REC', 'Subir fotos línea recepción', @LP );
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Error":"","Data":[]}';
+
+end;
 procedure WebModule1updateDescripcionLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
 {$REGION 'Declaració de variables'}
 var
   CodigoEmpresa: TOrigenCodigoEmpresa;
@@ -13395,7 +13663,7 @@ begin
 
   SQL_Execute_NoRes ( Conn, sSQL );
 
-  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_OBS_PREP', 'Actualizar descripción línea', @LP );
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_OBS_LIN_PREP', 'Actualizar descripción línea', @LP );
 
   {$ENDREGION}
 
@@ -13405,17 +13673,17 @@ begin
 end;
 
 
-procedure WebModule1updateObservacionesPreparacionAction
+procedure WebModule1updateObservacionesRecepcionAction
  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
 {$REGION 'Declaració de variables'}
 var
   CodigoEmpresa: TOrigenCodigoEmpresa;
   EmpresaOrigen: Integer;
   CodigoUsuario: Integer;
   UUID: String;
-  IdPreparacion: Integer;
-  ObservacionesAlbaran: String;
-  ObservacionesFactura: String;
+  IdRecepcion: Integer;
+  ObservacionesRecepcion: String;
   sSQL: String;
   contentfields: TStringList;
 {$ENDREGION}
@@ -13440,15 +13708,88 @@ begin
     CodigoEmpresa
   );
 
-  CodigoUsuario        := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
-  UUID                 := contentfields.Values['UUID'];
-  gaLogFile.MAC        := UUID;
-  IdPreparacion        := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
-  ObservacionesAlbaran := contentfields.Values['ObservacionesAlbaran'];
-  ObservacionesFactura := contentfields.Values['ObservacionesFactura'];
+  CodigoUsuario          := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID                   := contentfields.Values['UUID'];
+  gaLogFile.MAC          := UUID;
+  IdRecepcion            := StrToIntDef(contentfields.Values['RecepcionId'], 0);
+  ObservacionesRecepcion := contentfields.Values['ObservacionesRecepcion'];
+  ObservacionesRecepcion := StringReplace ( ObservacionesRecepcion, '\n', #13 + #10, [rfReplaceAll] );
 
-  ObservacionesAlbaran := StringReplace ( ObservacionesAlbaran, '\n', #13 + #10, [rfReplaceAll] );
-  ObservacionesFactura := StringReplace ( ObservacionesFactura, '\n', #13 + #10, [rfReplaceAll] );
+  {$ENDREGION}
+
+  {$REGION 'Actualització de dades'}
+
+  sSQL :=
+    'UPDATE FS_SGA_Recepciones ' +
+    'SET ' +
+    '  Observaciones = ''' + SQL_Str(ObservacionesRecepcion) + ''' ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND RecepcionId = ' + IntToStr(IdRecepcion);
+
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  LP := LOG_Clear();
+  LP.IdRecepcion := IdRecepcion;
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'UPDATE_OBS_REC', 'Actualizar observaciones recepción', @LP );
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Error":"","Data":[';
+  Result := Result + ']}';
+
+end;
+
+
+procedure WebModule1updateObservacionesPreparacionAction
+ ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  IdPreparacion: Integer;
+  ObservacionesAlbaran: String;
+  ObservacionesFactura: String;
+  ObservacionesPreparacion: String;
+  sSQL: String;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  // CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario            := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID                     := contentfields.Values['UUID'];
+  gaLogFile.MAC            := UUID;
+  IdPreparacion            := StrToIntDef(contentfields.Values['IdPreparacion'], 0);
+  ObservacionesAlbaran     := contentfields.Values['ObservacionesAlbaran'];
+  ObservacionesFactura     := contentfields.Values['ObservacionesFactura'];
+  ObservacionesPreparacion := contentfields.Values['ObservacionesPreparacion'];
+
+  ObservacionesAlbaran     := StringReplace ( ObservacionesAlbaran, '\n', #13 + #10, [rfReplaceAll] );
+  ObservacionesFactura     := StringReplace ( ObservacionesFactura, '\n', #13 + #10, [rfReplaceAll] );
+  ObservacionesPreparacion := StringReplace ( ObservacionesPreparacion, '\n', #13 + #10, [rfReplaceAll] );
 
   {$ENDREGION}
 
@@ -13458,7 +13799,8 @@ begin
     'UPDATE FS_SGA_Picking_Preparaciones ' +
     'SET ' +
     '  ObservacionesAlbaran = ''' + SQL_Str(ObservacionesAlbaran) + ''', ' +
-    '  ObservacionesFactura = ''' + SQL_Str(ObservacionesFactura) + ''' ' +
+    '  ObservacionesFactura = ''' + SQL_Str(ObservacionesFactura) + ''', ' +
+    '  Observaciones = ''' + SQL_Str(ObservacionesPreparacion) + ''' ' +
     'WHERE ' +
     '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
     '  AND PreparacionId = ' + IntToStr(IdPreparacion);
@@ -16218,7 +16560,7 @@ begin
     'SELECT ' +
     '  fsr.Estado, fsrl.*, T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
-    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, art.TipoArticulo, ' +
     '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
     '  CPP.Nombre ' +
     'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
@@ -16356,6 +16698,8 @@ begin
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
+      '"TipoArticulo":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('TipoArticulo').AsString)) + '",' +
+      '"DescripcionLinea":"' + JSON_Str(Q.FieldByName('DescripcionLinea').AsString) + '",' +
       '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
       '"DescripcionTalla":"' + JSON_Str(Q.FieldByName('DescripcionTalla').AsString) + '",' +
       '"GrupoTalla":' + IntToStr(Q.FieldByName('GrupoTalla_').AsInteger) + ',' +
@@ -19781,8 +20125,9 @@ begin
     'ORDER BY parametro_CodigoEmpresa DESC';
   gsPathRepositorio := Trim(SQL_Execute ( Conn, sSQL ));
   if gsPathRepositorio='' then
-    gsPathRepositorio := gsPath + '\labels';
+    gsPathRepositorio := gsPath;
   gsPathRepositorio := ExcludeTrailingBackslash(gsPathRepositorio);
+  gsPathRepositorio := gsPathRepositorio + '\labels';
 
   {$ENDREGION}
 
@@ -19925,8 +20270,9 @@ begin
     'ORDER BY parametro_CodigoEmpresa DESC';
   gsPathRepositorio := Trim(SQL_Execute ( Conn, sSQL ));
   if gsPathRepositorio='' then
-    gsPathRepositorio := gsPath + '\labels';
+    gsPathRepositorio := gsPath;
   gsPathRepositorio := ExcludeTrailingBackslash(gsPathRepositorio);
+  gsPathRepositorio := gsPathRepositorio + '\labels';
 
   if Printer.Printers.IndexOf(Impresora)<0 then
   begin
@@ -20171,8 +20517,9 @@ begin
     'ORDER BY parametro_CodigoEmpresa DESC';
   gsPathRepositorio := Trim(SQL_Execute ( Conn, sSQL ));
   if gsPathRepositorio='' then
-    gsPathRepositorio := gsPath + '\labels';
+    gsPathRepositorio := gsPath;
   gsPathRepositorio := ExcludeTrailingBackslash(gsPathRepositorio);
+  gsPathRepositorio := gsPathRepositorio + '\labels';
 
   {$ENDREGION}
 
@@ -20255,7 +20602,7 @@ begin
   begin
 
     sName := Printer.Printers[i];
-    if (Pos('redireccionado)', sName)=0) and (Pos('redirected)', sName)=0) then
+    if (Pos('redireccionado', sName)=0) and (Pos('redirected', sName)=0) then
     begin
       if ip>1 then
         Result := Result + ',';
@@ -29901,6 +30248,7 @@ var
   bClientDiferent: Boolean;
   bPedidoServido: Boolean;
   informesAuto: String;
+  lInformes: TStringList;
   informeAuto: Integer;
   bIsCustomReport: Boolean;
   iStatus: Integer;
@@ -29910,7 +30258,6 @@ var
   UUID: string;
   sGUIDOperacion: string;
   Impresora: string;
-  lInformes: TStringList;
 {$ENDREGION}
 
 begin
@@ -31406,6 +31753,9 @@ var
   FechaCaduca: TDate;
   Precio: Double;
   UnidadMedida: String;
+  informesAuto: String;
+  lInformes: TStringList;
+  informeAuto: Integer;
   FactorConversion: Double;
   aUbicacion: TSGAUbicacion;
   aUbicacionRechazos: TSGAUbicacion;
@@ -31432,6 +31782,9 @@ var
   FechaAlbaran: string;
   dFechaAlbaran: TDate;
   UUID: string;
+  Impresora: string;
+  sGUIDOperacion: string;
+  bIsCustomReport: Boolean;
 {$ENDREGION}
 
 begin
@@ -31464,6 +31817,9 @@ begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de recepción no especificado","Data":[]}';
     Exit;
   end;
+
+  informesAuto  := contentfields.Values['InformeAuto'];
+  Impresora     := contentfields.Values['Printer'];
 
   bIgnorarPendientes := true; // StrToBoolDef(contentfields.values['IgnorarPendientes'], false);
 
@@ -31593,7 +31949,7 @@ begin
 
   sSQL :=
     'SELECT ' +
-    '  lpp.TipoArticulo, art.TratamientoPartidas, srl.UnidadMedida1_ as UnidadMedidaPedido, srl.CodigoArticulo, ' +
+    '  lpp.EjercicioPedido, lpp.SeriePedido, lpp.NumeroPedido, lpp.TipoArticulo, art.TratamientoPartidas, srl.UnidadMedida1_ as UnidadMedidaPedido, srl.CodigoArticulo, ' +
     '  srl.GrupoTalla_, srl.CodigoTalla01_, srl.CodigoColor_, ' +
     '  srld.* ' +
     'FROM FS_SGA_Recepciones_Lineas srl WITH (NOLOCK) ' +
@@ -31763,8 +32119,10 @@ begin
 
   end;
 
-  Q.Close;
-  Q.Free;
+  if (informesAuto<>'') then
+    sGUIDOperacion   := SQL_GUID_ToStr(TGUID.NewGuid.ToString)
+  else
+    sGUIDOperacion   := '';
 
   // Enviem la instrucció al servei per generar l'albarà
   sOperparams :=
@@ -31780,7 +32138,8 @@ begin
     '"ImprimirFactura":"' + SQL_BooleanToStr(ImprimirFactura) + '",' +
     '"TipoFechaAlbaran":"' + TipoFechaAlbaran + '",' +
     '"FechaAlbaran":"' + FechaAlbaran + '",' +
-    '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '"' +
+    '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '",' +
+    '"IDOperacion":"' + SQL_GUID_ToStr(sGUIDOperacion) + '"' +
     '}';
 
   sSQL := 'INSERT INTO FS_Operations ( ' +
@@ -31806,6 +32165,87 @@ begin
       sMsg := E.Message;
     end;
   end;
+
+  // Afegim un 1 a oper_num_retries perquè no intenti generar el document
+  // més d'una vegada
+  if sGUIDOperacion='' then sGUIDOperacion := 'NULL'
+  else sGUIDOperacion := '''' + sGUIDOperacion + '''';
+
+  if (not bErr) and (informesAuto<>'') then
+  begin
+
+    lInformes := TStringList.Create;
+    lInformes.Delimiter := ',';
+    lInformes.StrictDelimiter := true;
+    lInformes.DelimitedText := informesAuto;
+
+    if (lInformes.Count>0) then
+      informeAuto := StrToIntDef(lInformes[0],0)
+    else
+      informeAuto := 0;
+
+    while (not bErr) and (informeAuto>0) do
+    begin
+
+      sOperParams := '{' +
+        '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
+        '"Informe":' + IntToStr(InformeAuto) + ',' +
+        '"Objeto":' + IntToStr(RecepcionId) + ',' +
+        '"EjercicioDocumento":' + IntToStr(YY) + ',' +
+        '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
+        '"SeriePedido":"' + JSON_Str(Q.FieldbyName('SeriePedido').asString) + '",' +
+        '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
+        '"Impresora":"' + JSON_Str(Impresora) + '",' +
+        '"Usuario":' + IntToStr(CodigoUsuario) +
+      '}';
+
+      PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_ActivarCustomReport, bIsCustomReport, CodigoEmpresa.EmpresaOrigen );
+
+      if bIsCustomReport then
+        sOperation := 'GENERARINFORME_CUSTOM'
+      else
+        sOperation := 'GENERARINFORME';
+
+      sSQL := 'INSERT INTO ' +
+              '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
+              '  oper_params, oper_CodigoEmpresa, oper_IdAlbaran ) ' +
+              'OUTPUT ' +
+                '  inserted.oper_id ' +
+              'VALUES ( ' +
+              '''' + SQL_Str(CONST_SGA) + ''', ' +
+              '''' + SQL_Str(sOperation) + ''', ' +
+              IntToStr(0) + ', ' +
+              '''' + SQL_Str(sRemoteAddr) + ''', ' +
+              SQL_DateTimeToStr ( Now() ) + ', ' +
+              '''' + sOperParams + ''', ' +
+              IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+              sGUIDOperacion +
+              ' );';
+
+      if not bErr then try
+        OperId := SQL_Insert_Identity ( Conn, sSQL, 'oper_id' );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+      lInformes.Delete(0);
+
+      if (lInformes.Count>0) then
+        informeAuto := StrToIntDef(lInformes[0],0)
+      else
+        informeAuto := 0;
+
+    end;
+
+    FreeAndNil(lInformes);
+
+  end;
+
+  Q.Close;
+  Q.Free;
 
   if OperId=-1 then begin
     bErr := TRUE;
@@ -41255,6 +41695,7 @@ begin
       '"NumeroPedido":"' + JSON_Str(Q.FieldByName('NumeroPedido').AsString) + '", ' +
       '"Ejercicio":' + Q.FieldByName('Ejercicio').AsString + ',' +
       '"Fecha":"' + FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('Fecha').AsDateTime) + '",' +
+      '"Observaciones":"' + JSON_Str(Trim(Q.FieldByName('Observaciones').AsString)) + '",' +
       '"CodigoCliente":"' + JSON_Str(Q.FieldByName('CodigoCliente').AsString) + '",' +
       '"AlmacenPreparacion":"' + JSON_Str(Q.FieldByName('AlmacenPreparacion').AsString) + '",' +
       '"UbicacionExpedicion":"' + JSON_Str(Q.FieldByName('UbicacionExpedicion').AsString) + '",' +
@@ -42615,7 +43056,7 @@ end;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
-// │ LLISTAR CAPÇALERA DE PREPARACIONS                                     │ \\
+// │ LLISTAR CAPÇALERA DE RECEPCIONS                                       │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
 procedure WebModule1listRecepcionesAction
  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -42737,23 +43178,23 @@ begin
   sSQL := 'SELECT ' +
           '  COUNT(DISTINCT r.RecepcionId) ' +
           'FROM FS_SGA_Recepciones r WITH (NOLOCK) ' +
-          'INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
-          'ON ' +
-          '  r.CodigoEmpresa = cpp.CodigoEmpresa AND ' +
-          '  r.EjercicioPedido = cpp.EjercicioPedido AND ' +
-          '  r.SeriePedido = cpp.SeriePedido AND ' +
-          '  r.NumeroPedido = cpp.NumeroPedido ' +
           'INNER JOIN FS_SGA_Recepciones_Lineas rl WITH (NOLOCK) ' +
           'ON ' +
           '  r.CodigoEmpresa = rl.CodigoEmpresa ' +
           '  AND r.RecepcionId = rl.RecepcionId ' +
           'INNER JOIN LineasPedidoProveedor LPP WITH (NOLOCK) ' +
           'ON rl.CodigoEmpresa = LPP.CodigoEmpresa ' +
-          'AND rl.EjercicioPedido = LPP.EjercicioPedido ' +
-          'AND rl.SeriePedido = LPP.SeriePedido ' +
-          'AND rl.NumeroPedido = LPP.NumeroPedido ' +
-          'AND rl.OrdenLineaPedido = LPP.Orden ' +
-          'AND rl.LineasPosicion = LPP.LineasPosicion ' +
+          '  AND rl.EjercicioPedido = LPP.EjercicioPedido ' +
+          '  AND rl.SeriePedido = LPP.SeriePedido ' +
+          '  AND rl.NumeroPedido = LPP.NumeroPedido ' +
+          '  AND rl.OrdenLineaPedido = LPP.Orden ' +
+          '  AND rl.LineasPosicion = LPP.LineasPosicion ' +
+          'INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
+          'ON ' +
+          '  LPP.CodigoEmpresa = cpp.CodigoEmpresa AND ' +
+          '  LPP.EjercicioPedido = cpp.EjercicioPedido AND ' +
+          '  LPP.SeriePedido = cpp.SeriePedido AND ' +
+          '  LPP.NumeroPedido = cpp.NumeroPedido ' +
           'WHERE ' +
           '  r.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
           //'  AND cpp.Estado = ' + IntToStr(Tipo) + ' ' +
@@ -42816,23 +43257,23 @@ begin
           '  ) AS NumLineasPendientes, ' +
           '  r.*, cpp.Nombre ' +
           'FROM FS_SGA_Recepciones r WITH (NOLOCK) ' +
-          'INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
-          'ON ' +
-          '  r.CodigoEmpresa = cpp.CodigoEmpresa AND ' +
-          '  r.EjercicioPedido = cpp.EjercicioPedido AND ' +
-          '  r.SeriePedido = cpp.SeriePedido AND ' +
-          '  r.NumeroPedido = cpp.NumeroPedido ' +
           'INNER JOIN FS_SGA_Recepciones_Lineas rl WITH (NOLOCK) ' +
           'ON ' +
           '  r.CodigoEmpresa = rl.CodigoEmpresa ' +
           '  AND r.RecepcionId = rl.RecepcionId ' +
           'INNER JOIN LineasPedidoProveedor LPP WITH (NOLOCK) ' +
           'ON rl.CodigoEmpresa = LPP.CodigoEmpresa ' +
-          'AND rl.EjercicioPedido = LPP.EjercicioPedido ' +
-          'AND rl.SeriePedido = LPP.SeriePedido ' +
-          'AND rl.NumeroPedido = LPP.NumeroPedido ' +
-          'AND rl.OrdenLineaPedido = LPP.Orden ' +
-          'AND rl.LineasPosicion = LPP.LineasPosicion ' +
+          '  AND rl.EjercicioPedido = LPP.EjercicioPedido ' +
+          '  AND rl.SeriePedido = LPP.SeriePedido ' +
+          '  AND rl.NumeroPedido = LPP.NumeroPedido ' +
+          '  AND rl.OrdenLineaPedido = LPP.Orden ' +
+          '  AND rl.LineasPosicion = LPP.LineasPosicion ' +
+          'INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
+          'ON ' +
+          '  LPP.CodigoEmpresa = cpp.CodigoEmpresa AND ' +
+          '  LPP.EjercicioPedido = cpp.EjercicioPedido AND ' +
+          '  LPP.SeriePedido = cpp.SeriePedido AND ' +
+          '  LPP.NumeroPedido = cpp.NumeroPedido ' +
           'WHERE ' +
           '  r.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
           //'  AND cpp.Estado = ' + IntToStr(Tipo) + ' ' +
@@ -42923,8 +43364,6 @@ begin
   FreeAndNil(Q);
 
   {$ENDREGION}
-
-
 
 end;
 
@@ -50700,6 +51139,60 @@ begin
 
   {$ENDREGION}
 
+end;
+
+
+procedure WebModule1getExtraInfoLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+var
+  RecepcionIdLinea: Integer;
+  sSQL: String;
+  contentfields: TStringList;
+  Q: TADOQuery;
+  sComentarios: String;
+  iEstado: Integer;
+  sFotos: String;
+begin
+  REQUEST_Split ( sParams, contentfields );
+  RecepcionIdLinea := StrToIntDef(contentfields.Values['RecepcionIdLinea'], 0);
+
+  sComentarios := '';
+  iEstado := 0;
+
+  Q := TADOQuery.Create(nil);
+  Q.Connection := Conn;
+  try
+    sSQL := 'SELECT Comentarios, EstadoRecep FROM FS_SGA_Recepciones_Lin_Info WHERE RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+    Q.SQL.Text := sSQL;
+    Q.Open;
+    if not Q.Eof then
+    begin
+      sComentarios := Q.FieldByName('Comentarios').AsString;
+      iEstado := Q.FieldByName('EstadoRecep').AsInteger;
+    end;
+    Q.Close;
+
+    // Recuperar fotos
+    sSQL := 'SELECT DataFotoBase64 FROM FS_SGA_Recepciones_Lin_Fotos WHERE RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+    Q.SQL.Text := sSQL;
+    Q.Open;
+    sFotos := '';
+    while not Q.Eof do
+    begin
+      if sFotos <> '' then sFotos := sFotos + ',';
+      sFotos := sFotos + '"' + JSON_StrWeb(Q.FieldByName('DataFotoBase64').AsString) + '"';
+      Q.Next;
+    end;
+    Q.Close;
+
+    Result := '{"Result":"OK","Error":"","Data":{' +
+      '"Comentarios":"' + JSON_StrWeb(sComentarios) + '",' +
+      '"EstadoRecep":' + IntToStr(iEstado) + ',' +
+      '"Fotos":[' + sFotos + ']' +
+      '}}';
+
+  finally
+    Q.Free;
+  end;
 end;
 
 

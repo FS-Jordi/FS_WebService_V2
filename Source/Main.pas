@@ -339,7 +339,10 @@ begin
     st := TSTringList.Create;
     st.LoadFromStream(ABody,TEncoding.UTF8);
     sParams := st.Text;
-    sParams := CanonicalizeUrl ( sParams, ICU_DECODE or ICU_NO_ENCODE );
+    if Length(sParams) > 60000 then
+      sParams := TIdURI.URLDecode(sParams)
+    else
+      sParams := CanonicalizeUrl ( sParams, ICU_DECODE or ICU_NO_ENCODE );
 
     while (RightStr(sParams,1)=#13) or (RightStr(sParams,1)=#10) do
     begin
@@ -683,6 +686,10 @@ begin
 
     else if (sCommand='/updateobservacionespreparacionOLD') then
       WebModule1updateObservacionesPreparacionAction
+        ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
+
+    else if (sCommand='/updateobservacionesrecepcionOLD') then
+      WebModule1updateObservacionesRecepcionAction
         ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse )
 
     else if (sCommand='/entradastockOLD') then
@@ -2114,6 +2121,74 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/updatedescripcionlinearecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updateDescripcionLineaRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/updateextrainfolinearecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updateExtraInfoLineaRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/uploadfotoslinearecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1uploadFotosLineaRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/getextrainfolinearecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getExtraInfoLineaRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/getpedidos') then
     begin
       TAsyncWebModuleThread.Create(
@@ -2240,6 +2315,23 @@ begin
       sParams,
       AConnection.PeerIP,
       @WebModule1getInfoPreparacionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/updateobservacionesrecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updateObservacionesRecepcionAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,

@@ -364,7 +364,7 @@ end;
 
 function CanonicalizeUrl(const Url: string; dwFlags: integer): WideString;
 var
-  Buffer: array[0..8192] of WideChar;
+  Buffer: array[0..65535] of WideChar;
   Size: DWORD;
   bResult: boolean;
 begin
