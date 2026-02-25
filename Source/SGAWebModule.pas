@@ -11197,7 +11197,7 @@ begin
     '      AND (dl.UdSaldo<0 OR dl.UdSaldoBase<0) ' +
     '      AND ART.TipoArticulo = ''M'' ' +
     '  ) AS NumLineasPendientes, ' +
-    '  d.*, CPC.Nombre ' +
+    '  d.*, CPC.FechaEntrega, CPC.Nombre ' +
     'FROM FS_SGA_Devoluciones d WITH (NOLOCK) ' +
     'INNER JOIN CabeceraPedidoCliente CPC WITH (NOLOCK) ' +
     'ON ' +
@@ -13454,7 +13454,33 @@ begin
 
   {$REGION 'Actualització de dades'}
 
-  sSQL := 'SELECT 1 FROM FS_SGA_Recepciones_Lin_Info WHERE RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+  sSQL :=
+    'UPDATE FS_SGA_Recepciones_Lineas ' +
+    'SET DescripcionLinea = ''' + SQL_Str(Comentarios) + ''' ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+    '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  sSQL :=
+    'UPDATE T1 ' +
+    'SET T1.DescripcionLinea = ''' + SQL_Str(Comentarios) + ''' ' +
+    'FROM LineasPedidoProveedor T1 ' +
+    'INNER JOIN FS_SGA_Recepciones_Lineas T2 ' +
+    'ON T1.CodigoEmpresa = T2.CodigoEmpresa ' +
+    '  AND T1.EjercicioPedido = T2.EjercicioPedido ' +
+    '  AND T1.SeriePedido = T2.SeriePedido ' +
+    '  AND T1.NumeroPedido = T2.NumeroPedido ' +
+    '  AND T1.LineasPosicion = T2.LineasPosicion ' +
+    'WHERE T2.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND T2.RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+    '  AND T2.RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  sSQL :=
+    'SELECT 1 FROM FS_SGA_Recepciones_Lin_Info ' +
+    'WHERE RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+    '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
   bExists := (SQL_Execute ( Conn, sSQL ) <> 0);
 
   if bExists then
@@ -24506,6 +24532,8 @@ var
   sFUNCCustom: String;
   sUnidadMedidaAlternativa: String;
   sUnidadMedida2: String;
+  fCantidad: Double;
+  fCantidadBase: Double;
 {$ENDREGION}
 
 begin
@@ -24595,6 +24623,9 @@ begin
       sUnidadMedida2           := '';
     end;
 
+    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, fCantidad, CodigoEmpresa.EmpresaOrigen );
+    fCantidadBase := fCantidad * Q.FieldByName('FactorConversion_').AsFloat;
+
     Result := Result +
       '{' +
       '"Tipo":1,' +
@@ -24621,8 +24652,8 @@ begin
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedida2)) + '",' +
       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
       '"ExtraField01":"' + JSON_Str(sExtraField01) + '",' +
-      '"Cantidad":1,' +
-      '"CantidadBase":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"Cantidad":' + SQL_FloatToStr(fCantidad) + ',' +
+      '"CantidadBase":' + SQL_FloatToStr(fCantidadBase) + ',' +
       JSonUnidadesMedida +
       '}';
 
@@ -30466,7 +30497,7 @@ begin
               IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
               '''CREARALBARANCLIENTE'', ' +
               '''' + CONST_SGA + ''', ' +
-              '''' + SQL_Str(NETWORK_LocalMAC()) + ''', ' +
+              '''' + SQL_Str(UUID) + ''', ' +
               '''' + SQL_Str(GetLocalIp) + ''', ' +
               SQL_DateTimeToStr(Now) + ', ' +
               '0, ' +
@@ -31143,7 +31174,7 @@ begin
           IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
           '''CREARDEVOLUCIONCLIENTE'',' +
           '''E4E8'',' +
-          '''' + SQL_Str(NETWORK_LocalMAC()) + ''',' +
+          '''' + SQL_Str(UUID) + ''',' +
           '''' + SQL_Str(GetLocalIp) + ''',' +
           SQL_DatetimeToStr(Now()) + ', ' +
           '0,' +
@@ -31640,7 +31671,7 @@ begin
           IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
           '''CREARDEVOLUCIONPROVEEDOR'',' +
           '''E4E8'',' +
-          '''' + SQL_Str(NETWORK_LocalMAC()) + ''',' +
+          '''' + SQL_Str(UUID) + ''',' +
           '''' + SQL_Str(GetLocalIp) + ''',' +
           SQL_DatetimeToStr(Now()) + ', ' +
           '0,' +
@@ -32151,7 +32182,7 @@ begin
           IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
           '''CREARALBARANPROVEEDOR'',' +
           '''E4E8'',' +
-          '''' + SQL_Str(NETWORK_LocalMAC()) + ''',' +
+          '''' + SQL_Str(UUID) + ''',' +
           '''' + SQL_Str(GetLocalIp) + ''',' +
           SQL_DatetimeToStr(Now()) + ', ' +
           '0,' +
@@ -32858,6 +32889,9 @@ begin
               SQL_DateTimeToStr ( FechaRegistro ) + ', ' +
               '''' + SQL_GUID_ToStr(gaMov.MovPosicion) + ''' )';
 
+      if Assigned(gaLogFile) then
+        gaLogFile.Write ( 'Realizamos INSERT TMPIME: ' + sSQL, CONST_LOGID_GENERAL, LOG_LEVEL_INFO );
+
       try
         SQL_Execute_NoRes ( Conn, sSQL );
       except
@@ -32918,10 +32952,12 @@ begin
 
       end;
 
-      sSQL := 'INSERT INTO ' +
-              '  FS_Operations ( oper_product_code, oper_name, oper_datetime, oper_status, oper_params, oper_CodigoEmpresa ) ' +
+      sSQL := 'INSERT INTO FS_Operations ( oper_product_code, oper_mac_address, ' +
+              '  oper_ip_address, oper_name, oper_datetime, oper_status, oper_params, oper_CodigoEmpresa ) ' +
               'VALUES ( ' +
               '''E4E8'', ' +
+              '''' + SQL_Str(UUID) + ''',' +
+              '''' + SQL_Str(GetLocalIp) + ''',' +
               '''MOVIMIENTOSTOCK'', ' +
               SQL_DateTimeToStr(Now()) + ', ' +
               '0, ' +
@@ -43083,6 +43119,7 @@ var
   lSortItems: TStringList;
   sortItem: String;
   sAscDesc: String;
+  sFechaRecepcion: string;
 {$ENDREGION}
 
 begin
@@ -43255,7 +43292,7 @@ begin
           '      AND lpp.Estado = 0 ' +
           '      AND (rl.UdSaldo>0 OR rl.UdSaldoBase>0) ' +
           '  ) AS NumLineasPendientes, ' +
-          '  r.*, cpp.Nombre ' +
+          '  r.*, cpp.FechaRecepcion, cpp.Nombre ' +
           'FROM FS_SGA_Recepciones r WITH (NOLOCK) ' +
           'INNER JOIN FS_SGA_Recepciones_Lineas rl WITH (NOLOCK) ' +
           'ON ' +
@@ -43282,6 +43319,62 @@ begin
           sSort + ' ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+
+  sSQL :=
+    'SELECT' +
+    '  x.NumLineasTotales, x.NumLineasPendientes, r.*, x.FechaRecepcionMin AS FechaRecepcion, ' +
+    '  x.NumPedidos, x.Nombre ' +
+    'FROM FS_SGA_Recepciones r WITH (NOLOCK) ' +
+    'OUTER APPLY ' +
+    '( ' +
+    '    SELECT ' +
+    '        COUNT(*) AS NumLineasTotales, ' +
+    '        SUM(CASE ' +
+    '                WHEN lpp.Estado = 0 ' +
+    '                  AND (rl.UdSaldo > 0 OR rl.UdSaldoBase > 0) ' +
+    '            THEN 1 ELSE 0 ' +
+    '            END) AS NumLineasPendientes, ' +
+    '        MIN(cpp.FechaRecepcion) AS FechaRecepcionMin, ' +
+    '        COUNT(DISTINCT CONCAT( ' +
+    '            lpp.CodigoEmpresa, ''|'', ' +
+    '            lpp.EjercicioPedido, ''|'', ' +
+    '            lpp.SeriePedido, ''|'', ' +
+    '            lpp.NumeroPedido ' +
+    '        )) AS NumPedidos, ' +
+    '        CASE ' +
+    '            WHEN COUNT(DISTINCT CONCAT( ' +
+    '                    lpp.CodigoEmpresa, ''|'', ' +
+    '                    lpp.EjercicioPedido, ''|'',' +
+    '                    lpp.SeriePedido, ''|'', ' +
+    '                    lpp.NumeroPedido ' +
+    '                 )) = 1 ' +
+    '            THEN MAX(cpp.Nombre) ' +
+    '            ELSE NULL ' +
+    '        END AS Nombre ' +
+    '    FROM FS_SGA_Recepciones_Lineas rl WITH (NOLOCK) ' +
+    '    INNER JOIN LineasPedidoProveedor lpp WITH (NOLOCK) ' +
+    '        ON rl.CodigoEmpresa     = lpp.CodigoEmpresa ' +
+    '       AND rl.EjercicioPedido   = lpp.EjercicioPedido ' +
+    '       AND rl.SeriePedido       = lpp.SeriePedido ' +
+    '       AND rl.NumeroPedido      = lpp.NumeroPedido ' +
+    '       AND rl.OrdenLineaPedido  = lpp.Orden ' +
+    '       AND rl.LineasPosicion    = lpp.LineasPosicion ' +
+    '    INNER JOIN CabeceraPedidoProveedor cpp WITH (NOLOCK) ' +
+    '        ON lpp.CodigoEmpresa    = cpp.CodigoEmpresa ' +
+    '       AND lpp.EjercicioPedido  = cpp.EjercicioPedido ' +
+    '       AND lpp.SeriePedido      = cpp.SeriePedido ' +
+    '       AND lpp.NumeroPedido     = cpp.NumeroPedido ' +
+    '    WHERE rl.CodigoEmpresa = r.CodigoEmpresa ' +
+    '      AND rl.RecepcionId  = r.RecepcionId ' +
+    ') x ' +
+    'WHERE r.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND r.Estado = 0 ' +
+    '  AND NumLineasTotales>0 ' +
+    sAndWhere +
+    'ORDER BY ' +
+    sSort + ' ' +
+    'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
+    'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
@@ -43327,6 +43420,11 @@ begin
     else
       sFechaFinRecepcion := FormatDateTime ( 'dd/mm/yyyy hh:nn:ss', Q.FieldByName('FechaFinRecepcion').AsDateTime);
 
+    if (Q.FieldByName('FechaRecepcion').IsNull) or (Q.FieldByName('FechaRecepcion').AsDateTime=0) then
+      sFechaRecepcion := ''
+    else
+      sFechaRecepcion := FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('FechaRecepcion').AsDateTime);
+
     Result := Result +
       '{' +
       '"CodigoEmpresa":' + Q.FieldByName('CodigoEmpresa').AsString + ',' +
@@ -43350,6 +43448,7 @@ begin
       '"Bultos":' + IntToStr(Q.FieldByName('Bultos').AsInteger) + ',' +
       '"Cajas":' + IntToStr(Q.FieldByName('Cajas').AsInteger) + ',' +
       '"Palets":' + IntToStr(Q.FieldByName('Palets').AsInteger) + ',' +
+      '"FechaRecepcion":"' + sFechaRecepcion + '",' +
       '"RefAlbaran":"' + JSON_Str(Q.FieldByName('RefNumeroAlbaran').AsString) + '",' +
       '"RefFechaAlbaran":"' + JSON_Str(sFechaAlbaranRef) + '"' +
       '}';
@@ -45856,6 +45955,8 @@ var
   CodigoColor: String;
   sExtraField01: String;
   sFUNCCustom: string;
+  fCantidad: Double;
+  fCantidadBase: Double;
 {$ENDREGION}
 
 begin
@@ -45987,6 +46088,9 @@ begin
       '}';
     *)
 
+    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, fCantidad, CodigoEmpresa.EmpresaOrigen );
+    fCantidadBase := fCantidad * Q.FieldByName('FactorConversion_').AsFloat;
+
     Result := Result +
       '{' +
       '"Tipo":1,' +
@@ -46011,8 +46115,8 @@ begin
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida2_').AsString)) + '",' +
       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
       '"ExtraField01":"' + JSON_Str(sExtraField01) + '",' +
-      '"Cantidad":0,' +
-      '"CantidadBase":0,' +
+      '"Cantidad":' + SQL_FloatToStr(fCantidadBase) + ',' +
+      '"CantidadBase":' + SQL_FloatToStr(fCantidadBase) + ',' +
       JSonUnidadesMedida +
       '}';
 

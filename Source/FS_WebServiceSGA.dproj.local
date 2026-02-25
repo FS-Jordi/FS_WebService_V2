@@ -38,9 +38,9 @@
     <Transaction>2022/03/17 09:23:34.000.887,=C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
     <Transaction>2022/04/27 11:09:16.000.350,=C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
     <Transaction>2022/06/03 13:17:18.000.369,=C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
-    <Transaction>2022/06/03 13:17:55.000.535,C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.pas=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.pas</Transaction>
-    <Transaction>2022/06/03 13:17:55.000.535,C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.dfm=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.dfm</Transaction>
-    <Transaction>2022/06/03 13:18:01.000.009,C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Project1.dproj=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\FS_WebServiceSGA.dproj</Transaction>
+    <Transaction>2022/06/03 13:17:55.000.535,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.dfm=C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.dfm</Transaction>
+    <Transaction>2022/06/03 13:17:55.000.535,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.pas=C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2022/06/03 13:18:01.000.009,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\FS_WebServiceSGA.dproj=C:\Users\jordi.casas\Documents\Embarcadero\Studio\Projects\Project1.dproj</Transaction>
     <Transaction>2022/06/03 13:18:05.000.574,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.pas=</Transaction>
     <Transaction>2022/06/03 13:18:12.000.731,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.pas</Transaction>
     <Transaction>2022/06/03 13:23:15.000.358,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Unit1.pas=</Transaction>
@@ -51,11 +51,11 @@
     <Transaction>2022/06/03 13:23:40.000.798,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_Process.pas</Transaction>
     <Transaction>2022/06/03 13:23:40.000.449,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_Network.pas</Transaction>
     <Transaction>2022/06/03 13:23:40.000.217,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_LogV2.pas</Transaction>
-    <Transaction>2022/06/03 13:23:41.000.150,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.pas</Transaction>
     <Transaction>2022/06/03 13:23:41.000.000,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SAGE.pas</Transaction>
+    <Transaction>2022/06/03 13:23:41.000.150,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.pas</Transaction>
     <Transaction>2022/06/03 13:23:55.000.997,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\products.inc</Transaction>
-    <Transaction>2022/06/03 13:24:09.000.920,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Globals.pas</Transaction>
     <Transaction>2022/06/03 13:24:09.000.802,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Functions.pas</Transaction>
+    <Transaction>2022/06/03 13:24:09.000.920,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Globals.pas</Transaction>
     <Transaction>2022/06/03 13:24:10.000.362,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\Main.pas</Transaction>
     <Transaction>2022/06/03 15:10:01.000.813,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\SAGE\FS_WEBSERVICESGA_CLEVER\Source\SGAWebModule.pas</Transaction>
     <Transaction>2022/07/05 16:12:37.000.835,=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_CODE128.pas</Transaction>
@@ -65,7 +65,7 @@
     <Transaction>2023/07/17 13:26:06.000.367,=\\pc-factorystart\tmp\Functions_SGA.guillem.pas</Transaction>
     <Transaction>2023/07/17 13:29:49.000.075,\\pc-factorystart\tmp\Functions_SGA.jordi.pas=</Transaction>
     <Transaction>2023/07/17 13:29:51.000.276,\\pc-factorystart\tmp\Functions_SGA.guillem.pas=</Transaction>
-    <Transaction>2023/07/17 13:30:00.000.004,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.JORDI.pas=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.pas</Transaction>
+    <Transaction>2023/07/17 13:30:00.000.004,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.pas=C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.JORDI.pas</Transaction>
     <Transaction>2023/07/17 13:30:05.000.636,C:\ARTECSOFT\Projectes\Programes\FACTORYSTART\COMMON\Functions_SGA.JORDI.pas=</Transaction>
     <Transaction>2023/07/17 13:30:30.000.230,=\\PC-FACTORYSTART\tmp\Functions_SGA.pas</Transaction>
     <Transaction>2023/07/17 13:34:54.000.142,\\PC-FACTORYSTART\tmp\Functions_SGA.pas=</Transaction>
