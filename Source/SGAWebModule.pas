@@ -298,6 +298,7 @@ procedure WebModule1clientesAction ( Conn: TADOConnection; sParams, sRemoteAddr:
 procedure WebModule1cadenasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1changePaletPackagingAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1findUbicacionMatriculaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1calcularPartidaAutoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 
 
 {
@@ -16646,6 +16647,78 @@ begin
     'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
     'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
+  sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'ART', '' );
+
+  sSQL :=
+    'SELECT ' +
+    '  fsr.Estado, fsrl.*, T.DescripcionTalla01_ AS DescripcionTalla, C.Color_ AS DescripcionColor, ' +
+    '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, art.TipoArticulo, ' +
+    '  ISNULL(agrup.DescripcionArticulo, ''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
+    '  CPP.Nombre, CALC.FechaRecepcionMinima ' +
+    'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
+    'INNER JOIN FS_SGA_Recepciones fsr WITH (NOLOCK) ' +
+    '    ON fsr.RecepcionId = fsrl.RecepcionId ' +
+    'INNER JOIN CabeceraPedidoProveedor CPP WITH (NOLOCK) ' +
+    '    ON CPP.CodigoEmpresa   = fsrl.CodigoEmpresa ' +
+    '   AND CPP.EjercicioPedido = fsrl.EjercicioPedido ' +
+    '   AND CPP.SeriePedido     = fsrl.SeriePedido ' +
+    '   AND CPP.NumeroPedido    = fsrl.NumeroPedido ' +
+    'CROSS APPLY ( ' +
+    '    SELECT ' +
+    '        MINX.MinFechaLPP, ' +
+    '        (SELECT MIN(v.dt) ' +
+    '         FROM (VALUES (CPP.FechaRecepcion), (MINX.MinFechaLPP)) v(dt) ' +
+    '        ) AS FechaRecepcionMinima ' +
+    '    FROM ( ' +
+    '        SELECT MIN(LPP2.FechaRecepcion) AS MinFechaLPP ' +
+    '        FROM FS_SGA_Recepciones_Lineas fsrl2 WITH (NOLOCK) ' +
+    '        INNER JOIN LineasPedidoProveedor LPP2 WITH (NOLOCK) ' +
+    '            ON fsrl2.CodigoEmpresa     = LPP2.CodigoEmpresa ' +
+    '           AND fsrl2.EjercicioPedido   = LPP2.EjercicioPedido ' +
+    '           AND fsrl2.SeriePedido       = LPP2.SeriePedido ' +
+    '           AND fsrl2.NumeroPedido      = LPP2.NumeroPedido ' +
+    '           AND fsrl2.OrdenLineaPedido  = LPP2.Orden ' +
+    '           AND fsrl2.LineasPosicion    = LPP2.LineasPosicion ' +
+    '        WHERE fsrl2.RecepcionId     = fsrl.RecepcionId ' +
+    '          AND fsrl2.CodigoEmpresa   = fsrl.CodigoEmpresa ' +
+    '          AND fsrl2.EjercicioPedido = fsrl.EjercicioPedido ' +
+    '          AND fsrl2.SeriePedido     = fsrl.SeriePedido ' +
+    '          AND fsrl2.NumeroPedido    = fsrl.NumeroPedido ' +
+    '    ) MINX ' +
+    ') CALC ' +
+    'LEFT JOIN dbo.FS_SGA_TABLE_Articulos( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
+    '    ON fsrl.CodigoArticulo = art.CodigoArticulo ' +
+    'LEFT JOIN Agrupaciones agrup WITH (NOLOCK) ' +
+    '    ON agrup.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Agrupaciones) + ' ' +
+    '   AND agrup.CodigoArticulo = fsrl.CodigoArticulo ' +
+    '   AND agrup.CodigoAgrupacion = fsrl.CodigoAgrupacion ' +
+    'LEFT JOIN Colores_ C WITH (NOLOCK) ' +
+    '    ON C.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Colores) + ' ' +
+    '   AND C.CodigoColor_ = fsrl.CodigoColor_ ' +
+    'LEFT JOIN Vis_VistaTallas T WITH (NOLOCK) ' +
+    '    ON T.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.GrupoTallas) + ' ' +
+    '   AND T.GrupoTalla_ = art.GrupoTalla_ ' +
+    '   AND T.CodigoTalla01_ = fsrl.CodigoTalla01_ ' +
+    'LEFT JOIN CodigosTallaColor CTC WITH (NOLOCK) ' +
+    '    ON CTC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.CodigosTallaColor) + ' ' +
+    '   AND CTC.CodigoArticulo = fsrl.CodigoArticulo ' +
+    '   AND CTC.CodigoTalla01_ = fsrl.CodigoTalla01_ ' +
+    '   AND CTC.CodigoColor_ = fsrl.CodigoColor_ ' +
+    'WHERE fsrl.RecepcionId = ' + IntToStr(RecepcionId) + ' ';
+
+  if Linea<>0 then
+  begin
+    sSQL := sSQL +
+      'AND fsrl.RecepcionIdLinea = ' + IntToStr(Linea) + ' ';
+  end;
+
+  sSQL := sSQL +
+    'ORDER BY ' +
+    sOrderBy +
+    'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
+    'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
     Q.Open;
@@ -16718,7 +16791,7 @@ begin
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
       '"Agrupacion":"' + JSON_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
       '"UnidadesAgrupacion":' + SQL_FloatToStr(UnidadesAgrupacion) + ',' +
-      '"FechaRecepcion":"' + Q.FieldByName('FechaRecepcion').AsString + '",' +
+      '"FechaRecepcion":"' + Q.FieldByName('FechaRecepcionMinima').AsString + '",' +
       '"FechaCaduca":"' + sFechaCaduca + '",' +
       '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
@@ -30515,6 +30588,9 @@ begin
         if sGUIDOperacion='' then sGUIDOperacion := 'NULL'
         else sGUIDOperacion := '''' + sGUIDOperacion + '''';
 
+        // Afegim els càlculs posteriors a la creació de l'albarà
+        FS_SGA_AddCalculosOperations ( Conn, CodigoEmpresa, 'AlbaranCliente', sGUIDOperacion, lstSQL, iSQLidx );
+
         if informesAuto<>'' then
         begin
 
@@ -30553,16 +30629,17 @@ begin
             iStatus    := 0;
 
             sSQL := 'INSERT INTO ' +
-                    '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_ip_address, oper_datetime,' +
-                    '  oper_params, oper_CodigoEmpresa, oper_IdAlbaran ) ' +
+                    '  FS_Operations ( oper_product_code, oper_name, oper_status, oper_datetime,' +
+                    '  oper_mac_address, oper_ip_address, oper_params, oper_CodigoEmpresa, oper_IdAlbaran ) ' +
                     'OUTPUT ' +
                       '  inserted.oper_id ' +
                     'VALUES ( ' +
                     '''' + SQL_Str(CONST_SGA) + ''', ' +
                     '''' + SQL_Str(sOperation) + ''', ' +
                     IntToStr(iStatus) + ', ' +
-                    '''' + SQL_Str(sRemoteAddr) + ''', ' +
                     SQL_DateTimeToStr ( Now() ) + ', ' +
+                    '''' + SQL_Str(NETWORK_LocalMAC()) + ''', ' +
+                    '''' + SQL_Str(GetLocalIp()) + ''', ' +
                     '''' + sOperParams + ''', ' +
                     IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
                     sGUIDOperacion +
@@ -43334,7 +43411,7 @@ begin
     '                  AND (rl.UdSaldo > 0 OR rl.UdSaldoBase > 0) ' +
     '            THEN 1 ELSE 0 ' +
     '            END) AS NumLineasPendientes, ' +
-    '        MIN(cpp.FechaRecepcion) AS FechaRecepcionMin, ' +
+    '        MIN(lpp.FechaRecepcion) AS FechaRecepcionMin, ' +
     '        COUNT(DISTINCT CONCAT( ' +
     '            lpp.CodigoEmpresa, ''|'', ' +
     '            lpp.EjercicioPedido, ''|'', ' +
@@ -43368,7 +43445,6 @@ begin
     '      AND rl.RecepcionId  = r.RecepcionId ' +
     ') x ' +
     'WHERE r.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND r.Estado = 0 ' +
     '  AND NumLineasTotales>0 ' +
     sAndWhere +
     'ORDER BY ' +
@@ -45118,6 +45194,86 @@ begin
 
   Result := Result +
     ']}';
+
+  {$ENDREGION}
+
+end;
+
+
+procedure WebModule1calcularPartidaAutoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  sSQL: String;
+  Q: TADOQuery;
+  EmpresaOrigen: Integer;
+  contentfields: TStringList;
+  CodigoUsuario: Integer;
+  RecepcionId: Integer;
+  CodigoArticulo: String;
+  PartidaProveedor: String;
+  sFUNCCustom: String;
+  YY: WORD;
+  Partida: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario    := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  CodigoArticulo   := contentfields.values['CodigoArticulo'];
+  PartidaProveedor := contentfields.values['PartidaProveedor'];
+  YY               := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Date() );
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperar la partida'}
+
+  if SQL_Function_Exists ( Conn, 'FS_SGA_RECEPCION_Partida', sFUNCCustom ) then
+  begin
+
+    sSQL :=
+      'SELECT dbo.[' + sFUNCCustom + '] ( ' +
+      IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+      IntToStr(CodigoEmpresa.Articulos) + ', ' +
+      IntToStr(YY) + ', ' +
+      IntToStr(RecepcionId) + ', ' +
+      '''' + SQL_Str(CodigoArticulo) + ''', ' +
+      '''' + SQL_Str(PartidaProveedor) + ''' ' +
+      ')';
+
+    try
+      Partida := SQL_Execute ( Conn, sSQL );
+    except
+      on E:Exception do begin
+        // ShowMessage('Error al calcular el precio del movimiento del artículo ' + CodigoArticulo );
+        Partida := '';
+      end;
+    end;
+
+  end else Partida := '';
+
+  Result :=
+    '{"Result":"OK","Error":"","Data":[{' +
+    '"Partida":"' + JSON_Str(Partida) + '"' +
+    '}]}';
 
   {$ENDREGION}
 

@@ -1469,6 +1469,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/calcularpartidaauto') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1calcularPartidaAutoAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/restartservice') then
     begin
       TAsyncWebModuleThread.Create(
