@@ -406,7 +406,12 @@ begin
 
   FreeAndNil(SLHeader);
 
-  sResponse := '{"Result":"OK","Error":"","Data":"SGA - Servidor web v0.1"}';
+  sResponse := '{"Result":"OK","Error":"","Data":[' +
+    '{' +
+    '"Name":"FS-SGA WebService",' +
+    '"Version":"' + TVSFixedFileInfo.FileVersion + '",' +
+    '"customerCode":"' + gsCustomerCode + '"' +
+    '}]}';
   statusCode := 200;
   statusText := 'OK';
 

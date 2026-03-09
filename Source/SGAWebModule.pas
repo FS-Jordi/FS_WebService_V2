@@ -2644,7 +2644,12 @@ procedure WebModule1DefaultHandlerAction
  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 begin
 
-  Result := '{"Result":"OK","Error":"","Data":"SGA - Servidor web v0.1"}';
+  Result := '{"Result":"OK","Error":"","Data":[' +
+    '{' +
+    '"Name":"FS-SGA WebService",' +
+    '"Version":"' + TVSFixedFileInfo.FileVersion + '",' +
+    '"customerCode":"' + gsCustomerCode + '"' +
+    '}]}';
 
 end;
 
@@ -16589,7 +16594,8 @@ begin
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, art.TipoArticulo, ' +
     '  ISNULL(agrup.DescripcionArticulo,''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
-    '  CPP.Nombre ' +
+    '  CPP.Nombre, ' +
+    '  (SELECT COUNT(RecepcionIdLinea) FROM FS_SGA_Recepciones_Lin_Fotos WITH (NOLOCK) WHERE RecepcionIdLinea = fsrl.RecepcionIdLinea) AS NumFotos ' +
     'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Recepciones fsr WITH (NOLOCK) ' +
     'ON fsr.RecepcionId = fsrl.RecepcionId ' +
@@ -16655,7 +16661,8 @@ begin
     '  art.GrupoTalla_, art.Colores_, art.TratamientoPartidas, art.CodigoAlternativo, art.CodigoAlternativo2, ' +
     '  CTC.CodigoAlternativo AS CodigoAlternativoTC, art.Descripcion2Articulo, art.TipoArticulo, ' +
     '  ISNULL(agrup.DescripcionArticulo, ''Unidades'') AS Agrupacion, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc, ' +
-    '  CPP.Nombre, CALC.FechaRecepcionMinima ' +
+    '  CPP.Nombre, CALC.FechaRecepcionMinima, ' +
+    '  (SELECT COUNT(RecepcionIdLinea) FROM FS_SGA_Recepciones_Lin_Fotos WITH (NOLOCK) WHERE RecepcionIdLinea = fsrl.RecepcionIdLinea) AS NumFotos ' +
     'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Recepciones fsr WITH (NOLOCK) ' +
     '    ON fsr.RecepcionId = fsrl.RecepcionId ' +
@@ -16799,6 +16806,7 @@ begin
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
       '"TipoArticulo":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('TipoArticulo').AsString)) + '",' +
       '"DescripcionLinea":"' + JSON_Str(Q.FieldByName('DescripcionLinea').AsString) + '",' +
+      '"NumFotos":' + IntToStr(Q.FieldByName('NumFotos').AsInteger) + ',' +
       '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
       '"DescripcionTalla":"' + JSON_Str(Q.FieldByName('DescripcionTalla').AsString) + '",' +
       '"GrupoTalla":' + IntToStr(Q.FieldByName('GrupoTalla_').AsInteger) + ',' +
@@ -16808,7 +16816,6 @@ begin
       '"LineaPedidoTalla":"' + JSON_Str(Q.FieldByName('LineaPedidoTalla').AsString) + '",' +
       '"OrdenDetalleTalla":' + IntToStr(Q.FieldByName('OrdenDetalleTalla').AsInteger) + ',' +
       JSonUnidadesMedida +
-
       '}';
 
     Q.Next;
@@ -24035,10 +24042,10 @@ begin
     '"LineasRecibidas":' + IntToStr(SR.LineasRecibidasTotal) + ',' +
     '"LineasRecibidasParcial":' + IntToStr(SR.LineasRecibidasParcial) + ',' +
     '"UnidadesPendientes":' + SQL_FloatToStr(SR.UnidadesPendientes) + ', ' +
+    '"RecepcionIdVinculada":' + IntToStr(SR.RecepcionIdVinculada) + ',' +
+    '"Albaran":"' + JSON_Str(SR.Albaran) + '",' +
     '"Cajas":' + IntToStr(SR.Cajas) + ',' +
     '"Palets":' + IntToStr(SR.Palets) + '}]}';
-
-
 
 end;
 
@@ -31893,6 +31900,9 @@ var
   Impresora: string;
   sGUIDOperacion: string;
   bIsCustomReport: Boolean;
+  bMantenerAbierta: Boolean;
+  RecepcionIdVinculada: Integer;
+  IdAlbaranPro: String;
 {$ENDREGION}
 
 begin
@@ -31930,6 +31940,7 @@ begin
   Impresora     := contentfields.Values['Printer'];
 
   bIgnorarPendientes := true; // StrToBoolDef(contentfields.values['IgnorarPendientes'], false);
+  bMantenerAbierta   := (StrToIntDef(contentfields.values['MantenerAbierta'], 0) <> 0);
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_FechaAlbaranRecepcion, paramFechaAlbaran, CodigoEmpresa.EmpresaOrigen );
   if paramFechaAlbaran='FECHA DE PROCESO' then
@@ -31968,7 +31979,7 @@ begin
   {$REGION 'Generar albarà de recepció'}
 
   sSQL := 'SELECT ' +
-          '  Albaran, Fecha, CodigoProveedor ' +
+          '  Albaran, IdAlbaranPro, Fecha, CodigoProveedor, RecepcionIdVinculada ' +
           'FROM FS_SGA_Recepciones WITH (NOLOCK) ' +
           'WHERE ' +
           '  RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
@@ -31984,12 +31995,39 @@ begin
     Exit;
   end;
 
-  Albaran         := Q.FieldByName('Albaran').AsString;
-  dFechaAlbaran   := Trunc(Q.FieldByName('Fecha').AsDateTime);
-  CodigoProveedor := Q.FieldByName('CodigoProveedor').AsString;
+  Albaran              := Q.FieldByName('Albaran').AsString;
+  IdAlbaranPro         := SQL_GUID_ToStr(Q.FieldByName('IdAlbaranPro').AsString);
+  dFechaAlbaran        := Trunc(Q.FieldByName('Fecha').AsDateTime);
+  CodigoProveedor      := Q.FieldByName('CodigoProveedor').AsString;
+  RecepcionIdVinculada := Q.FieldByName('RecepcionIdVinculada').AsInteger;
 
   Q.Close;
   FreeAndNil(Q);
+
+  if RecepcionIdVinculada>0 then
+  begin
+
+    sSQL :=
+      'SELECT Albaran, IdAlbaranPro ' +
+      'FROM FS_SGA_Recepciones WITH (NOLOCK) ' +
+      'WHERE RecepcionId = ' + IntToStr(RecepcionIdVinculada);
+
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    Q.Open;
+
+    if not Q.EOF then
+    begin
+      Albaran      := Q.FieldByName('Albaran').AsString;
+      IdAlbaranPro := SQL_GUID_ToStr(Q.FieldByName('IdAlbaranPro').AsString);
+    end else begin
+      Albaran      := '';
+      IdAlbaranPro := '';
+    end;
+
+    Q.Close;
+    FreeAndNil(Q);
+
+  end;
 
   sSQL := 'SELECT ' +
           '  SUM(UdPedidas) AS UnidadesPedidas, SUM(UdRecibidas) AS UnidadesRecibidas, ' +
@@ -32040,6 +32078,13 @@ begin
 
   sMsg := '';
   bErr := FALSE;
+
+  //...Abans d'esborrar la recepció, mirem si hem de mantenir oberta la recepció
+  //...i traspassem els restos a la nova recepció
+  if bMantenerAbierta then
+  begin
+    FS_SGA_Recepcion_CrearRestos ( Conn, CodigoEmpresa, RecepcionId );
+  end;
 
   //...primer borrem totes aquelles linies de la recepción on no s'hagi recepcionat cap Unitat
   sSQL := 'DELETE FROM FS_SGA_Recepciones_Lineas ' +
@@ -32232,6 +32277,9 @@ begin
   else
     sGUIDOperacion   := '';
 
+  if IdAlbaranPro=GUID0 then IdAlbaranPro := 'NULL'
+  else IdAlbaranPro := '''' + IDAlbaranPro + '''';
+
   // Enviem la instrucció al servei per generar l'albarà
   sOperparams :=
     '{' +
@@ -32247,12 +32295,14 @@ begin
     '"TipoFechaAlbaran":"' + TipoFechaAlbaran + '",' +
     '"FechaAlbaran":"' + FechaAlbaran + '",' +
     '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '",' +
-    '"IDOperacion":"' + SQL_GUID_ToStr(sGUIDOperacion) + '"' +
+    '"IDOperacion":"' + SQL_GUID_ToStr(sGUIDOperacion) + '",' +
+    '"MantenerAbierta":"' + SQL_BooleanToStr(bMantenerAbierta) + '"' +
     '}';
 
   sSQL := 'INSERT INTO FS_Operations ( ' +
           '  oper_CodigoEmpresa, oper_name, oper_product_code, oper_mac_address, ' +
-          '  oper_ip_address, oper_datetime, oper_status, oper_params ) ' +
+          '  oper_ip_address, oper_datetime, oper_status, oper_params, oper_Albaran, ' +
+          '  oper_IdAlbaran ) ' +
           'OUTPUT ' +
           '  inserted.oper_id ' +
           'VALUES ( ' +
@@ -32263,7 +32313,10 @@ begin
           '''' + SQL_Str(GetLocalIp) + ''',' +
           SQL_DatetimeToStr(Now()) + ', ' +
           '0,' +
-          '''' + SQL_Str(sOperparams) + ''')';
+          '''' + SQL_Str(sOperparams) + ''', ' +
+          '''' + SQL_Str(Albaran) + ''', ' +
+          IdAlbaranPro + ' ' +
+          ' )';
 
   if not bErr then try
     OperId := SQL_Insert_Identity ( Conn, sSQL, 'oper_id' );
@@ -32360,10 +32413,12 @@ begin
     sMsg := 'Error al enviar la operación a SAGE';
   end;
 
-  sSQL := 'UPDATE ' +
-          '  FS_SGA_Recepciones ' +
-          'SET ' +
-          '  Estado = 3, ' +
+  if bMantenerAbierta and (UnidadesPendientesBase > 0) then
+    sSQL := 'UPDATE FS_SGA_Recepciones SET Estado = 1, '
+  else
+    sSQL := 'UPDATE FS_SGA_Recepciones SET Estado = 3, ';
+
+  sSQL := sSQL +
           '  Oper_Id = ' + IntToStr(OperId) + ' ' +
           'WHERE ' +
           '  RecepcionId = ' + IntToStr(RecepcionId);
@@ -36170,6 +36225,7 @@ var
   bErr: Boolean;
   sMsg: string;
   Partida: string;
+  PartidaProveedor: string;
   CodigoAlmacen: String;
   CodigoUbicacion: String;
   CodigoAlmacenRechazos: String;
@@ -36446,6 +36502,7 @@ begin
     Caja                      := StrToIntDef(_Get_JSonValue ( JSonArrayD, 'Caja' ),1);
     Palet                     := StrToIntDef(_Get_JSonValue ( JSonArrayD, 'Palet' ),1);
     Partida                   := (_Get_JSonValue ( JSonArrayD, 'Partida' ));
+    PartidaProveedor          := (_Get_JSonValue ( JSonArrayD, 'PartidaProveedor' ));
     FechaCaduca               := Trim(_Get_JSonValue ( JSonArrayD, 'FechaCaduca' ));
     Verificacion              := AnsiUpperCase((_Get_JSonValue ( JSonArrayD, 'Verificacion' )));
     AnomaliaId                := StrToIntDef(_Get_JSonValue ( JSonArrayD, 'AnomaliaId' ),0);
@@ -36490,6 +36547,7 @@ begin
       '  Caja = ' + IntToStr(Caja) + ', ' +
       '  Palet = ' + IntToStr(Palet) + ', ' +
       '  Partida = ''' + SQL_Str(Partida) + ''', ' +
+      '  PartidaProveedor = ''' + SQL_Str(PartidaProveedor) + ''', ' +
       '  FechaCaducidad = ' + SQL_DateToStr(dFechaCaduca) + ', ' +
       '  Verificacion = ''' + SQL_Str(Verificacion) + ''', ' +
       '  AnomaliaId = ' + IntToStr(AnomaliaId) + ', ' +
@@ -36517,7 +36575,7 @@ begin
     sSQL :=
       'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle ( ' +
       '  RecepcionId, RecepcionIdLinea, Ejercicio, CodigoAlmacen, CodigoUbicacion, CodigoAlmacenRechazos, ' +
-      '  CodigoUbicacionRechazos, Matricula, MatriculaRechazos, Caja, Palet, Partida, FechaCaducidad, Verificacion, AnomaliaId, ' +
+      '  CodigoUbicacionRechazos, Matricula, MatriculaRechazos, Caja, Palet, Partida, PartidaProveedor, FechaCaducidad, Verificacion, AnomaliaId, ' +
       '  Precio, UnidadMedida1_, UnidadesEntrada, CantidadErrorEntrada, FechaRegistro, UnidadMedidaBase, ' +
       '  UnidadesEntradaBase, UnidadesErrorBase, CodigoAgrupacion, UnidadesAgrupacion, ' +
       '  CodigoAgrupacionRechazos,  UnidadesAgrupacionRechazos, FactorConversion, FactorConversionRechazos, ' +
@@ -36535,6 +36593,7 @@ begin
       IntToStr(Caja) + ', ' +
       IntToStr(Palet) + ', ' +
       '''' + SQL_Str(Partida) + ''', ' +
+      '''' + SQL_Str(PartidaProveedor) + ''', ' +
       SQL_DateToStr(dFechaCaduca) + ', ' +
       '''' + SQL_Str(Verificacion) + ''', ' +
       IntToStr(AnomaliaId) + ', ' +
