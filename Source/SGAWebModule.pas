@@ -2683,6 +2683,7 @@ var
   RecepcionIdLinea: Integer;
 
   contentfields: TStringList;
+  sWhereLineas: String;
 {$ENDREGION}
 
 begin
@@ -2726,6 +2727,11 @@ begin
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CodigoUbicacionRecepcion,         CodigoUbicacionRecepcion, CodigoEmpresa.EmpresaOrigen );
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CodigoUbicacionRecepcionRechazos, CodigoUbicacionRechazos, CodigoEmpresa.EmpresaOrigen );
 
+  if Pos(',', contentfields.Values['RecepcionIdLinea']) > 0 then
+    sWhereLineas := 'fsrld.RecepcionIdLinea IN (' + contentfields.Values['RecepcionIdLinea'] + ')'
+  else
+    sWhereLineas := 'fsrld.RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+
   {$ENDREGION}
 
   {$REGION 'Recuperació de totals'}
@@ -2743,7 +2749,7 @@ begin
           'ON ' +
           '  art.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
           'WHERE ' +
-          '  fsrld.RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea) + ' AND ' +
+          '  ' + sWhereLineas + ' AND ' +
           '  fsrld.RecepcionId = ' + IntToStr(RecepcionId);
 
   (*
@@ -2815,7 +2821,7 @@ begin
     'ON ' +
     '  art.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
     'WHERE ' +
-    '  fsrld.RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea) + ' AND ' +
+    '  ' + sWhereLineas + ' AND ' +
     '  fsrld.RecepcionId = ' + IntToStr(RecepcionId) +
     'ORDER BY ' +
     '  fsrld.RecepcionIdLineaDetalle';
@@ -16447,7 +16453,6 @@ var
   CodigoUsuario: Integer;
   CodigoUbicacionRecepcion: String;
   CodigoUbicacionRechazos: String;
-
   contentfields: TStringList;
   UnidadesAgrupacion: Double;
   JSonUnidadesMedida: string;
@@ -16455,6 +16460,9 @@ var
   Pending: Boolean;
   sFechaCaduca: String;
   sFieldTratamientoSeries: string;
+  LineaAgrupacion: String;
+  LineaPedido: String;
+  LineasAgrupadasJson: String;
 {$ENDREGION}
 
 begin
@@ -16597,6 +16605,11 @@ begin
     '  CPP.Nombre, ' +
     '  (SELECT COUNT(RecepcionIdLinea) FROM FS_SGA_Recepciones_Lin_Fotos WITH (NOLOCK) WHERE RecepcionIdLinea = fsrl.RecepcionIdLinea) AS NumFotos ' +
     'FROM FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
+    'LEFT JOIN FS_SGA_Recepciones_Lineas_Agrupadas fsrla WITH (NOLOCK) ' +
+    'ON ' +
+    '  fsrla.CodigoEmpresa = fsrl.CodigoEmpresa ' +
+    '  AND fsrla.RecepcionId = fsrl.RecepcionId ' +
+    '  AND fsrla.LineasAgrupada = fsrl.LineasPosicion ' +
     'INNER JOIN FS_SGA_Recepciones fsr WITH (NOLOCK) ' +
     'ON fsr.RecepcionId = fsrl.RecepcionId ' +
     'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
@@ -16726,6 +16739,7 @@ begin
     'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
     'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
+  gaLogFile.Write(sSQL);
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
     Q.Open;
@@ -16760,6 +16774,13 @@ begin
       sFechaCaduca := FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaCaduca').AsDateTime)
     else
       sFechaCaduca := '';
+
+    LineasAgrupadasJson := FS_SGA_RECEPCION_Lineas_Agrupadas (
+      Conn,
+      CodigoEmpresa,
+      RecepcionId,
+      Q.FieldByName('LineasPosicion').AsString
+    );
 
     Result := Result +
       '{' +
@@ -16816,6 +16837,7 @@ begin
       '"LineaPedidoTalla":"' + JSON_Str(Q.FieldByName('LineaPedidoTalla').AsString) + '",' +
       '"OrdenDetalleTalla":' + IntToStr(Q.FieldByName('OrdenDetalleTalla').AsInteger) + ',' +
       JSonUnidadesMedida +
+      ',"LineasAgrupadas":[' + LineasAgrupadasJson + ']' +
       '}';
 
     Q.Next;
@@ -16828,8 +16850,6 @@ begin
   FreeAndNil(Q);
 
   {$ENDREGION}
-
-
 
 end;
 
@@ -36282,7 +36302,18 @@ var
   NumeroSerie: String;
   NumeroSerieFabricante: String;
   CantidadSerie: Integer;
-
+  JSonValueDist: TJSONValue;
+  JSonArrayDist: TJSONArray;
+  lJSonValueDist: TJSONValue;
+  iSer, iSerR: Integer;
+  iLoop: Integer;
+  iLoopSerie: Integer;
+  fAuxDistUdEntrada: Double;
+  fAuxDistUdRechazo: Double;
+  sAuxSQL: String;
+  DistRecepcionIdLinea: Integer;
+  DistUnidadesEntradaBase: Double;
+  DistUnidadesRechazoBase: Double;
 {$ENDREGION}
 
 begin
@@ -36533,165 +36564,303 @@ begin
 
   end;
 
-  if (RecepcionIdLinea<>-1) and (RecepcionIdLineaDetalle<>-1) then begin
+  if JSonValueD.FindValue('Distribucion') <> nil then begin
+    JSonValueDist := TJSONObject(JSonValueD).Get('Distribucion').JsonValue;
+  end else begin
+    JSonValueDist := nil;
+  end;
 
-    sSQL :=
-      'UPDATE FS_SGA_Recepciones_Lineas_Detalle ' +
-      'SET ' +
-      '  CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''', ' +
-      '  CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''', ' +
-      '  Matricula = ''' + SQL_Str(Matricula) + ''', ' +
-      '  CodigoAlmacenRechazos = ''' + SQL_Str(CodigoAlmacenRechazos) + ''', ' +
-      '  CodigoUbicacionRechazos = ''' + SQL_Str(CodigoUbicacionRechazos) + ''', ' +
-      '  MatriculaRechazos = ''' + SQL_Str(MatriculaRechazos) + ''', ' +
-      '  Caja = ' + IntToStr(Caja) + ', ' +
-      '  Palet = ' + IntToStr(Palet) + ', ' +
-      '  Partida = ''' + SQL_Str(Partida) + ''', ' +
-      '  PartidaProveedor = ''' + SQL_Str(PartidaProveedor) + ''', ' +
-      '  FechaCaducidad = ' + SQL_DateToStr(dFechaCaduca) + ', ' +
-      '  Verificacion = ''' + SQL_Str(Verificacion) + ''', ' +
-      '  AnomaliaId = ' + IntToStr(AnomaliaId) + ', ' +
-      '  Precio = ' + SQL_FloatToStr(Precio) + ', ' +
-      '  UnidadMedida1_ = ''' + SQL_Str(UnidadMedida) + ''', ' +
-      '  UnidadesEntrada = ' + SQL_FloatToStr(UnidadesEntrada * UnidadesAgrupacion) + ', ' +
-      '  CantidadErrorEntrada = ' + SQL_FloatToStr(UnidadesRechazo * UnidadesAgrupacionRechazo) + ', ' +
-      '  FechaRegistro = ' + SQL_DateTimeToStr(Now()) + ', ' +
-      '  UnidadMedidaBase = ''' + SQL_Str(UnidadMedidaBase) + ''', ' +
-      '  UnidadesEntradaBase = ' + SQL_FloatToStr(UnidadesEntradaBase) + ', ' +
-      '  UnidadesErrorBase = ' + SQL_FloatToStr(UnidadesRechazoBase) + ', ' +
-      '  CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ', ' +
-      '  UnidadesAgrupacion = ' + SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
-      '  CodigoAgrupacionRechazos = ' + IntToStr(CodigoAgrupacionRechazo) + ', ' +
-      '  UnidadesAgrupacionRechazos = ' + SQL_FloatToStr(UnidadesAgrupacionRechazo) + ', ' +
-      '  FactorConversion = ' + SQL_FloatToStr(FactorConversion) + ', ' +
-      '  FactorConversionRechazos = ' + SQL_FloatToStr(FactorConversionRechazo) + ' ' +
-      'WHERE ' +
-      '  RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
-      '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea) + ' ' +
-      '  AND RecepcionIdLineaDetalle = ' + IntToStr(RecepcionIdLineaDetalle) + ' ';
+  if (JSonValueDist <> nil) and (JSonValueDist is TJSONArray) and (TJSONArray(JSonValueDist).Count > 0) then begin
+
+    JSonArrayDist := TJSONArray(JSonValueDist);
+    iSer  := 0;
+    iSerR := 0;
+
+    for lJSonValueDist in JSonArrayDist do begin
+
+      DistRecepcionIdLinea    := StrToIntDef(_Get_JSonValue(lJSonValueDist, 'RecepcionIdLinea'), 0);
+      DistUnidadesEntradaBase := FS_StrToFloatDef(_Get_JSonValue(lJSonValueDist, 'UnidadesEntradaBase'), 0);
+      DistUnidadesRechazoBase := FS_StrToFloatDef(_Get_JSonValue(lJSonValueDist, 'UnidadesRechazoBase'), 0);
+
+      if FactorConversion <> 0 then fAuxDistUdEntrada := DistUnidadesEntradaBase / FactorConversion else fAuxDistUdEntrada := DistUnidadesEntradaBase;
+      if FactorConversionRechazo <> 0 then fAuxDistUdRechazo := DistUnidadesRechazoBase / FactorConversionRechazo else fAuxDistUdRechazo := DistUnidadesRechazoBase;
+
+      sSQL :=
+        'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle ( ' +
+        '  RecepcionId, RecepcionIdLinea, Ejercicio, CodigoAlmacen, CodigoUbicacion, CodigoAlmacenRechazos, ' +
+        '  CodigoUbicacionRechazos, Matricula, MatriculaRechazos, Caja, Palet, Partida, PartidaProveedor, FechaCaducidad, Verificacion, AnomaliaId, ' +
+        '  Precio, UnidadMedida1_, UnidadesEntrada, CantidadErrorEntrada, FechaRegistro, UnidadMedidaBase, ' +
+        '  UnidadesEntradaBase, UnidadesErrorBase, CodigoAgrupacion, UnidadesAgrupacion, ' +
+        '  CodigoAgrupacionRechazos,  UnidadesAgrupacionRechazos, FactorConversion, FactorConversionRechazos, ' +
+        '  Unidades, CantidadError, TotalEntrada, Total, TotalEntradaBase, GrupoTalla_, CodigoTalla01_, CodigoColor_ ) ' +
+        'VALUES ( ' +
+        IntToStr(RecepcionId) + ', ' +
+        IntToStr(DistRecepcionIdLinea) + ', ' +
+        IntToStr(Ejercicio) + ', ' +
+        '''' + SQL_Str(CodigoAlmacen) + ''', ' +
+        '''' + SQL_Str(CodigoUbicacion) + ''', ' +
+        '''' + SQL_Str(CodigoAlmacenRechazos) + ''', ' +
+        '''' + SQL_Str(CodigoUbicacionRechazos) + ''', ' +
+        '''' + SQL_Str(Matricula) + ''', ' +
+        '''' + SQL_Str(MatriculaRechazos) + ''', ' +
+        IntToStr(Caja) + ', ' +
+        IntToStr(Palet) + ', ' +
+        '''' + SQL_Str(Partida) + ''', ' +
+        '''' + SQL_Str(PartidaProveedor) + ''', ' +
+        SQL_DateToStr(dFechaCaduca) + ', ' +
+        '''' + SQL_Str(Verificacion) + ''', ' +
+        IntToStr(AnomaliaId) + ', ' +
+        SQL_FloatToStr(Precio) + ', ' +
+        '''' + SQL_Str(UnidadMedida) + ''', ' +
+        SQL_FloatToStr(fAuxDistUdEntrada * UnidadesAgrupacion) + ', ' +
+        SQL_FloatToStr(fAuxDistUdRechazo * UnidadesAgrupacionRechazo) + ', ' +
+        SQL_DateTimeToStr(Now()) + ', ' +
+        '''' + SQL_Str(UnidadMedidaBase) + ''', ' +
+        SQL_FloatToStr(DistUnidadesEntradaBase) + ', ' +
+        SQL_FloatToStr(DistUnidadesRechazoBase) + ', ' +
+        IntToStr(CodigoAgrupacion) + ', ' +
+        SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
+        IntToStr(CodigoAgrupacionRechazo) + ', ' +
+        SQL_FloatToStr(UnidadesAgrupacionRechazo) + ', ' +
+        SQL_FloatToStr(FactorConversion) + ', ' +
+        SQL_FloatToStr(FactorConversionRechazo) + ', ' +
+        SQL_FloatToStr(fAuxDistUdEntrada) + ', ' +
+        SQL_FloatToStr(fAuxDistUdRechazo) + ', ' +
+        SQL_FloatToStr(fAuxDistUdEntrada+fAuxDistUdRechazo) + ', ' +
+        SQL_FloatToStr(fAuxDistUdEntrada+fAuxDistUdRechazo) + ', ' +
+        SQL_FloatToStr(DistUnidadesEntradaBase+DistUnidadesRechazoBase) + ', ' +
+        IntToStr(GrupoTalla) + ', ' +
+        '''' + SQL_Str(CodigoTalla) + ''', ' +
+        '''' + SQL_Str(CodigoColor) + ''' ' +
+        ')';
+
+      if not bErr then try
+        SQL_Execute_NoRes ( Conn, sSQL );
+        RecepcionIdLineaDetalle := SQL_Execute ( Conn, 'SELECT SCOPE_IDENTITY()' );
+
+        // Números de sèrie OK
+        for iLoop := 1 to Round(DistUnidadesEntradaBase) do begin
+          if iSer < JSonArrayS.Count then begin
+            lJSonValue := JSonArrayS.Items[iSer];
+            NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+            NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
+            CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+
+            sSQL :=
+              'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
+              '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+              'VALUES ( ' +
+              IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+              IntToStr(RecepcionId) + ', ' +
+              IntToStr(DistRecepcionIdLinea) + ', ' +
+              IntToStr(RecepcionIdLineaDetalle) + ', ' +
+              '0, ' +
+              '''' + SQL_Str(NumeroSerie) + ''', ' +
+              '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+              IntToStr(CantidadSerie) + ' ' +
+              ') ';
+            SQL_Execute_NoRes ( Conn, sSQL );
+            Inc(iSer);
+          end;
+        end;
+
+        // Números de sèrie rebuig
+        for iLoop := 1 to Round(DistUnidadesRechazoBase) do begin
+          if iSerR < JSonArraySR.Count then begin
+            lJSonValue := JSonArraySR.Items[iSerR];
+            NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+            NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
+            CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+
+            sSQL :=
+              'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
+              '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+              'VALUES ( ' +
+              IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+              IntToStr(RecepcionId) + ', ' +
+              IntToStr(DistRecepcionIdLinea) + ', ' +
+              IntToStr(RecepcionIdLineaDetalle) + ', ' +
+              '1, ' +
+              '''' + SQL_Str(NumeroSerie) + ''', ' +
+              '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+              IntToStr(CantidadSerie) + ' ' +
+              ') ';
+            SQL_Execute_NoRes ( Conn, sSQL );
+            Inc(iSerR);
+          end;
+        end;
+
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+    end;
 
   end else begin
 
-    sSQL :=
-      'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle ( ' +
-      '  RecepcionId, RecepcionIdLinea, Ejercicio, CodigoAlmacen, CodigoUbicacion, CodigoAlmacenRechazos, ' +
-      '  CodigoUbicacionRechazos, Matricula, MatriculaRechazos, Caja, Palet, Partida, PartidaProveedor, FechaCaducidad, Verificacion, AnomaliaId, ' +
-      '  Precio, UnidadMedida1_, UnidadesEntrada, CantidadErrorEntrada, FechaRegistro, UnidadMedidaBase, ' +
-      '  UnidadesEntradaBase, UnidadesErrorBase, CodigoAgrupacion, UnidadesAgrupacion, ' +
-      '  CodigoAgrupacionRechazos,  UnidadesAgrupacionRechazos, FactorConversion, FactorConversionRechazos, ' +
-      '  Unidades, CantidadError, TotalEntrada, Total, TotalEntradaBase, GrupoTalla_, CodigoTalla01_, CodigoColor_ ) ' +
-      'VALUES ( ' +
-      IntToStr(RecepcionId) + ', ' +
-      IntToStr(RecepcionIdLinea) + ', ' +
-      IntToStr(Ejercicio) + ', ' +
-      '''' + SQL_Str(CodigoAlmacen) + ''', ' +
-      '''' + SQL_Str(CodigoUbicacion) + ''', ' +
-      '''' + SQL_Str(CodigoAlmacenRechazos) + ''', ' +
-      '''' + SQL_Str(CodigoUbicacionRechazos) + ''', ' +
-      '''' + SQL_Str(Matricula) + ''', ' +
-      '''' + SQL_Str(MatriculaRechazos) + ''', ' +
-      IntToStr(Caja) + ', ' +
-      IntToStr(Palet) + ', ' +
-      '''' + SQL_Str(Partida) + ''', ' +
-      '''' + SQL_Str(PartidaProveedor) + ''', ' +
-      SQL_DateToStr(dFechaCaduca) + ', ' +
-      '''' + SQL_Str(Verificacion) + ''', ' +
-      IntToStr(AnomaliaId) + ', ' +
-      SQL_FloatToStr(Precio) + ', ' +
-      '''' + SQL_Str(UnidadMedida) + ''', ' +
-      SQL_FloatToStr(UnidadesEntrada * UnidadesAgrupacion) + ', ' +
-      SQL_FloatToStr(UnidadesRechazo * UnidadesAgrupacionRechazo) + ', ' +
-      SQL_DateTimeToStr(Now()) + ', ' +
-      '''' + SQL_Str(UnidadMedidaBase) + ''', ' +
-      SQL_FloatToStr(UnidadesEntradaBase) + ', ' +
-      SQL_FloatToStr(UnidadesRechazoBase) + ', ' +
-      IntToStr(CodigoAgrupacion) + ', ' +
-      SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
-      IntToStr(CodigoAgrupacionRechazo) + ', ' +
-      SQL_FloatToStr(UnidadesAgrupacionRechazo) + ', ' +
-      SQL_FloatToStr(FactorConversion) + ', ' +
-      SQL_FloatToStr(FactorConversionRechazo) + ', ' +
-      SQL_FloatToStr(UnidadesEntrada) + ', ' +
-      SQL_FloatToStr(UnidadesRechazo) + ', ' +
-      SQL_FloatToStr(UnidadesEntrada+UnidadesRechazo) + ', ' +
-      SQL_FloatToStr(UnidadesEntrada+UnidadesRechazo) + ', ' +
-      SQL_FloatToStr(UnidadesEntradaBase+UnidadesRechazoBase) + ', ' +
-      IntToStr(GrupoTalla) + ', ' +
-      '''' + SQL_Str(CodigoTalla) + ''', ' +
-      '''' + SQL_Str(CodigoColor) + ''' ' +
-      ')';
+    if (RecepcionIdLinea<>-1) and (RecepcionIdLineaDetalle<>-1) then begin
 
-  end;
+      sSQL :=
+        'UPDATE FS_SGA_Recepciones_Lineas_Detalle ' +
+        'SET ' +
+        '  CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''', ' +
+        '  CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''', ' +
+        '  Matricula = ''' + SQL_Str(Matricula) + ''', ' +
+        '  CodigoAlmacenRechazos = ''' + SQL_Str(CodigoAlmacenRechazos) + ''', ' +
+        '  CodigoUbicacionRechazos = ''' + SQL_Str(CodigoUbicacionRechazos) + ''', ' +
+        '  MatriculaRechazos = ''' + SQL_Str(MatriculaRechazos) + ''', ' +
+        '  Caja = ' + IntToStr(Caja) + ', ' +
+        '  Palet = ' + IntToStr(Palet) + ', ' +
+        '  Partida = ''' + SQL_Str(Partida) + ''', ' +
+        '  PartidaProveedor = ''' + SQL_Str(PartidaProveedor) + ''', ' +
+        '  FechaCaducidad = ' + SQL_DateToStr(dFechaCaduca) + ', ' +
+        '  Verificacion = ''' + SQL_Str(Verificacion) + ''', ' +
+        '  AnomaliaId = ' + IntToStr(AnomaliaId) + ', ' +
+        '  Precio = ' + SQL_FloatToStr(Precio) + ', ' +
+        '  UnidadMedida1_ = ''' + SQL_Str(UnidadMedida) + ''', ' +
+        '  UnidadesEntrada = ' + SQL_FloatToStr(UnidadesEntrada * UnidadesAgrupacion) + ', ' +
+        '  CantidadErrorEntrada = ' + SQL_FloatToStr(UnidadesRechazo * UnidadesAgrupacionRechazo) + ', ' +
+        '  FechaRegistro = ' + SQL_DateTimeToStr(Now()) + ', ' +
+        '  UnidadMedidaBase = ''' + SQL_Str(UnidadMedidaBase) + ''', ' +
+        '  UnidadesEntradaBase = ' + SQL_FloatToStr(UnidadesEntradaBase) + ', ' +
+        '  UnidadesErrorBase = ' + SQL_FloatToStr(UnidadesRechazoBase) + ', ' +
+        '  CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ', ' +
+        '  UnidadesAgrupacion = ' + SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
+        '  CodigoAgrupacionRechazos = ' + IntToStr(CodigoAgrupacionRechazo) + ', ' +
+        '  UnidadesAgrupacionRechazos = ' + SQL_FloatToStr(UnidadesAgrupacionRechazo) + ', ' +
+        '  FactorConversion = ' + SQL_FloatToStr(FactorConversion) + ', ' +
+        '  FactorConversionRechazos = ' + SQL_FloatToStr(FactorConversionRechazo) + ' ' +
+        'WHERE ' +
+        '  RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+        '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea) + ' ' +
+        '  AND RecepcionIdLineaDetalle = ' + IntToStr(RecepcionIdLineaDetalle) + ' ';
 
-  if not bErr then try
-    SQL_Execute_NoRes ( Conn, sSQL );
-    if RecepcionIdLineaDetalle=-1 then
-    begin
-      RecepcionIdLineaDetalle := SQL_Execute ( Conn, 'SELECT SCOPE_IDENTITY()' );
+    end else begin
+
+      sSQL :=
+        'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle ( ' +
+        '  RecepcionId, RecepcionIdLinea, Ejercicio, CodigoAlmacen, CodigoUbicacion, CodigoAlmacenRechazos, ' +
+        '  CodigoUbicacionRechazos, Matricula, MatriculaRechazos, Caja, Palet, Partida, PartidaProveedor, FechaCaducidad, Verificacion, AnomaliaId, ' +
+        '  Precio, UnidadMedida1_, UnidadesEntrada, CantidadErrorEntrada, FechaRegistro, UnidadMedidaBase, ' +
+        '  UnidadesEntradaBase, UnidadesErrorBase, CodigoAgrupacion, UnidadesAgrupacion, ' +
+        '  CodigoAgrupacionRechazos,  UnidadesAgrupacionRechazos, FactorConversion, FactorConversionRechazos, ' +
+        '  Unidades, CantidadError, TotalEntrada, Total, TotalEntradaBase, GrupoTalla_, CodigoTalla01_, CodigoColor_ ) ' +
+        'VALUES ( ' +
+        IntToStr(RecepcionId) + ', ' +
+        IntToStr(RecepcionIdLinea) + ', ' +
+        IntToStr(Ejercicio) + ', ' +
+        '''' + SQL_Str(CodigoAlmacen) + ''', ' +
+        '''' + SQL_Str(CodigoUbicacion) + ''', ' +
+        '''' + SQL_Str(CodigoAlmacenRechazos) + ''', ' +
+        '''' + SQL_Str(CodigoUbicacionRechazos) + ''', ' +
+        '''' + SQL_Str(Matricula) + ''', ' +
+        '''' + SQL_Str(MatriculaRechazos) + ''', ' +
+        IntToStr(Caja) + ', ' +
+        IntToStr(Palet) + ', ' +
+        '''' + SQL_Str(Partida) + ''', ' +
+        '''' + SQL_Str(PartidaProveedor) + ''', ' +
+        SQL_DateToStr(dFechaCaduca) + ', ' +
+        '''' + SQL_Str(Verificacion) + ''', ' +
+        IntToStr(AnomaliaId) + ', ' +
+        SQL_FloatToStr(Precio) + ', ' +
+        '''' + SQL_Str(UnidadMedida) + ''', ' +
+        SQL_FloatToStr(UnidadesEntrada * UnidadesAgrupacion) + ', ' +
+        SQL_FloatToStr(UnidadesRechazo * UnidadesAgrupacionRechazo) + ', ' +
+        SQL_DateTimeToStr(Now()) + ', ' +
+        '''' + SQL_Str(UnidadMedidaBase) + ''', ' +
+        SQL_FloatToStr(UnidadesEntradaBase) + ', ' +
+        SQL_FloatToStr(UnidadesRechazoBase) + ', ' +
+        IntToStr(CodigoAgrupacion) + ', ' +
+        SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
+        IntToStr(CodigoAgrupacionRechazo) + ', ' +
+        SQL_FloatToStr(UnidadesAgrupacionRechazo) + ', ' +
+        SQL_FloatToStr(FactorConversion) + ', ' +
+        SQL_FloatToStr(FactorConversionRechazo) + ', ' +
+        SQL_FloatToStr(UnidadesEntrada) + ', ' +
+        SQL_FloatToStr(UnidadesRechazo) + ', ' +
+        SQL_FloatToStr(UnidadesEntrada+UnidadesRechazo) + ', ' +
+        SQL_FloatToStr(UnidadesEntrada+UnidadesRechazo) + ', ' +
+        SQL_FloatToStr(UnidadesEntradaBase+UnidadesRechazoBase) + ', ' +
+        IntToStr(GrupoTalla) + ', ' +
+        '''' + SQL_Str(CodigoTalla) + ''', ' +
+        '''' + SQL_Str(CodigoColor) + ''' ' +
+        ')';
+
     end;
 
-  except
-    on E:Exception do begin
-      bErr := TRUE;
-      sMsg := E.Message;
+    if not bErr then try
+      SQL_Execute_NoRes ( Conn, sSQL );
+      if RecepcionIdLineaDetalle=-1 then
+      begin
+        RecepcionIdLineaDetalle := SQL_Execute ( Conn, 'SELECT SCOPE_IDENTITY()' );
+      end;
+
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
     end;
-  end;
-
-  sSQL :=
-    'DELETE FROM FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ' +
-    'WHERE ' +
-      '  RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
-      '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea) + ' ' +
-      '  AND RecepcionIdLineaDetalle = ' + IntToStr(RecepcionIdLineaDetalle);
-  SQL_Execute_NoRes ( Conn, sSQL );
-
-  // Afegim els números de sèrie
-  for lJSonValue in JSonArrayS do begin
-
-    NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
-    NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
-    CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
 
     sSQL :=
-      'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
-      '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
-      'VALUES ( ' +
-      IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
-      IntToStr(RecepcionId) + ', ' +
-      IntToStr(RecepcionIdLinea) + ', ' +
-      IntToStr(RecepcionIdLineaDetalle) + ', ' +
-      '0, ' +
-      '''' + SQL_Str(NumeroSerie) + ''', ' +
-      '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
-      IntToStr(CantidadSerie) + ' ' +
-      ') ';
-
+      'DELETE FROM FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ' +
+      'WHERE ' +
+        '  RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+        '  AND RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea) + ' ' +
+        '  AND RecepcionIdLineaDetalle = ' + IntToStr(RecepcionIdLineaDetalle);
     SQL_Execute_NoRes ( Conn, sSQL );
 
-  end;
+    // Afegim els números de sèrie
+    for lJSonValue in JSonArrayS do begin
 
-  // Afegim els números de sèrie de rebuig
-  for lJSonValue in JSonArraySR do begin
+      NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+      NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
+      CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
 
-    NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
-    NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
-    CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+      sSQL :=
+        'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
+        '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+        'VALUES ( ' +
+        IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+        IntToStr(RecepcionId) + ', ' +
+        IntToStr(RecepcionIdLinea) + ', ' +
+        IntToStr(RecepcionIdLineaDetalle) + ', ' +
+        '0, ' +
+        '''' + SQL_Str(NumeroSerie) + ''', ' +
+        '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+        IntToStr(CantidadSerie) + ' ' +
+        ') ';
 
-    sSQL :=
-      'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
-      '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
-      'VALUES ( ' +
-      IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
-      IntToStr(RecepcionId) + ', ' +
-      IntToStr(RecepcionIdLinea) + ', ' +
-      IntToStr(RecepcionIdLineaDetalle) + ', ' +
-      '1, ' +
-      '''' + SQL_Str(NumeroSerie) + ''', ' +
-      '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
-      IntToStr(CantidadSerie) + ' ' +
-      ') ';
+      SQL_Execute_NoRes ( Conn, sSQL );
 
-    SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+    // Afegim els números de sèrie de rebuig
+    for lJSonValue in JSonArraySR do begin
+
+      NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+      NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
+      CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+
+      sSQL :=
+        'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
+        '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+        'VALUES ( ' +
+        IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+        IntToStr(RecepcionId) + ', ' +
+        IntToStr(RecepcionIdLinea) + ', ' +
+        IntToStr(RecepcionIdLineaDetalle) + ', ' +
+        '1, ' +
+        '''' + SQL_Str(NumeroSerie) + ''', ' +
+        '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+        IntToStr(CantidadSerie) + ' ' +
+        ') ';
+
+      SQL_Execute_NoRes ( Conn, sSQL );
+
+    end;
 
   end;
 
