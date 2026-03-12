@@ -928,7 +928,6 @@ var
   Linea: Integer;
   LineaDetalle: Integer;
   UUID: string;
-  LineaAgrupacion: string;
 {$ENDREGION}
 
 begin
@@ -1028,30 +1027,6 @@ begin
   except
     on E:Exception do
     begin
-      bErr := TRUE;
-      sMsg := E.Message;
-    end;
-  end;
-
-  if not bErr then
-  try
-    sSQL :=
-      'SELECT LineasPosicion ' +
-      'FROM FS_SGA_Recepciones_Lineas WITH (NOLOCK) ' +
-      'WHERE ' +
-      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
-      '  RecepcionId = ' + IntToStr(RecepcionId) + ' AND ' +
-      '  RecepcionIdLinea = ' + IntToStr(Linea);
-
-    LineaAgrupacion := SQL_GUID_ToStr ( SQL_Execute ( Conn, sSQL ) );
-    FS_SGA_RECEPCION_RepartirAgrupacion(
-      Conn,
-      CodigoEmpresa,
-      RecepcionId,
-      LineaAgrupacion
-    );
-  except
-    on E:Exception do begin
       bErr := TRUE;
       sMsg := E.Message;
     end;
@@ -32458,11 +32433,15 @@ begin
     sMsg := 'Error al enviar la operación a SAGE';
   end;
 
-  sSQL :=
-    'UPDATE FS_SGA_Recepciones SET Estado = 3, ' +
-    '  Oper_Id = ' + IntToStr(OperId) + ' ' +
-    'WHERE ' +
-    '  RecepcionId = ' + IntToStr(RecepcionId);
+  if bMantenerAbierta and (UnidadesPendientesBase > 0) then
+    sSQL := 'UPDATE FS_SGA_Recepciones SET Estado = 1, '
+  else
+    sSQL := 'UPDATE FS_SGA_Recepciones SET Estado = 3, ';
+
+  sSQL := sSQL +
+          '  Oper_Id = ' + IntToStr(OperId) + ' ' +
+          'WHERE ' +
+          '  RecepcionId = ' + IntToStr(RecepcionId);
   if not bErr then try
     SQL_Execute_NoRes ( Conn, sSQL );
   except
@@ -36335,7 +36314,6 @@ var
   DistRecepcionIdLinea: Integer;
   DistUnidadesEntradaBase: Double;
   DistUnidadesRechazoBase: Double;
-  LineaAgrupacion: String;
 {$ENDREGION}
 
 begin
@@ -36899,30 +36877,6 @@ begin
   if not bErr then
   try
     SQL_Execute_NoRes ( Conn, sSQL );
-  except
-    on E:Exception do begin
-      bErr := TRUE;
-      sMsg := E.Message;
-    end;
-  end;
-
-  if not bErr then
-  try
-    sSQL :=
-      'SELECT LineasPosicion ' +
-      'FROM FS_SGA_Recepciones_Lineas WITH (NOLOCK) ' +
-      'WHERE ' +
-      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
-      '  RecepcionId = ' + IntToStr(RecepcionId) + ' AND ' +
-      '  RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
-
-    LineaAgrupacion := SQL_GUID_ToStr ( SQL_Execute ( Conn, sSQL ) );
-    FS_SGA_RECEPCION_RepartirAgrupacion(
-      Conn,
-      CodigoEmpresa,
-      RecepcionId,
-      LineaAgrupacion
-    );
   except
     on E:Exception do begin
       bErr := TRUE;
