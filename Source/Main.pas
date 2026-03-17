@@ -55,7 +55,8 @@ uses
   Functions_LogV2, IdBaseComponent, IdComponent, IdTCPConnection, IdTCPClient,
   IdHTTP, IdServerIOHandler, IdSSL, IdSSLOpenSSL, ppPrnabl, ppClass, ppCtrls,
   ppBarCod, ppBands, ppCache, ppDesignLayer, ppParameter, ppComm, ppRelatv,
-  ppProd, ppReport, raCodMod, ppModule, ppDB, ppDBPipe, System.SyncObjs;
+  ppProd, ppReport, raCodMod, ppModule, ppDB, ppDBPipe, System.SyncObjs,
+  dxBarBuiltInMenu, cxClasses, cxGridCustomPopupMenu, cxGridPopupMenu;
 
 
 {$ENDREGION}
@@ -86,6 +87,7 @@ type
     tmrTimeout: TTimer;
     ppDBPipeline1: TppDBPipeline;
     DataSource1: TDataSource;
+    cxGridPopupMenu1: TcxGridPopupMenu;
     procedure ServiceExecute(Sender: TService);
     procedure ServiceAfterInstall(Sender: TService);
     procedure tmrFinalitzarTimer(Sender: TObject);

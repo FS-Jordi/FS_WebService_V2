@@ -276,4 +276,9 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
     Left = 260
     Top = 186
   end
+  object cxGridPopupMenu1: TcxGridPopupMenu
+    PopupMenus = <>
+    Left = 233
+    Top = 123
+  end
 end

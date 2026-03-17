@@ -32126,13 +32126,13 @@ begin
 
   //...Abans d'esborrar la recepció, mirem si hem de mantenir oberta la recepció
   //...i traspassem els restos a la nova recepció
-  if bMantenerAbierta then
+  {if bMantenerAbierta then
   begin
     FS_SGA_Recepcion_CrearRestos ( Conn, CodigoEmpresa, RecepcionId );
-  end;
+  end;}
 
   //...primer borrem totes aquelles linies de la recepción on no s'hagi recepcionat cap Unitat
-  sSQL := 'DELETE FROM FS_SGA_Recepciones_Lineas ' +
+  {sSQL := 'DELETE FROM FS_SGA_Recepciones_Lineas ' +
           'WHERE ' +
           '  RecepcionId = ' + IntToStr(RecepcionId) + ' AND ' +
           '  UdRecibidasBase = 0';
@@ -32143,7 +32143,7 @@ begin
       bErr := true;
       sMsg := e.Message;
     end;
-  end;
+  end; }
 
   sSQL :=
     'SELECT ' +
@@ -36600,7 +36600,6 @@ begin
 
     for lJSonValueDist in JSonArrayDist do begin
 
-      DistRecepcionIdLinea    := StrToIntDef(_Get_JSonValue(lJSonValueDist, 'RecepcionIdLinea'), 0);
       DistUnidadesEntradaBase := FS_StrToFloatDef(_Get_JSonValue(lJSonValueDist, 'UnidadesEntradaBase'), 0);
       DistUnidadesRechazoBase := FS_StrToFloatDef(_Get_JSonValue(lJSonValueDist, 'UnidadesRechazoBase'), 0);
 
@@ -36617,7 +36616,7 @@ begin
         '  Unidades, CantidadError, TotalEntrada, Total, TotalEntradaBase, GrupoTalla_, CodigoTalla01_, CodigoColor_ ) ' +
         'VALUES ( ' +
         IntToStr(RecepcionId) + ', ' +
-        IntToStr(DistRecepcionIdLinea) + ', ' +
+        IntToStr(RecepcionIdLinea) + ', ' +
         IntToStr(Ejercicio) + ', ' +
         '''' + SQL_Str(CodigoAlmacen) + ''', ' +
         '''' + SQL_Str(CodigoUbicacion) + ''', ' +
