@@ -215,6 +215,7 @@ procedure WebModule1prepareServirDevProvAction ( Conn: TADOConnection; sParams, 
 procedure WebModule1diagnosticsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getArticulo128DetailsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1detallePreparacionPedidoNewAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1imprimirInformeAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1imprimirMatriculaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listPackagingsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listPackagingsPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -20219,6 +20220,201 @@ begin
 end;
 
 
+procedure WebModule1imprimirInformeAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  CodigoUsuario: Integer;
+  contentfields: TStringList;
+  Folder: String;
+  Tipo: String;
+  FullFolder: String;
+  Template: String;
+  Impresora: string;
+  MACAddress: String;
+  IdObjeto: Integer;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  //CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Articulos' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  MACAddress    := contentfields.Values['UUID'];
+  gaLogFile.MAC := MACAddress;
+  Folder        := AnsiLowerCase(contentfields.Values['Folder']);
+  Tipo          := AnsiLowerCase(contentfields.Values['Type']);
+  Template      := contentfields.Values['Template'];
+  IdObjeto      := StrToIntDef(contentfields.Values['Objeto'], 0 );
+  Impresora     := contentfields.Values['Impresora'];
+  Impresora     := TNetEncoding.URL.Decode(Impresora);
+
+  if Printer.Printers.IndexOf(Impresora)<0 then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La impresora especificada no está disponible","Data":[]}';
+    Exit;
+  end;
+
+  sSQL :=
+    'SELECT TOP 1 parametro_value FROM FS_SGA_Parametros WITH (NOLOCK) ' +
+    'WHERE parametro_CodigoEmpresa IN ( 0, ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) ' +
+    '  AND parametro_id = 151 ' +
+    'ORDER BY parametro_CodigoEmpresa DESC';
+  gsPathRepositorio := Trim(SQL_Execute ( Conn, sSQL ));
+  if gsPathRepositorio='' then
+    gsPathRepositorio := gsPath;
+  gsPathRepositorio := ExcludeTrailingBackslash(gsPathRepositorio);
+  gsPathRepositorio := gsPathRepositorio + '\labels';
+
+  FullFolder := gsPathRepositorio;
+  if Folder<>'' then FullFolder := FullFolder + '\' + Folder;
+  if Tipo<>'' then FullFolder := FullFolder + '\' + Tipo;
+
+  if not FileExists(FullFolder + '\' + Template) then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
+      JSON_Str('No existe el archivo de plantilla ' + Template + ' para imprimir la etiqueta de palet') + '","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Fem la impressió'}
+
+  if Folder='recepcion' then
+  begin
+    sSQL :=
+      'SELECT 0 AS Ncopias, lind.*, r.codigoarticulo, r.descripcionarticulo, r.FechaRecepcion, 0 AS copias, ' +
+      '  rc.codigoproveedor, rc.razonsocial, art.codigoalternativo, art.codigoalternativo2, art.comentarioarticulo, ' +
+      '  ns.numeroserie, ns.numeroseriefabricante, ns.cantidad, op.ejerciciotrabajo, op.numerotrabajo, ' +
+      '  op.Componentesentregados, ot.EstadoOT, ot.UnidadesAFabricar, ot.UnidadesFabricadas, ot.UnidadesAFabricar2, ' +
+      '  ot.UnidadesFabricadas2, ot.lotefabricacion, ot.ejerciciofabricacion, ot.seriefabricacion, ot.numerofabricacion, ' +
+      '  ot.fechacaducidad AS fechacaducidadOT, ot.formula, oof.EstadoOF, oof.fechainicioReal, oof.fechafinalreal, ' +
+      '  oof.observaciones AS observacionesOF, lind.fecharegistro AS FechaLinea, rc.EjercicioPedido, rc.SeriePedido, ' +
+      '  rc.NumeroPedido ' +
+      'FROM FS_SGA_Recepciones_Lineas_Detalle AS lind WITH (NOLOCK) ' +
+      'LEFT OUTER JOIN FS_SGA_Recepciones_Lineas AS r ' +
+      'ON lind.recepcionid = r.recepcionid ' +
+      'AND lind.recepcionidLinea = r.recepcionidLinea ' +
+      'LEFT OUTER JOIN fs_sga_recepciones AS rc ' +
+      'ON rc.recepcionid = r.recepcionid ' +
+      'LEFT OUTER JOIN articulos AS art ' +
+      'ON art.codigoempresa =  ' + IntToStr(CodigoEmpresa.Articulos) + ' ' +
+      'AND art.codigoarticulo = r.codigoarticulo ' +
+      'LEFT OUTER JOIN FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie AS ns WITH (NOLOCK) ' +
+      'ON ns.RecepcionId = lind.RecepcionId ' +
+      'AND ns.RecepcionIdLinea = lind.RecepcionIdLinea ' +
+      'AND ns.RecepcionIdLineaDetalle = lind.RecepcionIdLineaDetalle ' +
+      'LEFT OUTER JOIN LineasPedidoOperacion AS op WITH (NOLOCK) ' +
+      'ON r.lineasposicion = op.MovPosicionLinea_ ' +
+      'LEFT OUTER JOIN ordenestrabajo AS ot WITH (NOLOCK) ' +
+      'ON op.codigoempresa = ot.codigoempresa ' +
+      'AND op.ejerciciotrabajo = ot.ejerciciotrabajo ' +
+      'AND op.numerotrabajo = ot.numerotrabajo ' +
+      'LEFT OUTER JOIN ordenesfabricacion AS oof WITH (NOLOCK) ' +
+      'ON ot.codigoempresa = oof.codigoempresa ' +
+      'AND ot.ejerciciofabricacion = oof.ejerciciofabricacion ' +
+      'AND ot.seriefabricacion = oof.seriefabricacion ' +
+      'AND ot.numerofabricacion = oof.numerofabricacion ' +
+      'WHERE lind.recepcionid = ' + IntToStr(IdObjeto) + ' ' +
+      //'AND lind.RecepcionIdLinea IN (12) ' +
+      'ORDER BY lind.recepcionid DESC, r.codigoarticulo';
+  end;
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if Q.EOF then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
+        JSON_Str('No se han encontrado datos para imprimir') + '","Data":[]}';
+    Q.Close;
+    FreeAndNil(Q);
+    Exit;
+  end;
+
+  FS_MainWebServiceSGA.ppReport1.Template.FileName := FullFolder + '\' + Template;
+  try
+    FS_MainWebServiceSGA.ppReport1.Template.LoadFromFile;
+  except
+    on E:Exception do
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
+        JSON_Str('Error en el archivo de plantilla ' + gsPathRepositorio + '\' + Template + ': ' + E.Message) + '","Data":[]}';
+      Q.Close;
+      FreeAndNil(Q);
+      Exit;
+    end;
+  end;
+
+  try
+    FS_MainWebServiceSGA.tmrTimeout.Enabled := FALSE;
+    FS_MainWebServiceSGA.tmrTimeout.Interval := 3000;
+
+    FS_MainWebServiceSGA.DataSource1.DataSet := Q;
+    FS_MainWebServiceSGA.ppReport1.PrinterSetup.PrinterName := Impresora;
+    FS_MainWebServiceSGA.ppReport1.DeviceType := 'Printer';
+    FS_MainWebServiceSGA.ppReport1.PrinterSetup.Copies := 1;
+    FS_MainWebServiceSGA.ppReport1.ShowPrintDialog := FALSE;
+    FS_MainWebServiceSGA.ppReport1.ShowCancelDialog := FALSE;
+    FS_MainWebServiceSGA.ppReport1.ShowAutoSearchDialog := FALSE;
+
+    FS_MainWebServiceSGA.tmrTimeout.Enabled := TRUE;
+    FS_MainWebServiceSGA.ppReport1.Print;
+    FS_MainWebServiceSGA.tmrTimeout.Enabled := FALSE;
+
+  except
+    on E:Exception do
+    begin
+      gaLogFile.Write_DBException(E, sSQL, 'Error al imprimir informe', CONST_LOGID_BBDD );
+    end;
+  end;
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  FS_SGA_Audita (
+    Conn,
+    CodigoEmpresa.EmpresaOrigen,
+    CodigoUsuario,
+    MACAddress,
+    Now(),
+    'Almacén',
+    'Impresión informe (' + Template + ')'
+  );
+
+  LP := LOG_Clear();
+  LP.Template := Template;
+
+  LOG_Add ( Conn, CodigoUsuario, MACAddress, sRemoteAddr, 'PRINT-INFORME', 'Imprimir informe de ' + folder, @LP );
+
+  Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[]}';
+
+  {$ENDREGION}
+
+end;
+
+
 procedure WebModule1imprimirMatriculaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 
 {$REGION 'Declaració de variables'}
@@ -20636,6 +20832,9 @@ var
   sName: String;
   sTemplate: string;
   SR: TSearchRec;
+  Folder: String;
+  Tipo: String;
+  FullFolder: String;
 {$ENDREGION}
 
 begin
@@ -20659,7 +20858,8 @@ begin
   );
 
   CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
-  Template := AnsiUpperCase(trim(contentfields.Values['Template']));
+  Folder        := ansilowercase(trim(contentfields.Values['Folder']));
+  Tipo          := ansilowercase(trim(contentfields.Values['Type']));
 
   sSQL :=
     'SELECT TOP 1 parametro_value FROM FS_SGA_Parametros WITH (NOLOCK) ' +
@@ -20678,9 +20878,14 @@ begin
 
   Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[';
 
-  gaLogfile.Write(gsPathRepositorio + '\' + Template + '\*.*');
+  FullFolder := gsPathRepositorio;
+  if Folder<>'' then FullFolder := FullFolder + '\' + Folder;
+  if Tipo<>'' then FullFolder := FullFolder + '\' + Tipo;
+
+  gaLogfile.Write(FullFolder + '\*.*');
   sTemplate := '';
-  if FindFirst ( gsPathRepositorio + '\' + Template + '\*.*', faArchive, SR) = 0 then
+
+  if FindFirst ( FullFolder + '\*.*', faArchive, SR) = 0 then
   begin
 
     repeat

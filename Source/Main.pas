@@ -4497,6 +4497,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/imprimirinforme') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1imprimirInformeAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/listpackagingspreparacion') then
     begin
       TAsyncWebModuleThread.Create(

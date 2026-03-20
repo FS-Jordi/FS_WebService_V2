@@ -268,9 +268,9 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
   end
   object ppDBPipeline1: TppDBPipeline
     DataSource = DataSource1
-    UserName = 'DBPipeline1'
-    Left = 136
-    Top = 184
+    UserName = 'RecepcionLineas'
+    Left = 131
+    Top = 179
   end
   object DataSource1: TDataSource
     Left = 260

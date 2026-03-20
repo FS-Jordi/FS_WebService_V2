@@ -53,6 +53,7 @@ type
     IdInventario: Integer;
     MovOrigen: String;
     Matricula: String;
+    Template: String;
   end;
 
 {$REGION '--- DECLARACIÓ DE FUNCIONS EXTERNES'}
