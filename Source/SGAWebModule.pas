@@ -259,6 +259,8 @@ procedure WebModule1findPaletMatriculaAction ( Conn: TADOConnection; sParams, sR
 procedure WebModule1generarPackingListAutoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1expedirTodoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1expedirLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1checkNumeroSerieEnStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getNumerosSerieSalidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkNumeroSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkNumeroSerieRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1borrarLineaExpedicionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -12014,7 +12016,7 @@ var
   iPages: Integer;
   PreparacionId: Integer;
   PickingId: Integer;
-  AutoID: Integer;
+  CodigoAgrupacion: Integer;
   CodigoArticulo: String;
   Partida: String;
   CodigoTalla: String;
@@ -12057,7 +12059,7 @@ begin
   end;
 
   PickingId := StrToIntDef(contentfields.values['PickingId'],0);
-  AutoID := StrToIntDef(contentfields.values['AutoID'],0);
+  CodigoAgrupacion := StrToIntDef(contentfields.values['CodigoAgrupacion'],0);
 
   CodigoArticulo := contentfields.values['CodigoArticulo'];
   Partida        := contentfields.values['Partida'];
@@ -12075,21 +12077,17 @@ begin
     'INNER JOIN FS_SGA_Picking_Pedido_Lineas_Detalle fsppld WITH (NOLOCK) ' +
     'ON ' +
     '  fsppld.PreparacionId = fsppldns.PreparacionId ' +
-    //'  AND fsppld.AutoID = fsppldns.AutoID ' +
+    '  AND fsppld.AutoID = fsppldns.AutoID ' +
     '  AND fsppld.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
     '  AND fsppld.UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
     '  AND fsppld.Partida = ''' + SQL_Str(Partida) + ''' ' +
     '  AND fsppld.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
     '  AND fsppld.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+    '  AND fsppld.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
     'WHERE ' +
     '  fsppldns.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
     '  AND fsppldns.PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
     '  AND fsppldns.PickingId = ' + IntToStr(PickingId) + ' ';
-  if AutoID<>0 then
-  begin
-    sSQL := sSQL +
-      '  AND fsppldns.AutoID = ' + IntToStr(AutoID) + ' ';
-  end;
 
   sSQL := sSQL +
     'ORDER BY fsppldns.Tipo, fsppldns.IdNumeroSerie';
@@ -19665,6 +19663,208 @@ begin
   {$ENDREGION}
 
 
+
+end;
+
+
+procedure WebModule1checkNumeroSerieEnStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  CodigoUsuario: Integer;
+  contentfields: TStringList;
+  PreparacionId: Integer;
+  PickingId: Integer;
+  AutoId: Integer;
+  NumeroSerie: String;
+  CodigoArticulo: String;
+  bMultiSeries: Boolean;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+
+  CodigoArticulo := contentfields.values['CodigoArticulo'];
+  if CodigoArticulo='' then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de artículo no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  NumeroSerie := contentfields.values['NumeroSerie'];
+  if NumeroSerie='' then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El número de serie está en blanco","Data":[]}';
+    Exit;
+  end;
+
+  bMultiSeries := ( SAGE_ObtenerParametroINI ( Conn, CodigoEmpresa, 'CUESTIONARIO', 'GES', 'NSeriesDuplicado' ) <> 0 );
+  if bMultiSeries then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[{"Permitir":true}]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  sSQL :=
+    'SELECT COUNT(*) ' +
+    'FROM ArticulosSeries WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+    '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '  AND NumeroSerieLc = ''' + SQL_Str(NumeroSerie) + ''' ' +
+    '  AND UnidadesSerie > 0 ';
+  if SQL_Execute ( Conn, sSQL ) > 0 then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Este número de serie ya se encuentra en stock","Data":[{"Permitir":false}]}';
+    Exit;
+  end;
+
+  Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[{"Permitir":true}]}';
+
+  {$ENDREGION}
+
+end;
+
+
+procedure WebModule1getNumerosSerieSalidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  sSQL: String;
+  sAndWhere: String;
+  Q: TADOQuery;
+  CodigoUsuario: Integer;
+  contentfields: TStringList;
+  CodigoArticulo: String;
+  CodigoAlmacen: String;
+  CodigoUbicacion: String;
+  Partida: String;
+  CodigoTalla: String;
+  CodigoColor: String;
+  sJSON: String;
+  YY: Word;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario   := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  CodigoArticulo  := contentfields.values['CodigoArticulo'];
+  CodigoAlmacen   := contentfields.values['CodigoAlmacen'];
+  CodigoUbicacion := contentfields.values['CodigoUbicacion'];
+  Partida         := contentfields.values['Partida'];
+  CodigoTalla     := contentfields.values['CodigoTalla'];
+  CodigoColor     := contentfields.values['CodigoColor'];
+
+  if Partida='undefined' then Partida := '';
+  if CodigoTalla='undefined' then CodigoTalla := '';
+  if CodigoColor='undefined' then CodigoColor := '';
+
+  if CodigoArticulo='' then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de artículo no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  YY := SGA_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  sAndWhere := '';
+  if Partida <> '' then
+    sAndWhere := sAndWhere + '  AND Partida = ''' + SQL_Str(Partida) + ''' ';
+  if CodigoTalla <> '' then
+    sAndWhere := sAndWhere + '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ';
+  if CodigoColor <> '' then
+    sAndWhere := sAndWhere + '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ';
+
+  sSQL :=
+    'SELECT NumeroSerie, NumeroSerieFabricante, UnidadesSaldo, UnidadesSaldoBase ' +
+    'FROM FS_SGA_AcumuladoStock_Series WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+    '  AND Ejercicio = ' + IntToStr(YY) + ' ' +
+    '  AND Periodo = 99 ' +
+    '  AND CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' ' +
+    '  AND CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ' +
+    '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '  AND (UnidadesEntrada - UnidadesSalida) > 0 ' +
+    sAndWhere +
+    'ORDER BY NumeroSerie';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+  except
+    on E:Exception do begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  sJSON := '';
+  while not Q.EOF do
+  begin
+    if sJSON <> '' then sJSON := sJSON + ',';
+    sJSON := sJSON +
+      '{"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
+      '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
+      '"Cantidad":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldo').AsFloat) + '}';
+    Q.Next;
+  end;
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[' + sJSON + ']}';
+
+  {$ENDREGION}
 
 end;
 
@@ -27875,6 +28075,14 @@ var
   OcupacionActual: TUbicacionOcupacionActual;
   TieneRestriccion: TResultadoRestriccion;
   UUID: string;
+  TratamientoSeries: Boolean;
+  Series: string;
+  JSonObject: TJSONObject;
+  JSonValue: TJSONValue;
+  JSonArray: TJSONArray;
+  lJSonValue: TJSonValue;
+  NumeroSerie: String;
+  NumeroSerieFabricante: String;
 {$ENDREGION}
 
 begin
@@ -27959,14 +28167,41 @@ begin
     Exit;
   end;
 
-  (*
-  if (not aUbicacion.MultiRef) or (not aUbicacion.MultiLote) then begin
-    if not SGA_ALMACEN_Permitir_Entrada_Ubicacion ( Conn, CodigoEmpresa, aUbicacion, Codigoarticulo, Partida ) then begin
-      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La ubicación no permite más de un artículo o partida distintos","Data":[]}';
+  TratamientoSeries := ARTICULO_TratamientoSeries ( Conn, CodigoEmpresa, CodigoArticulo );
+
+  if TratamientoSeries then
+  begin
+
+    Series := contentfields.values['Series'];
+    if Series='' then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se han especificado los números de serie","Data":[]}';
       Exit;
     end;
+
+    JSonObject := _Parse_JSonObject ( Series );
+    if JSonObject=nil then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El formato JSON del elemento Data es incorrecto","Data":[]}';
+      Exit;
+    end;
+
+    JSonValue  := JSonObject.Get('List').JsonValue;
+    if JSonValue=nil then begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Los datos especificados no son válidos","Data":[]}';
+      JSonObject.Free;
+      Exit;
+    end;
+
+    JSonArray := TJSONArray(JSonValue);
+    if JSonArray=nil then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Los datos especificados no contienen un array válido","Data":[]}';
+      JSonObject.Free;
+      Exit;
+    end;
+
   end;
-  *)
 
   Unidades         := FS_StrToFloatDef ( contentfields.values['Unidades'], 0 );
   UnidadMedida     := ( AnsiUpperCase(contentfields.values['UnidadMedida']) );
@@ -28029,7 +28264,7 @@ begin
 
   {$ENDREGION}
 
-  {$REGION 'Realitzar operació'}
+  {$REGION 'Preparar variables per a l´operació'}
 
   DecodeDateTime ( Now(), YY, MM, DD, HH, NN, SS, MS );
 
@@ -28151,9 +28386,7 @@ begin
   gaMov.Partida                := Partida;
   gaMov.TipoMovimiento         := TipoMovimiento;
   gaMov.OrigenMovimiento       := OrigenMovimiento;
-  gaMov.Unidades               := Unidades;
   gaMov.UnidadMedida           := AnsiUpperCase(UnidadMedida);
-  gaMov.UnidadesBase           := UnidadesBase;
   gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
   gaMov.FactorConversion       := FactorConversion;
   gaMov.Comentario             := Comentario;
@@ -28162,25 +28395,76 @@ begin
   gaMov.Serie                  := Serie;
   gaMov.FechaCaduca            := dFechaCaduca;
   gaMov.Precio                 := Precio;
-  gaMov.MovOrigen              := MovOrigen;
   gaMov.CodigoProveedor        := CodigoProveedor;
   gaMov.CodigoColor            := CodigoColor_;
   gaMov.CodigoTalla            := CodigoTalla01_;
   gaMov.GrupoTalla             := GrupoTalla_;
   gaMov.Matricula              := Matricula;
   gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+  gaMov.MovOrigen              := gaMov.MovPosicion;
+  gaMov.Importe                := gaMov.Precio * gaMov.UnidadesBase;
+  gaMov.OrigenDocumento        := OD_ENTRADA_STOCK;
 
-  if not bErr then try
-    bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
-  except
-    on E:Exception do begin
-      bErr := TRUE;
-      sMsg := E.Message;
+  if TratamientoSeries then
+  begin
+
+    gaMov.Unidades           := Unidades;
+    gaMov.UnidadesBase       := UnidadesBase;
+    gaMov.TipoMovimientoSGA  := [];
+    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+
+    // Fem el moviment a Sage de l'stock total del moviment
+    if not bErr then try
+      bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
     end;
+
+    // Fem els moviments al FS SGA i a MovimientoArticuloSerie de Sage
+    for lJSonValue in JSonArray do begin
+
+      gaMov.MovPosicion           := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      gaMov.NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+      gaMov.NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'CodigoUbicacion' );
+      gaMov.Unidades              := StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ),0);
+      gaMov.UnidadesBase          := gaMov.Unidades * gaMov.FactorConversion;
+      gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
+      gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStock,tmsageMovimientoStockSeries];
+
+      if not bErr then try
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+    end;
+
+  end else begin
+
+    // Fem el moviment a SGA i a Sage de l'stock total del moviment
+    gaMov.Unidades           := Unidades;
+    gaMov.UnidadesBase       := UnidadesBase;
+    gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
+    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+
+    if not bErr then try
+      bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
+    end;
+
   end;
 
-  gaMov.Importe := gaMov.Precio * gaMov.UnidadesBase;
-
+  (*
   sSQL := 'INSERT INTO TmpIME_MovimientoStock ( ' +
           '    CodigoEmpresa, Ejercicio, Periodo, Fecha, Serie, Documento, ' +
           '    CodigoArticulo, CodigoAlmacen, Partida, ' +
@@ -28263,6 +28547,7 @@ begin
       sMsg := E.Message;
     end;
   end;
+  *)
 
   (*
   if (iLastID<>0) and (not WaitOperationDone ( Conn, iLastID, Status, Mensaje )) then begin
@@ -29648,6 +29933,16 @@ var
   fStockBase: Double;
   Matricula: String;
   UUID: string;
+  bErr: Boolean;
+  sMsg: String;
+  TratamientoSeries: Boolean;
+  Series: string;
+  JSonObject: TJSONObject;
+  JSonValue: TJSONValue;
+  JSonArray: TJSONArray;
+  lJSonValue: TJSonValue;
+  NumeroSerie: String;
+  NumeroSerieFabricante: String;
 {$ENDREGION}
 
 begin
@@ -29655,6 +29950,9 @@ begin
   REQUEST_Split ( sParams, contentfields );
 
   {$REGION 'Recuperació de paràmetres'}
+
+  sMsg := '';
+  bErr := FALSE;
 
   EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
   if EmpresaOrigen=0 then begin
@@ -29727,6 +30025,42 @@ begin
   if (Partida<>'') and (not TratamientoPartidas) then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de artículo no requiere partida","Data":[]}';
     Exit;
+  end;
+
+  TratamientoSeries := ARTICULO_TratamientoSeries ( Conn, CodigoEmpresa, CodigoArticulo );
+
+  if TratamientoSeries then
+  begin
+
+    Series := contentfields.values['Series'];
+    if Series='' then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se han especificado los números de serie","Data":[]}';
+      Exit;
+    end;
+
+    JSonObject := _Parse_JSonObject ( Series );
+    if JSonObject=nil then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El formato JSON del elemento Data es incorrecto","Data":[]}';
+      Exit;
+    end;
+
+    JSonValue  := JSonObject.Get('List').JsonValue;
+    if JSonValue=nil then begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Los datos especificados no son válidos","Data":[]}';
+      JSonObject.Free;
+      Exit;
+    end;
+
+    JSonArray := TJSONArray(JSonValue);
+    if JSonArray=nil then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Los datos especificados no contienen un array válido","Data":[]}';
+      JSonObject.Free;
+      Exit;
+    end;
+
   end;
 
   Unidades         := FS_StrToFloatDef ( contentfields.values['Unidades'], 0 );
@@ -29962,6 +30296,9 @@ begin
   gaMov.GrupoTalla             := GrupoTalla;
   gaMov.Matricula	             := Matricula;
   gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+  gaMov.MovOrigen              := gaMov.MovPosicion;
+  gaMov.Importe                := gaMov.Precio * gaMov.UnidadesBase;
+  gaMov.OrigenDocumento        := OD_SALIDA_STOCK;
 
   if Precio=0 then
   begin
@@ -29978,10 +30315,62 @@ begin
       );
   end;
 
-  // Fem els moviments a les taules del SGA
-  if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
-    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
-    Exit;
+  if TratamientoSeries then
+  begin
+
+    gaMov.Unidades           := Unidades;
+    gaMov.UnidadesBase       := UnidadesBase;
+    gaMov.TipoMovimientoSGA  := [];
+    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+
+    // Fem el moviment a Sage de l'stock total del moviment
+    if not bErr then try
+      bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
+    end;
+
+    // Fem els moviments al FS SGA i a MovimientoArticuloSerie de Sage
+    for lJSonValue in JSonArray do begin
+
+      gaMov.MovPosicion           := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      gaMov.NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
+      gaMov.NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
+      gaMov.Unidades              := StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ),0);
+      gaMov.UnidadesBase          := gaMov.Unidades * gaMov.FactorConversion;
+      gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
+      gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries];
+
+      if not bErr then try
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+    end;
+
+    if bErr then begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + sMsg + '","Data":[]}';
+      Exit;
+    end;
+
+  end else begin
+
+    // Fem els moviments a les taules del SGA (sense sèries)
+    gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
+    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStockSeries];
+
+    if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
+      Exit;
+    end;
+
   end;
 
   sSQL := 'INSERT INTO TmpIME_MovimientoStock ( ' +
@@ -32153,6 +32542,9 @@ var
   bMantenerAbierta: Boolean;
   RecepcionIdVinculada: Integer;
   IdAlbaranPro: String;
+  NumeroSerie: string;
+  NumeroSerieFabricante: string;
+  MovOrigen: string;
 {$ENDREGION}
 
 begin
@@ -32352,9 +32744,10 @@ begin
 
   sSQL :=
     'SELECT ' +
-    '  lpp.EjercicioPedido, lpp.SeriePedido, lpp.NumeroPedido, lpp.TipoArticulo, art.TratamientoPartidas, srl.UnidadMedida1_ as UnidadMedidaPedido, srl.CodigoArticulo, ' +
-    '  srl.GrupoTalla_, srl.CodigoTalla01_, srl.CodigoColor_, ' +
-    '  srld.* ' +
+    '  lpp.EjercicioPedido, lpp.SeriePedido, lpp.NumeroPedido, lpp.TipoArticulo, art.TratamientoPartidas, ' +
+    '  srl.UnidadMedida1_ as UnidadMedidaPedido, srl.CodigoArticulo, srl.GrupoTalla_, srl.CodigoTalla01_, ' +
+    '  srl.CodigoColor_, srld.*, ISNULL(srlds.NumeroSerie,'''') AS NumeroSerie, lpp.LineasPosicion, ' +
+    '  ISNULL(srlds.NumeroSerieFabricante, '''') AS NumeroSerieFabricante, ISNULL(srlds.Cantidad,0) AS CantidadSerie ' +
     'FROM FS_SGA_Recepciones_Lineas srl WITH (NOLOCK) ' +
     'INNER JOIN FS_COMMON_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
     'ON ' +
@@ -32363,6 +32756,10 @@ begin
     'ON ' +
     '  srl.RecepcionId = srld.RecepcionId AND ' +
     '  srl.RecepcionIdLinea = srld.RecepcionIdLinea ' +
+    'LEFT JOIN FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie srlds WITH (NOLOCK) ' +
+    'ON ' +
+    '  srld.RecepcionId = srlds.RecepcionId ' +
+    '  AND srld.RecepcionIdLinea = srlds.RecepcionIdLinea ' +
     'INNER JOIN LineasPedidoProveedor lpp WITH (NOLOCK) ' +
     'ON ' +
     '  lpp.CodigoEmpresa = srl.CodigoEmpresa ' +
@@ -32404,10 +32801,6 @@ begin
     TratamientoPartidas     := (Q.FieldByName('TratamientoPartidas').AsInteger<>0);
     CodigoUbicacion         := Q.FieldByName('CodigoUbicacion').AsString;
     CodigoUbicacionRechazos := Q.FieldByName('CodigoUbicacionRechazos').AsString;
-    CantidadEntrada         := Q.FieldByName('UnidadesEntrada').AsFloat;
-    CantidadEntradaBase     := Q.FieldByName('UnidadesEntradaBase').AsFloat;
-    CantidadRechazos        := Q.FieldByName('CantidadErrorEntrada').AsFloat;
-    CantidadRechazosBase    := Q.FieldByName('UnidadesErrorBase').AsFloat;
     FactorConversion        := Q.FieldByName('FactorConversion').AsFloat;
     UnidadMedida            := AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString);
     UnidadMedidaEntrada     := AnsiUpperCase(Q.FieldByName('UnidadMedidaPedido').AsString);
@@ -32421,6 +32814,22 @@ begin
     GrupoTalla              := Q.FieldByName('GrupoTalla_').AsInteger;
     CodigoTalla             := Q.FieldByName('CodigoTalla01_').AsString;
     CodigoColor             := Q.FieldByName('CodigoColor_').AsString;
+    NumeroSerie             := Q.FieldByName('NumeroSerie').AsString;
+    NumeroSerieFabricante   := Q.FieldByName('NumeroSerieFabricante').AsString;
+    MovOrigen               := Q.FieldByName('LineasPosicion').AsString;
+
+    if Q.FieldByName('CantidadSerie').AsFloat > 0 then
+    begin
+      CantidadEntrada         := Q.FieldByName('CantidadSerie').AsFloat;
+      CantidadEntradaBase     := CantidadEntrada * FactorConversion;
+      CantidadRechazos        := 0;
+      CantidadRechazosBase    := 0;
+    end else begin
+      CantidadEntrada         := Q.FieldByName('UnidadesEntrada').AsFloat;
+      CantidadEntradaBase     := Q.FieldByName('UnidadesEntradaBase').AsFloat;
+      CantidadRechazos        := Q.FieldByName('CantidadErrorEntrada').AsFloat;
+      CantidadRechazosBase    := Q.FieldByName('UnidadesErrorBase').AsFloat;
+    end;
 
     aUbicacion := SGA_ALMACEN_GetUbicacion ( Conn, CodigoEmpresa, CodigoUbicacion );
     if aUbicacion.CodigoUbicacion='' then begin
@@ -32467,6 +32876,8 @@ begin
       gaMov.TipoMovimiento         := 1;
       gaMov.OrigenMovimiento       := 'E';
       gaMov.Comentario             := 'Entrada de proveedor';
+      gaMov.NumeroSerie            := NumeroSerie;
+      gaMov.NumeroSerieFabricante  := NumeroSerieFabricante;
       gaMov.IdProcesoIME           := sNewGuid;
       gaMov.FechaCaduca            := FechaCaduca;
       gaMov.Precio                 := Precio;
@@ -32479,6 +32890,8 @@ begin
       gaMov.GrupoTalla             := GrupoTalla;
       gaMov.CodigoTalla            := CodigoTalla;
       gaMov.CodigoColor            := CodigoColor;
+      gaMov.OrigenDocumento        := OD_ALBARAN_COMPRA;
+      gaMov.MovOrigen              := MovOrigen;
 
       //...afegim a SGA_Movimiento_Almacen
       if (CantidadEntradaBase<>0) then
