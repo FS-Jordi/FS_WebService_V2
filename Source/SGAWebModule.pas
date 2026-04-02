@@ -313,7 +313,7 @@ procedure WebModule1updateAprovisionamientoAction ( Conn: TADOConnection; sParam
 
 function FS_SGA_ObtenerMovimientosPreparacion ( Conn: TADOConnection; IdPreparacion: Integer; CodigoEmpresa: TOrigenCodigoEmpresa;
   LineasPosicion, CodigoArticulo, Partida, CodigoTalla, CodigoColor, CodigoAlmacen: String; CodigoAgrupacion: Integer; MostrarPartidas: Integer;
-  var Error: Boolean; var iStockTotal: Double ): String;
+  var Error: Boolean; var iStockTotal: Double; TratamientoSeries: Boolean = FALSE ): String;
 
 function FS_SGA_ObtenerUbicaciones ( Conn: TADOConnection; IdPreparacion: Integer; CodigoEmpresa: TOrigenCodigoEmpresa;
   CodigoArticulo, UnidadMedida, Partida, CodigoTalla, CodigoColor, CodigoAlmacen, CodigoCliente: String;
@@ -5656,14 +5656,7 @@ begin
 
   {$REGION 'Guardem les dades'}
 
-  sSQL :=
-    'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ' +
-    'WHERE ' +
-    '  PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
-    '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
-    '  AND AutoID = ' + IntToStr(AutoId);
-  SQL_Execute_NoRes ( Conn, sSQL );
-
+  // No esborrem els registres anteriors, afegim els nous (cada preparació afegeix els seus)
   for lJSonValue in JSonArray do begin
 
       NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
@@ -8981,7 +8974,8 @@ begin
       Q.FieldByName('CodigoAgrupacion').AsInteger,
       MostrarPartidas,
       bError,
-      iStockTotal
+      iStockTotal,
+      Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0
     );
 
     if not bError then begin
@@ -44997,7 +44991,7 @@ end;
 
 function FS_SGA_ObtenerMovimientosPreparacion ( Conn: TADOConnection; IdPreparacion: Integer; CodigoEmpresa: TOrigenCodigoEmpresa;
   LineasPosicion, CodigoArticulo, Partida, CodigoTalla, CodigoColor, CodigoAlmacen: String; CodigoAgrupacion: Integer; MostrarPartidas: Integer;
-  var Error: Boolean; var iStockTotal: Double ): String;
+  var Error: Boolean; var iStockTotal: Double; TratamientoSeries: Boolean = FALSE ): String;
 
 {$REGION 'Declaració de variables'}
 var
@@ -45082,30 +45076,59 @@ begin
 
   //PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_UbicacionDefectoExpedicion, CodigoUbicacionExpedicion, CodigoEmpresa.EmpresaOrigen );
 
-  sSQL :=
-    'SELECT ' +
-    '  DISTINCT fsap.CodigoEmpresa, fsap.IdPreparacion, fsap.CodigoArticulo, fsap.Partida, fsap.CodigoTalla01_, ' +
-    '  fsap.CodigoColor_, fsap.Cantidad, fsap.UnidadMedida, fsap.CantidadBase, fsap.UnidadMedidaBase, ' +
-    '  fsap.CodigoAgrupacion, fsap.UnidadesAgrupacion, ISNULL(agrup.Agrupacion,''UNIDADES'') AS Agrupacion, ' +
-    '  ISNULL(agrup.DescripcionArticulo,'''') AS DescripcionAgrupacion ' +
-    'FROM FS_SGA_AcumuladoPendiente fsap WITH (NOLOCK) ' +
-    'LEFT JOIN Agrupaciones agrup WITH (NOLOCK) ' +
-    'ON agrup.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Agrupaciones) + ' ' +
-    'AND agrup.CodigoArticulo = fsap.CodigoArticulo ' +
-    'AND agrup.CodigoAgrupacion = fsap.CodigoAgrupacion ' +
-    'AND agrup.UnidadMedida1_ = fsap.UnidadMedida ' +
-    'WHERE ' +
-    '  fsap.IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
-    '  AND fsap.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-    '  AND fsap.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
-    '  AND fsap.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-    '  AND fsap.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
-    '  AND fsap.PickingId = 0 ' +
-    '  AND (fsap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''')) ' +
-    '  AND (fsap.Cantidad<>0 OR fsap.CantidadBase<>0) ' +
-    sMostrarPartidas + ' ' +
-    'ORDER BY ' +
-    '  fsap.UnidadesAgrupacion DESC';
+  if TratamientoSeries then begin
+    // Quan l'article té tractament de sèries, consultem FS_SGA_Picking_Pedido_Lineas_Detalle
+    // per obtenir cada preparació com un registre separat (no acumulat)
+    sSQL :=
+      'SELECT ' +
+      '  fsppld.CodigoArticulo, fsppld.Partida, fsppld.CodigoTalla01_, ' +
+      '  fsppld.CodigoColor_, fsppld.Unidades AS Cantidad, fsppld.UnidadMedida, ' +
+      '  fsppld.UnidadesBase AS CantidadBase, fsppld.UnidadMedida AS UnidadMedidaBase, ' +
+      '  fsppld.CodigoAgrupacion, fsppld.UnidadesAgrupacion, ' +
+      '  ISNULL(agrup.Agrupacion,''UNIDADES'') AS Agrupacion, ' +
+      '  ISNULL(agrup.DescripcionArticulo,'''') AS DescripcionAgrupacion, ' +
+      '  fsppld.AutoId ' +
+      'FROM FS_SGA_Picking_Pedido_Lineas_Detalle fsppld WITH (NOLOCK) ' +
+      'LEFT JOIN Agrupaciones agrup WITH (NOLOCK) ' +
+      'ON agrup.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Agrupaciones) + ' ' +
+      'AND agrup.CodigoArticulo = fsppld.CodigoArticulo ' +
+      'AND agrup.CodigoAgrupacion = fsppld.CodigoAgrupacion ' +
+      'AND agrup.UnidadMedida1_ = fsppld.UnidadMedida ' +
+      'WHERE ' +
+      '  fsppld.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND fsppld.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+      '  AND fsppld.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+      '  AND fsppld.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+      '  AND fsppld.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
+      '  AND (fsppld.Unidades > 0 OR fsppld.UnidadesBase > 0) ' +
+      'ORDER BY ' +
+      '  fsppld.AutoId';
+  end else begin
+    sSQL :=
+      'SELECT ' +
+      '  DISTINCT fsap.CodigoEmpresa, fsap.IdPreparacion, fsap.CodigoArticulo, fsap.Partida, fsap.CodigoTalla01_, ' +
+      '  fsap.CodigoColor_, fsap.Cantidad, fsap.UnidadMedida, fsap.CantidadBase, fsap.UnidadMedidaBase, ' +
+      '  fsap.CodigoAgrupacion, fsap.UnidadesAgrupacion, ISNULL(agrup.Agrupacion,''UNIDADES'') AS Agrupacion, ' +
+      '  ISNULL(agrup.DescripcionArticulo,'''') AS DescripcionAgrupacion ' +
+      'FROM FS_SGA_AcumuladoPendiente fsap WITH (NOLOCK) ' +
+      'LEFT JOIN Agrupaciones agrup WITH (NOLOCK) ' +
+      'ON agrup.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Agrupaciones) + ' ' +
+      'AND agrup.CodigoArticulo = fsap.CodigoArticulo ' +
+      'AND agrup.CodigoAgrupacion = fsap.CodigoAgrupacion ' +
+      'AND agrup.UnidadMedida1_ = fsap.UnidadMedida ' +
+      'WHERE ' +
+      '  fsap.IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND fsap.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+      '  AND fsap.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+      '  AND fsap.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+      '  AND fsap.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
+      '  AND fsap.PickingId = 0 ' +
+      '  AND (fsap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''')) ' +
+      '  AND (fsap.Cantidad<>0 OR fsap.CantidadBase<>0) ' +
+      sMostrarPartidas + ' ' +
+      'ORDER BY ' +
+      '  fsap.UnidadesAgrupacion DESC';
+  end;
 
   //galogfile.Write('FS_SGA_ObtenerMovimientosPreparacion: ' + sSQL);
 
@@ -45147,8 +45170,12 @@ begin
                        '"Cantidad":' + SQL_FloatToStr(Q.FieldByName('Cantidad').AsFloat / fUnidadesAgrupacion) + ',' +
                        '"CantidadBase":' + SQL_FloatToStr(Q.FieldByName('CantidadBase').AsFloat) + ',' +
                        '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
-                       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '"' +
-                       '}';
+                       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '"';
+
+    if TratamientoSeries then
+      Result := Result + ',"AutoId":' + IntToStr(Q.FieldByName('AutoId').AsInteger);
+
+    Result := Result + '}';
 
     Q.Next;
 
@@ -49492,6 +49519,16 @@ var
   sSoloReservas: String;
   sIgnorarPartidaSolicitada: String;
   sIgnorarUbicacionSolicitada: String;
+  sNumerosSerie: String;
+  lJSonNumSeries: TJSonValue;
+  lJSonArrayNS: TJSonArray;
+  lJSonNS: TJSonValue;
+  iNS: Integer;
+  sNS_NumeroSerie: String;
+  sNS_NumeroSerieFabricante: String;
+  fNS_Cantidad: Double;
+  fNS_FactorConversion: Double;
+  bTeSeries: Boolean;
 {$ENDREGION}
 
 begin
@@ -49585,6 +49622,10 @@ begin
   CodigoAgrupacion       := StrToIntDef(Trim(contentfields.values['CodigoAgrupacion']),0);
   CodigoAgrupacionPedido := StrToIntDef(Trim(contentfields.values['CodigoAgrupacionPedido']),0);
   UnidadesAgrupacion     := FS_StrToFloatDef(Trim(contentfields.values['UnidadesAgrupacion']),1);
+
+  // Números de sèrie (JSON opcional)
+  sNumerosSerie := contentfields.values['NumerosSerie'];
+  bTeSeries := (sNumerosSerie <> '');
 
   FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, UnidadMedida, UnidadMedidaBase );
 
@@ -50007,100 +50048,239 @@ begin
   if bErr then
     gaLogFile.Write ( 'ERROR: ' + sMsg, sIDCall );
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
-  gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
-  gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
-  gaMov.CodigoUsuario          := CodigoUsuario;
-  gaMov.Ejercicio              := YY;
-  gaMov.Periodo                := MonthOf(Date());
-  gaMov.Fecha                  := Date();
-  gaMov.FechaHora              := Now();
-  gaMov.CodigoAlmacen          := aUbicacion.CodigoAlmacen;
-  gaMov.CodigoUbicacion        := CodigoUbicacion;
-  gaMov.CodigoArticulo         := CodigoArticulo;
-  gaMov.Partida                := Partida;
-  gaMov.Partida2               := PartidaPedido;
-  gaMov.CodigoTalla            := CodigoTalla;
-  gaMov.CodigoColor            := CodigoColor;
-  gaMov.TipoMovimiento         := 2;
-  gaMov.OrigenMovimiento       := TipoSalida;
-  gaMov.Unidades               := Unidades;
-  gaMov.UnidadMedida           := AnsiUpperCase(UnidadMedida);
-  gaMov.UnidadesBase           := UnidadesBase;
-  gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
-  gaMov.FactorConversion       := FactorConversion;
-  gaMov.FechaCaduca            := dFechaCaduca;
-  gaMov.IdProcesoIME           := sNewGuid;
-  gaMov.Comentario             := 'SGAMobile: ' + DescripcionSalida;
-  gaMov.PreparacionId          := IdPreparacion;
-  gaMov.MovOrigen              := sNewMovOrigen;
-  gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
-
-  gaMov.Precio :=
-    ARTICULO_ConsultarPrecioStock (
-      Conn,
-      CodigoEmpresa,
-      gaMov.CodigoArticulo,
-      gaMov.Partida,
-      gaMov.CodigoColor,
-      gaMov.CodigoTalla,
-      gaMov.CodigoAlmacen,
-      gaMov.GrupoTalla
-    );
-
-  if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
-    gaMov.CodigoAlmacenDestino   := aUbicacionExpedicion.CodigoAlmacen;
-    gaMov.CodigoUbicacionDestino := aUbicacionExpedicion.CodigoUbicacion;
-    gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
-  end;
-
-  if not bErr then try
-    gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida', sIDCall );
-    bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
-  except
-    on E:Exception do begin
-      bErr := TRUE;
-      sMsg := E.Message;
+  // Parsejar números de sèrie si n'hi ha
+  lJSonArrayNS := nil;
+  if bTeSeries then begin
+    try
+      lJSonNumSeries := TJSonObject.ParseJSonValue(sNumerosSerie);
+      if lJSonNumSeries <> nil then
+        lJSonArrayNS := lJSonNumSeries.GetValue<TJSonArray>('List');
+    except
+      lJSonArrayNS := nil;
     end;
   end;
 
-  if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
-    gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock traspaso', sIDCall  );
-    gaMov.CodigoAlmacenDestino   := aUbicacion.CodigoAlmacen;
-    gaMov.CodigoUbicacionDestino := aUbicacion.CodigoUbicacion;
-  end;
+  // Si hi ha números de sèrie, fem un moviment per a cada un
+  // Si no n'hi ha, fem un sol moviment com fins ara
+  if (lJSonArrayNS <> nil) and (lJSonArrayNS.Count > 0) then begin
 
-  gaMov.FechaHora              := Now();
-  gaMov.CodigoAlmacen          := aUbicacionExpedicion.CodigoAlmacen;
-  gaMov.CodigoUbicacion        := CodigoUbicacionExpedicion;
-  gaMov.CodigoArticulo         := CodigoArticulo;
-  gaMov.TipoMovimiento         := 1;
-  gaMov.OrigenMovimiento       := TipoEntrada;
-  gaMov.Comentario             := 'SGAMobile: ' + DescripcionEntrada;
-  gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    for iNS := 0 to lJSonArrayNS.Count - 1 do begin
 
-  gaMov.Precio :=
-    ARTICULO_ConsultarPrecioStock (
-      Conn,
-      CodigoEmpresa,
-      gaMov.CodigoArticulo,
-      gaMov.Partida,
-      gaMov.CodigoColor,
-      gaMov.CodigoTalla,
-      gaMov.CodigoAlmacen,
-      gaMov.GrupoTalla,
-      gaMov.CodigoAlmacenDestino
-    );
+      if bErr then Break;
 
-  if not bErr then try
-    gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock entrada', sIDCall  );
-    bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg, sIDCall );
-  except
-    on E:Exception do begin
-      bErr := TRUE;
-      sMsg := E.Message;
+      lJSonNS := lJSonArrayNS.Items[iNS];
+      sNS_NumeroSerie            := _Get_JSonValue ( lJSonNS, 'NumeroSerie' );
+      sNS_NumeroSerieFabricante  := _Get_JSonValue ( lJSonNS, 'NumeroSerieFabricante' );
+      fNS_Cantidad               := FS_StrToFloatDef( _Get_JSonValue ( lJSonNS, 'Cantidad' ), 1 );
+      if FactorConversion <> 0 then
+        fNS_FactorConversion := fNS_Cantidad * FactorConversion
+      else
+        fNS_FactorConversion := fNS_Cantidad;
+
+      gaLogFile.Write ( 'Moviment sèrie ' + IntToStr(iNS+1) + '/' + IntToStr(lJSonArrayNS.Count) +
+        ': NS=' + sNS_NumeroSerie + ' Qty=' + FloatToStr(fNS_Cantidad), sIDCall );
+
+      // SORTIDA
+      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
+      gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
+      gaMov.CodigoUsuario          := CodigoUsuario;
+      gaMov.Ejercicio              := YY;
+      gaMov.Periodo                := MonthOf(Date());
+      gaMov.Fecha                  := Date();
+      gaMov.FechaHora              := Now();
+      gaMov.CodigoAlmacen          := aUbicacion.CodigoAlmacen;
+      gaMov.CodigoUbicacion        := CodigoUbicacion;
+      gaMov.CodigoArticulo         := CodigoArticulo;
+      gaMov.Partida                := Partida;
+      gaMov.Partida2               := PartidaPedido;
+      gaMov.CodigoTalla            := CodigoTalla;
+      gaMov.CodigoColor            := CodigoColor;
+      gaMov.TipoMovimiento         := 2;
+      gaMov.OrigenMovimiento       := TipoSalida;
+      gaMov.Unidades               := fNS_Cantidad;
+      gaMov.UnidadMedida           := AnsiUpperCase(UnidadMedida);
+      gaMov.UnidadesBase           := fNS_FactorConversion;
+      gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
+      gaMov.FactorConversion       := FactorConversion;
+      gaMov.FechaCaduca            := dFechaCaduca;
+      gaMov.IdProcesoIME           := sNewGuid;
+      gaMov.Comentario             := 'SGAMobile: ' + DescripcionSalida;
+      gaMov.PreparacionId          := IdPreparacion;
+      gaMov.MovOrigen              := sNewMovOrigen;
+      gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      gaMov.NumeroSerie            := sNS_NumeroSerie;
+      gaMov.NumeroSerieFabricante  := sNS_NumeroSerieFabricante;
+
+      gaMov.Precio :=
+        ARTICULO_ConsultarPrecioStock (
+          Conn,
+          CodigoEmpresa,
+          gaMov.CodigoArticulo,
+          gaMov.Partida,
+          gaMov.CodigoColor,
+          gaMov.CodigoTalla,
+          gaMov.CodigoAlmacen,
+          gaMov.GrupoTalla
+        );
+
+      if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
+        gaMov.CodigoAlmacenDestino   := aUbicacionExpedicion.CodigoAlmacen;
+        gaMov.CodigoUbicacionDestino := aUbicacionExpedicion.CodigoUbicacion;
+        gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      end;
+
+      try
+        gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida NS=' + sNS_NumeroSerie, sIDCall );
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+      if bErr then Break;
+
+      // ENTRADA
+      if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
+        gaMov.CodigoAlmacenDestino   := aUbicacion.CodigoAlmacen;
+        gaMov.CodigoUbicacionDestino := aUbicacion.CodigoUbicacion;
+      end;
+
+      gaMov.FechaHora              := Now();
+      gaMov.CodigoAlmacen          := aUbicacionExpedicion.CodigoAlmacen;
+      gaMov.CodigoUbicacion        := CodigoUbicacionExpedicion;
+      gaMov.CodigoArticulo         := CodigoArticulo;
+      gaMov.TipoMovimiento         := 1;
+      gaMov.OrigenMovimiento       := TipoEntrada;
+      gaMov.Comentario             := 'SGAMobile: ' + DescripcionEntrada;
+      gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+
+      gaMov.Precio :=
+        ARTICULO_ConsultarPrecioStock (
+          Conn,
+          CodigoEmpresa,
+          gaMov.CodigoArticulo,
+          gaMov.Partida,
+          gaMov.CodigoColor,
+          gaMov.CodigoTalla,
+          gaMov.CodigoAlmacen,
+          gaMov.GrupoTalla,
+          gaMov.CodigoAlmacenDestino
+        );
+
+      try
+        gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock entrada NS=' + sNS_NumeroSerie, sIDCall  );
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg, sIDCall );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+    end; // for iNS
+
+  end else begin
+
+    // Sense números de sèrie: comportament original (un sol moviment)
+    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
+    gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
+    gaMov.CodigoUsuario          := CodigoUsuario;
+    gaMov.Ejercicio              := YY;
+    gaMov.Periodo                := MonthOf(Date());
+    gaMov.Fecha                  := Date();
+    gaMov.FechaHora              := Now();
+    gaMov.CodigoAlmacen          := aUbicacion.CodigoAlmacen;
+    gaMov.CodigoUbicacion        := CodigoUbicacion;
+    gaMov.CodigoArticulo         := CodigoArticulo;
+    gaMov.Partida                := Partida;
+    gaMov.Partida2               := PartidaPedido;
+    gaMov.CodigoTalla            := CodigoTalla;
+    gaMov.CodigoColor            := CodigoColor;
+    gaMov.TipoMovimiento         := 2;
+    gaMov.OrigenMovimiento       := TipoSalida;
+    gaMov.Unidades               := Unidades;
+    gaMov.UnidadMedida           := AnsiUpperCase(UnidadMedida);
+    gaMov.UnidadesBase           := UnidadesBase;
+    gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
+    gaMov.FactorConversion       := FactorConversion;
+    gaMov.FechaCaduca            := dFechaCaduca;
+    gaMov.IdProcesoIME           := sNewGuid;
+    gaMov.Comentario             := 'SGAMobile: ' + DescripcionSalida;
+    gaMov.PreparacionId          := IdPreparacion;
+    gaMov.MovOrigen              := sNewMovOrigen;
+    gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+
+    gaMov.Precio :=
+      ARTICULO_ConsultarPrecioStock (
+        Conn,
+        CodigoEmpresa,
+        gaMov.CodigoArticulo,
+        gaMov.Partida,
+        gaMov.CodigoColor,
+        gaMov.CodigoTalla,
+        gaMov.CodigoAlmacen,
+        gaMov.GrupoTalla
+      );
+
+    if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
+      gaMov.CodigoAlmacenDestino   := aUbicacionExpedicion.CodigoAlmacen;
+      gaMov.CodigoUbicacionDestino := aUbicacionExpedicion.CodigoUbicacion;
+      gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
     end;
-  end;
+
+    if not bErr then try
+      gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida', sIDCall );
+      bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
+    end;
+
+    if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
+      gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock traspaso', sIDCall  );
+      gaMov.CodigoAlmacenDestino   := aUbicacion.CodigoAlmacen;
+      gaMov.CodigoUbicacionDestino := aUbicacion.CodigoUbicacion;
+    end;
+
+    gaMov.FechaHora              := Now();
+    gaMov.CodigoAlmacen          := aUbicacionExpedicion.CodigoAlmacen;
+    gaMov.CodigoUbicacion        := CodigoUbicacionExpedicion;
+    gaMov.CodigoArticulo         := CodigoArticulo;
+    gaMov.TipoMovimiento         := 1;
+    gaMov.OrigenMovimiento       := TipoEntrada;
+    gaMov.Comentario             := 'SGAMobile: ' + DescripcionEntrada;
+    gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+
+    gaMov.Precio :=
+      ARTICULO_ConsultarPrecioStock (
+        Conn,
+        CodigoEmpresa,
+        gaMov.CodigoArticulo,
+        gaMov.Partida,
+        gaMov.CodigoColor,
+        gaMov.CodigoTalla,
+        gaMov.CodigoAlmacen,
+        gaMov.GrupoTalla,
+        gaMov.CodigoAlmacenDestino
+      );
+
+    if not bErr then try
+      gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock entrada', sIDCall  );
+      bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg, sIDCall );
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
+    end;
+
+  end; // else sense sèries
 
   // Fem els moviments a Sage si els magatzems són diferents
   if (not bErr) and (aUbicacion.CodigoAlmacen <> aUbicacionExpedicion.CodigoAlmacen) then begin
@@ -50186,21 +50366,26 @@ begin
   if (Unidades>0) or (UnidadesBase>0) then
   begin
 
-    sSQL :=
-      'SELECT AutoId ' +
-      'FROM FS_SGA_Picking_Pedido_Lineas_Detalle WITH (NOLOCK) ' +
-      'WHERE ' +
-      '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-      '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-      '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
-      '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
-      '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
-      '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-      '  AND LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ' +
-      '  AND (Unidades > 0 OR UnidadesBase > 0) ' +
-      '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ';
+    // Si té números de sèrie, sempre creem un registre nou (no acumulem)
+    if bTeSeries then
+      iAutoID := 0
+    else begin
+      sSQL :=
+        'SELECT AutoId ' +
+        'FROM FS_SGA_Picking_Pedido_Lineas_Detalle WITH (NOLOCK) ' +
+        'WHERE ' +
+        '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+        '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+        '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
+        '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+        '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+        '  AND LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ' +
+        '  AND (Unidades > 0 OR UnidadesBase > 0) ' +
+        '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ';
 
-    iAutoID := SQL_Execute ( Conn, sSQL );
+      iAutoID := SQL_Execute ( Conn, sSQL );
+    end;
 
     if iAutoID=0 then
     begin
