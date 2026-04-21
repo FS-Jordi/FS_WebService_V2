@@ -263,8 +263,8 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
     Enabled = False
     Interval = 5000
     OnTimer = tmrTimeoutTimer
-    Left = 240
-    Top = 96
+    Left = 166
+    Top = 90
   end
   object ppDBPipeline1: TppDBPipeline
     DataSource = DataSource1

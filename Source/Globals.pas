@@ -98,6 +98,9 @@ var
 
   gbTratamientoSimplificado: Boolean;
 
+  gbTiposUnidades: Boolean;
+  gbTiposUnidadesSimplificado: Boolean;
+
   gbCalculatingRoute: Boolean;
 
 {$ENDREGION}

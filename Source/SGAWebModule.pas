@@ -590,7 +590,7 @@ begin
 
   UnidadMedida       := ( AnsiUpperCase(contentfields.values['UnidadMedida']) );
   UnidadMedidaBase   := ( AnsiUpperCase(contentfields.values['UnidadMedidaBase']) );
-  FactorConversion   := FS_StrToFloatDef(contentfields.values['FactorConversion'],1);
+  FactorConversion   := FS_SGA_FactorConversion(CodigoEmpresa,StrToFloatDef(contentfields.values['FactorConversion'],1));
   CodigoAgrupacion   := StrToIntDef(contentfields.values['CodigoAgrupacion'],0);
   UnidadesAgrupacion := FS_StrToFloatDef(contentfields.values['UnidadesAgrupacion'],0);
   GrupoTalla         := StrToIntDef(contentfields.values['GrupoTalla'],0);
@@ -2727,7 +2727,6 @@ begin
   EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
   if EmpresaOrigen=0 then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
-
     Exit;
   end;
   // CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
@@ -2905,7 +2904,7 @@ begin
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
       '"Agrupacion":"' + SQL_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
       '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
@@ -2913,7 +2912,7 @@ begin
       '"UnidadesRechazoBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesErrorBase').AsFloat) + ',' +
       '"UnidadMedidaRechazo":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaRechazo').AsString)) + '",' +
       '"UnidadMedidaRechazoBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaRechazoBase').AsString)) + '",' +
-      '"FactorConversionRechazo":' + SQL_FloatToStr(Q.FieldByName('FactorConversionRechazos').AsFloat) + ',' +
+      '"FactorConversionRechazo":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversionRechazos').AsFloat)) + ',' +
       '"CodigoAgrupacionRechazo":' + IntToStr(Q.FieldByName('CodigoAgrupacionRechazos').AsInteger) + ',' +
       '"AgrupacionRechazos":"' + SQL_Str(Q.FieldByName('AgrupacionRechazos').AsString) + '",' +
       '"UnidadesAgrupacionRechazo":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacionRechazos').AsFloat) + '' +
@@ -3131,7 +3130,7 @@ begin
       '"UnidadesEntradaBase":' + SQL_FloatToStr(abs(Q.FieldByName('UnidadesEntradaBase').AsFloat)) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
       '"Agrupacion":"' + SQL_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
       '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
@@ -3139,7 +3138,7 @@ begin
       '"UnidadesRechazoBase":' + SQL_FloatToStr(abs(Q.FieldByName('UnidadesErrorBase').AsFloat)) + ',' +
       '"UnidadMedidaRechazo":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaRechazo').AsString)) + '",' +
       '"UnidadMedidaRechazoBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaRechazoBase').AsString)) + '",' +
-      '"FactorConversionRechazo":' + SQL_FloatToStr(Q.FieldByName('FactorConversionRechazos').AsFloat) + ',' +
+      '"FactorConversionRechazo":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversionRechazos').AsFloat)) + ',' +
       '"CodigoAgrupacionRechazo":' + IntToStr(Q.FieldByName('CodigoAgrupacionRechazos').AsInteger) + ',' +
       '"AgrupacionRechazos":"' + SQL_Str(Q.FieldByName('AgrupacionRechazos').AsString) + '",' +
       '"UnidadesAgrupacionRechazo":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacionRechazos').AsFloat) + '' +
@@ -3357,7 +3356,7 @@ begin
       '"UnidadesEntradaBase":' + SQL_FloatToStr(abs(Q.FieldByName('UnidadesEntradaBase').AsFloat)) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
       '"Agrupacion":"' + SQL_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
       '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
@@ -3365,7 +3364,7 @@ begin
       '"UnidadesRechazoBase":' + SQL_FloatToStr(abs(Q.FieldByName('UnidadesErrorBase').AsFloat)) + ',' +
       '"UnidadMedidaRechazo":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaRechazo').AsString)) + '",' +
       '"UnidadMedidaRechazoBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaRechazoBase').AsString)) + '",' +
-      '"FactorConversionRechazo":' + SQL_FloatToStr(Q.FieldByName('FactorConversionRechazos').AsFloat) + ',' +
+      '"FactorConversionRechazo":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversionRechazos').AsFloat)) + ',' +
       '"CodigoAgrupacionRechazo":' + IntToStr(Q.FieldByName('CodigoAgrupacionRechazos').AsInteger) + ',' +
       '"AgrupacionRechazos":"' + SQL_Str(Q.FieldByName('AgrupacionRechazos').AsString) + '",' +
       '"UnidadesAgrupacionRechazo":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacionRechazos').AsFloat) + '' +
@@ -3711,7 +3710,7 @@ begin
                        '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
                        '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
                        '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-                       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+                       '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
                        '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
                        '"Agrupacion":"' + JSON_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
                        '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
@@ -4065,7 +4064,7 @@ begin
                        '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
                        '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
                        '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-                       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+                       '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
                        '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
                        '"Agrupacion":"' + JSON_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
                        '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
@@ -5083,11 +5082,13 @@ begin
                        '"CantidadExpedidaBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesBase').AsFloat) + ',' +
                        '"UnidadMedida":"' + JSON_Str(UnidadMedida) + '",' +
                        '"UnidadMedidaBase":"' + JSON_Str(UnidadMedidaBase) + '",' +
-                       '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+                       '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
                        '"PesoBruto":"' + SQL_FloatToStr(Q.FieldByName('Peso').AsFloat) + '",' +
                        '"PesoNeto":"' + SQL_FloatToStr(Q.FieldByName('PesoNeto').AsFloat) + '",' +
                        '"Volumen":"' + SQL_FloatToStr(Q.FieldByName('Volumen').AsFloat) + '",' +
-                       '"Fecha":"' + SQL_DateTimeToStr(Q.FieldByName('fecha').AsDateTime) + '"' +
+                       '"Fecha":"' + SQL_DateTimeToStr(Q.FieldByName('fecha').AsDateTime) + '",' +
+                       '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
+                       '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '"' +
                        '}';
 
     Q.Next;
@@ -5596,6 +5597,7 @@ var
   NumeroSerie: String;
   NumeroSerieFabricante: String;
   ScanCode: String;
+  bAppend: Boolean;
 {$ENDREGION}
 
 begin
@@ -5628,6 +5630,7 @@ begin
 
   PickingId      := StrToIntDef(Trim(contentfields.values['PickingId']),0);
   AutoId         := StrToIntDef(Trim(contentfields.values['AutoId']),0);
+  bAppend        := (Trim(contentfields.values['Append']) = '1');
   Scans          := contentfields.values['Scans'];
 
   JSonObject := _Parse_JSonObject ( Scans );
@@ -5656,7 +5659,17 @@ begin
 
   {$REGION 'Guardem les dades'}
 
-  // No esborrem els registres anteriors, afegim els nous (cada preparació afegeix els seus)
+  // Esborrem els registres d'aquest AutoID concret per evitar duplicats
+  // (només per preparació, no per expedició que usa mode Append)
+  if (AutoId > 0) and (not bAppend) then begin
+    sSQL :=
+      'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ' +
+      'WHERE ' +
+      '  PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+      '  AND AutoID = ' + IntToStr(AutoId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+  end;
+
   for lJSonValue in JSonArray do begin
 
       NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
@@ -6751,7 +6764,7 @@ begin
       '"CodigoColor":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
       '"DescripcionColor":"' + JSON_Str(Q.FieldByName('DescripcionColor').AsString) + '",' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
       '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('Colores_').AsInteger<>0) + ',' +
@@ -7533,7 +7546,7 @@ begin
       '"IdentificadorExpedicion":' + Q.FieldByName('IdentificadorExpedicion').AsString + ',' +
       '"UnidadMedida":"' + JSON_Str(UnidadMedida) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(UnidadMedidaBase) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"UdNecesarias":' + SQL_FloatToStr(Q.FieldByName('UdNecesarias').AsFloat) + ',' +
       '"UdRetiradas":' + SQL_FloatToStr(Q.FieldByName('UdRetiradas').AsFloat) + ',' +
       '"UdExpedidas":' + SQL_FloatToStr(Q.FieldByName('UdExpedidas').AsFloat) + ',' +
@@ -9013,7 +9026,7 @@ begin
         '"Descripcion2Articulo":"' + JSON_Str(Q.FieldByName('Descripcion2Articulo').AsString) + '",' +
         '"GrupoTalla":' + IntToStr(Q.FieldByName('TratamientoTallas').AsInteger) + ',' +
         '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
-        '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+        '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
         '"CodigoColor":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
         '"DescripcionTalla":"' + JSON_Str(Q.FieldByName('DescripcionTalla').AsString) + '",' +
         '"DescripcionColor":"' + JSON_Str(Q.FieldByName('DescripcionColor').AsString) + '",' +
@@ -12066,22 +12079,24 @@ begin
   {$REGION 'Recuperació de dades'}
 
   sSQL :=
-    'SELECT * ' +
+    'SELECT fsppldns.* ' +
     'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie fsppldns WITH (NOLOCK) ' +
-    'INNER JOIN FS_SGA_Picking_Pedido_Lineas_Detalle fsppld WITH (NOLOCK) ' +
-    'ON ' +
-    '  fsppld.PreparacionId = fsppldns.PreparacionId ' +
-    '  AND fsppld.AutoID = fsppldns.AutoID ' +
-    '  AND fsppld.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-    '  AND fsppld.UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
-    '  AND fsppld.Partida = ''' + SQL_Str(Partida) + ''' ' +
-    '  AND fsppld.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-    '  AND fsppld.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
-    '  AND fsppld.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
     'WHERE ' +
     '  fsppldns.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND fsppldns.PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
-    '  AND fsppldns.PickingId = ' + IntToStr(PickingId) + ' ';
+    '  AND fsppldns.PreparacionId = ' + IntToStr(PreparacionId) + ' ';
+
+  if PickingId <> 0 then
+    sSQL := sSQL +
+      '  AND fsppldns.PickingId IN (0, ' + IntToStr(PickingId) + ') ';
+
+  // Filtre per CodigoArticulo via subquery a la taula de detall
+  if CodigoArticulo <> '' then
+    sSQL := sSQL +
+      '  AND fsppldns.AutoID IN ( ' +
+      '    SELECT AutoID FROM FS_SGA_Picking_Pedido_Lineas_Detalle WITH (NOLOCK) ' +
+      '    WHERE PreparacionId = ' + IntToStr(PreparacionId) + ' ' +
+      '      AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+      '  ) ';
 
   sSQL := sSQL +
     'ORDER BY fsppldns.Tipo, fsppldns.IdNumeroSerie';
@@ -15135,7 +15150,7 @@ begin
       '"UnidadesPedidas":' + SQL_FloatToStr(Q.FieldByName('UnidadesPedidas').AsFloat) + ',' +
       '"UnidadesPedidasBase":' + SQL_FloatToStr(Q.FieldByName('Unidades2_').AsFloat) + ',' +
       '"UnidadesServidas":' + SQL_FloatToStr(Q.FieldByName('UnidadesServidas').AsFloat) + ',' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida2_').AsString)) + '"' +
       '}';
@@ -16061,7 +16076,7 @@ begin
   Partida          := (contentfields.values['Partida']);
   UnidadMedida     := (AnsiUpperCase(contentfields.values['UnidadMedida']));
   UnidadMedidaBase := (AnsiUpperCase(contentfields.values['UnidadMedidaBase']));
-  FactorConversion := StrToFloatDef(contentfields.values['FactorConversion'],0);
+  FactorConversion := FS_SGA_FactorConversion(CodigoEmpresa,StrToFloatDef(contentfields.values['FactorConversion'],0));
   IdPreparacion    := StrToIntDef(contentfields.Values['IdPreparacion'],0);
 
   if FactorConversion<>0 then
@@ -16416,7 +16431,7 @@ begin
       '"UnidadesSaldoBase":' + SQL_FloatToStr(fUnidadesSaldoBase) + ', ' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(sUnidadMedida)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedidaBase)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"PesoNeto":' + SQL_FloatToStr(Q.FieldByName('PesoNeto').AsFloat) + ',' +
       '"PesoBruto":' + SQL_FloatToStr(Q.FieldByName('PesoBruto').AsFloat) + ',' +
       '"Volumen":' + SQL_FloatToStr(Q.FieldByName('Volumen').AsFloat) + ',' +
@@ -16815,7 +16830,7 @@ begin
       '"UdRecibidas":' + SQL_FloatToStr(Q.FieldByName('UdRecibidas').AsFloat) + ',' +
       '"UdRechazo":' + SQL_FloatToStr(Q.FieldByName('UdRechazo').AsFloat) + ',' +
       '"UdSaldo":' + SQL_FloatToStr(Q.FieldByName('UdSaldo').AsFloat) + ',' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"UdPedidasBase":' + SQL_FloatToStr(Q.FieldByName('UdPedidasBase').AsFloat) + ',' +
       '"UdRecibidasBase":' + SQL_FloatToStr(Q.FieldByName('UdRecibidasBase').AsFloat) + ',' +
       '"UdRechazoBase":' + SQL_FloatToStr(Q.FieldByName('UdRechazoBase').AsFloat) + ',' +
@@ -17163,7 +17178,7 @@ begin
       '"UdRecibidas":' + SQL_FloatToStr(abs(Q.FieldByName('UdRecibidas').AsFloat)) + ',' +
       '"UdRechazo":' + SQL_FloatToStr(abs(Q.FieldByName('UdRechazo').AsFloat)) + ',' +
       '"UdSaldo":' + SQL_FloatToStr(abs(Q.FieldByName('UdSaldo').AsFloat)) + ',' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"UdPedidasBase":' + SQL_FloatToStr(abs(Q.FieldByName('UdPedidasBase').AsFloat)) + ',' +
       '"UdRecibidasBase":' + SQL_FloatToStr(abs(Q.FieldByName('UdRecibidasBase').AsFloat)) + ',' +
       '"UdRechazoBase":' + SQL_FloatToStr(abs(Q.FieldByName('UdRechazoBase').AsFloat)) + ',' +
@@ -17484,7 +17499,7 @@ begin
       '"UdRecibidas":' + SQL_FloatToStr(abs(Q.FieldByName('UdRecibidas').AsFloat)) + ',' +
       '"UdRechazo":' + SQL_FloatToStr(abs(Q.FieldByName('UdRechazo').AsFloat)) + ',' +
       '"UdSaldo":' + SQL_FloatToStr(abs(Q.FieldByName('UdSaldo').AsFloat)) + ',' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"UdPedidasBase":' + SQL_FloatToStr(abs(Q.FieldByName('UdPedidasBase').AsFloat)) + ',' +
       '"UdRecibidasBase":' + SQL_FloatToStr(abs(Q.FieldByName('UdRecibidasBase').AsFloat)) + ',' +
       '"UdRechazoBase":' + SQL_FloatToStr(abs(Q.FieldByName('UdRechazoBase').AsFloat)) + ',' +
@@ -17875,7 +17890,7 @@ begin
       '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '",' +
       '"UnidadesSaldo":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldo').AsFloat ) + ',' +
       '"UnidadesSaldoBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldoBase').AsFloat ) + ',' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(sUnidadMedida)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedidaBase)) + '",' +
       '"FechaPrimeraEntrada":"' + sFechaPrimeraEntrada + '",' +
@@ -19676,7 +19691,13 @@ var
   AutoId: Integer;
   NumeroSerie: String;
   CodigoArticulo: String;
+  Partida: String;
+  UnidadMedida: String;
+  CodigoTalla: String;
+  CodigoColor: String;
   bMultiSeries: Boolean;
+  YY: Integer;
+  TratamientoPartidas: Boolean;
 {$ENDREGION}
 
 begin
@@ -19707,6 +19728,23 @@ begin
     Exit;
   end;
 
+  TratamientoPartidas := ARTICULO_TratamientoPartida ( Conn, CodigoEmpresa, CodigoArticulo );
+
+  Partida := (contentfields.values['Partida']);
+  if (Partida='') and (TratamientoPartidas) then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de partida no especificado","Data":[]}';
+    Exit;
+  end;
+
+  if (Partida<>'') and (not TratamientoPartidas) then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de artículo no requiere partida","Data":[]}';
+    Exit;
+  end;
+
+  UnidadMedida := contentfields.values['UnidadMedida'];
+  CodigoTalla  := contentfields.values['CodigoTalla'];
+  CodigoColor  := contentfields.values['CodigoColor'];
+
   NumeroSerie := contentfields.values['NumeroSerie'];
   if NumeroSerie='' then
   begin
@@ -19721,18 +19759,28 @@ begin
     Exit;
   end;
 
+  YY := SGA_FECHA_AnoActivo ( Conn, CodigoEmpresa, Date() );
+
   {$ENDREGION}
 
   {$REGION 'Recuperació de dades'}
 
   sSQL :=
     'SELECT COUNT(*) ' +
-    'FROM ArticulosSeries WITH (NOLOCK) ' +
+    'FROM FS_SGA_AcumuladoStock_Series WITH (NOLOCK) ' +
     'WHERE ' +
     '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+    '  AND Ejercicio = ' + IntToStr(YY) + ' ' +
+    '  AND Periodo = 99 ' +
     '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-    '  AND NumeroSerieLc = ''' + SQL_Str(NumeroSerie) + ''' ' +
-    '  AND UnidadesSerie > 0 ';
+    //'  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
+    //'  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+    '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+    '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+    '  AND NumeroSerie = ''' + SQL_Str(NumeroSerie) + ''' ' +
+    '  AND UnidadesSaldo > 0 ';
+
+  gaLogFile.Write(sSQL);
   if SQL_Execute ( Conn, sSQL ) > 0 then
   begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Este número de serie ya se encuentra en stock","Data":[{"Permitir":false}]}';
@@ -22124,7 +22172,7 @@ begin
   Cantidad           := FS_StrToFloatDef(Trim(contentfields.values['Cantidad']),0);
   CantidadBase       := FS_StrToFloatDef(Trim(contentfields.values['CantidadBase']),0);
   UnidadMedida       := AnsiUpperCase(contentfields.values['UnidadMedida']);
-  FactorConversion   := FS_StrToFloatDef(Trim(contentfields.values['FactorConversion']),1);
+  FactorConversion   := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(Trim(contentfields.values['FactorConversion']),1));
   UnidadMedidaBase   := AnsiUpperCase(contentfields.values['UnidadMedidaBase']);
   CodigoAgrupacion   := StrToIntDef(Trim(contentfields.values['CodigoAgrupacion']),0);
   UnidadesAgrupacion := FS_StrToFloatDef(Trim(contentfields.values['UnidadesAgrupacion']),1);
@@ -22181,7 +22229,7 @@ begin
   LineaPL.UnidadMedida            := AnsiUpperCase(UnidadMedida);
   LineaPL.UnidadesBase            := CantidadBase;
   LineaPL.UnidadMedidaBase        := AnsiUpperCase(UnidadMedidaBase);
-  LineaPL.FactorConversion        := FactorConversion;
+  LineaPL.FactorConversion        := FS_SGA_FactorConversion(CodigoEmpresa,FactorConversion);
   LineaPL.PesoBruto               := CantidadBase * PesoBruto;
   LineaPL.PesoNeto                := CantidadBase * PesoNeto;
   LineaPL.Volumen                 := CantidadBase * Volumen;
@@ -22194,10 +22242,42 @@ begin
   LineaPL.CodigoColor             := CodigoColor;
   LineaPL.Id                      := Id;
 
+  // Recuperem el nº de sèrie de la línia del packing list que esborrem
+  sSQL :=
+    'SELECT ISNULL(NumeroSerie,'''') AS NumeroSerie ' +
+    'FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+    'WHERE Id = ' + IntToStr(Id);
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+  if not Q.EOF then
+    LineaPL.NumeroSerie := Q.FieldByName('NumeroSerie').AsString
+  else
+    LineaPL.NumeroSerie := '';
+  Q.Close;
+  FreeAndNil(Q);
+
   // Mirem si existeix la línea del packing list
   FS_SGA_DeleteLineaPackingList ( Conn, LineaPL );
   FS_SGA_DeleteAcumuladoPendiente ( Conn, CodigoEmpresa, LineaPL );
   FS_SGA_TraceExpedicion ( Conn, 'D', LineaPL );
+
+  // Esborrem el nº de sèrie concret d'expedició (si n'hi ha)
+  if LineaPL.NumeroSerie <> '' then begin
+    sSQL :=
+      'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ' +
+      'WHERE ' +
+      '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
+      '  AND NumeroSerie = ''' + SQL_Str(LineaPL.NumeroSerie) + ''' ' +
+      '  AND AutoID NOT IN (SELECT AutoID FROM FS_SGA_Picking_Pedido_Lineas_Detalle ' +
+      '    WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ')';
+    try
+      SQL_Execute_NoRes ( Conn, sSQL );
+    except
+      on E:Exception do
+        gaLogFile.Write_DBException(E,sSQL,'Error al eliminar número de serie de expedición', CONST_LOGID_BBDD);
+    end;
+  end;
 
   // Si ho estem posant en una matrícula, movem el material des de
   // la ubicació d'expedició a la ubicació on està el palet
@@ -22224,7 +22304,7 @@ begin
     gaMov.UnidadMedida           := LineaPL.UnidadMedida;
     gaMov.UnidadesBase           := LineaPL.UnidadesBase;
     gaMov.UnidadMedidaBase       := LineaPL.UnidadMedidaBase;
-    gaMov.FactorConversion       := LineaPL.FactorConversion;
+    gaMov.FactorConversion       := FS_SGA_FactorConversion(CodigoEmpresa,LineaPL.FactorConversion);
     gaMov.Comentario             := 'Palet a expedición';
     gaMov.FechaCaduca            := LineaPL.FechaCaducidad;
     gaMov.MovOrigen              := SQL_Execute ( Conn, 'SELECT NEWID()' );
@@ -22623,6 +22703,15 @@ var
   lJSonValue: TJSonValue;
   Saved: Boolean;
   s: AnsiString;
+  sNumerosSerie: String;
+  lJSonNumSeries: TJSonValue;
+  lJSonArrayNS: TJSonArray;
+  lJSonNS: TJSonValue;
+  iNS: Integer;
+  sNS_NumeroSerie: String;
+  sNS_NumeroSerieFabricante: String;
+  fNS_Cantidad: Double;
+  bTeSeries: Boolean;
 {$ENDREGION}
 
 begin
@@ -22736,7 +22825,7 @@ begin
   OldCantidad        := FS_StrToFloatDef(contentfields.values['OldCantidad'],0);
   OldCantidadBase    := FS_StrToFloatDef(contentfields.values['OldCantidadBase'],0);
   UnidadMedida       := AnsiUpperCase(contentfields.values['UnidadMedida']);
-  FactorConversion   := FS_StrToFloatDef(contentfields.values['FactorConversion'],1);
+  FactorConversion   := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(contentfields.values['FactorConversion'],1));
   UnidadMedidaBase   := AnsiUpperCase(contentfields.values['UnidadMedidaBase']);
   CodigoAgrupacion   := StrToIntDef(Trim(contentfields.values['CodigoAgrupacion']),0);
   UnidadesAgrupacion := FS_StrToFloatDef(contentfields.values['UnidadesAgrupacion'],1);
@@ -22745,6 +22834,10 @@ begin
   CodigoTalla        := contentfields.values['CodigoTalla'];
   CodigoColor        := contentfields.values['CodigoColor'];
   IsNew              := (Trim(contentfields.values['IsNew'])='true');
+
+  // Números de sèrie (JSON opcional)
+  sNumerosSerie := contentfields.values['NumerosSerie'];
+  bTeSeries := (sNumerosSerie <> '');
 
   Data := (contentfields.values['Scans']);
   if Data='' then begin
@@ -22877,6 +22970,18 @@ begin
 
   {$REGION 'Actualitzem dades'}
 
+  // Parsejar números de sèrie si n'hi ha
+  lJSonArrayNS := nil;
+  if bTeSeries then begin
+    try
+      lJSonNumSeries := TJSonObject.ParseJSonValue(sNumerosSerie);
+      if lJSonNumSeries <> nil then
+        lJSonArrayNS := lJSonNumSeries.GetValue<TJSonArray>('List');
+    except
+      lJSonArrayNS := nil;
+    end;
+  end;
+
   for lJSonValue in JSonArray do begin
 
     Saved := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Saved' ),0)<>0;
@@ -22911,7 +23016,7 @@ begin
       LineaPL.OldUnidadesBase         := OldCantidadBase;
       LineaPL.UnidadesBase            := CantidadBase;
       LineaPL.UnidadMedidaBase        := AnsiUpperCase(UnidadMedidaBase);
-      LineaPL.FactorConversion        := FactorConversion;
+      LineaPL.FactorConversion        := FS_SGA_FactorConversion(CodigoEmpresa,FactorConversion);
       LineaPL.PesoBruto               := CantidadBase * PesoBruto;
       LineaPL.PesoNeto                := CantidadBase * PesoNeto;
       LineaPL.Volumen                 := CantidadBase * Volumen;
@@ -22926,19 +23031,72 @@ begin
       LineaPL.LineaPedidoTalla        := LineaPedidoTalla;
       LineaPL.OrdenDetalleTalla       := OrdenDetalleTalla;
       LineaPL.IsNew                   := IsNew;
+      LineaPL.TratamientoSeries       := bTeSeries;
+      LineaPL.NumeroSerie             := '';
+      LineaPL.NumeroSerieFabricante   := '';
 
-      // Mirem si existeix la línea nova del packing list
-      if FS_SGA_ExisteLineaPackingList ( Conn, CodigoEmpresa, LineaPL, True ) then
-      begin
-        FS_SGA_UpdateLineaPackingList ( Conn, LineaPL, True );
+      // Packing list: si hi ha sèries, una fila per a cada nº de sèrie
+      if bTeSeries and (lJSonArrayNS <> nil) and (lJSonArrayNS.Count > 0) then begin
+
+        for iNS := 0 to lJSonArrayNS.Count - 1 do begin
+          lJSonNS := lJSonArrayNS.Items[iNS];
+          sNS_NumeroSerie           := _Get_JSonValue ( lJSonNS, 'NumeroSerie' );
+          sNS_NumeroSerieFabricante := _Get_JSonValue ( lJSonNS, 'NumeroSerieFabricante' );
+          fNS_Cantidad              := FS_StrToFloatDef( _Get_JSonValue ( lJSonNS, 'Cantidad' ), 1 );
+
+          LineaPL.NumeroSerie            := sNS_NumeroSerie;
+          LineaPL.NumeroSerieFabricante  := sNS_NumeroSerieFabricante;
+          LineaPL.Unidades               := fNS_Cantidad * UnidadesAgrupacion;
+          LineaPL.UnidadesBase           := fNS_Cantidad * FactorConversion;
+          LineaPL.PesoBruto              := LineaPL.UnidadesBase * PesoBruto;
+          LineaPL.PesoNeto               := LineaPL.UnidadesBase * PesoNeto;
+          LineaPL.Volumen                := LineaPL.UnidadesBase * Volumen;
+
+          if FS_SGA_ExisteLineaPackingList ( Conn, CodigoEmpresa, LineaPL, True ) then
+            FS_SGA_UpdateLineaPackingList ( Conn, LineaPL, True )
+          else
+            FS_SGA_InsertLineaPackingList ( Conn, LineaPL, True );
+
+          // Guardem el nº de sèrie a FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie
+          sSQL :=
+            'INSERT INTO FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ( ' +
+            '  CodigoEmpresa, PreparacionId, PickingId, AutoId, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
+            'VALUES ( ' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+            IntToStr(IdPreparacion) + ', ' +
+            IntToStr(PickingId) + ', ' +
+            IntToStr(IdExpedicion) + ', ' +
+            '0, ' +
+            '''' + SQL_Str(sNS_NumeroSerie) + ''', ' +
+            '''' + SQL_Str(sNS_NumeroSerieFabricante) + ''', ' +
+            ''''', ' +
+            SQL_FloatToStr(fNS_Cantidad) + ')';
+          try
+            SQL_Execute_NoRes ( Conn, sSQL );
+          except
+            on E:Exception do
+              gaLogFile.Write_DBException(E,sSQL,'Error al guardar número de serie de expedición', CONST_LOGID_BBDD);
+          end;
+        end;
+
+        // Restaurem quantitats totals per TraceExpedicion i AcumuladoPendiente
+        LineaPL.Unidades    := Cantidad * UnidadesAgrupacion;
+        LineaPL.UnidadesBase := CantidadBase;
+        LineaPL.NumeroSerie := '';
+        LineaPL.NumeroSerieFabricante := '';
+
       end else begin
-        FS_SGA_InsertLineaPackingList ( Conn, LineaPL, True );
-      end;
 
-      // Mirem si existeix la línea antiga del packing list
-      if not IsNew then
-      begin
-        FS_SGA_UpdateLineaPackingList ( Conn, LineaPL, False );
+        // Sense sèries: comportament original
+        if FS_SGA_ExisteLineaPackingList ( Conn, CodigoEmpresa, LineaPL, True ) then
+          FS_SGA_UpdateLineaPackingList ( Conn, LineaPL, True )
+        else
+          FS_SGA_InsertLineaPackingList ( Conn, LineaPL, True );
+
+        // Mirem si existeix la línea antiga del packing list
+        if not IsNew then
+          FS_SGA_UpdateLineaPackingList ( Conn, LineaPL, False );
+
       end;
 
       if IsNew then
@@ -22960,96 +23118,204 @@ begin
       if (LineaPL.Matricula <> '') then
       begin
 
-        SGA_FS_ALMACEN_PrepareMov ( gaMov );
-        gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
-        gaMov.EmpresaOrigen          := LineaPL.EmpresaOrigen;
-        gaMov.CodigoUsuario          := LineaPL.CodigoUsuario;
-        gaMov.Ejercicio              := LineaPL.Ejercicio;
-        gaMov.Periodo                := MonthOf(Now);
-        gaMov.Fecha                  := Date;
-        gaMov.FechaHora              := Now();
-        gaMov.CodigoAlmacen          := UbicacionDestino.CodigoAlmacen;
-        gaMov.CodigoUbicacion        := UbicacionDestino.CodigoUbicacion;
-        gaMov.CodigoAlmacenDestino   := UbicacionOrigen.CodigoAlmacen;
-        gaMov.CodigoUbicacionDestino := UbicacionOrigen.CodigoUbicacion;
-        gaMov.CodigoArticulo         := LineaPL.CodigoArticulo;
-        gaMov.TipoMovimiento         := 1; // Entrada a la ubicació on hi ha el palet
-        gaMov.OrigenMovimiento       := 'E';
-        gaMov.Partida                := LineaPL.Partida;
-        gaMov.Unidades               := LineaPL.Unidades;
-        gaMov.UnidadMedida           := LineaPL.UnidadMedida;
-        gaMov.UnidadesBase           := LineaPL.UnidadesBase;
-        gaMov.UnidadMedidaBase       := LineaPL.UnidadMedidaBase;
-        gaMov.FactorConversion       := LineaPL.FactorConversion;
-        gaMov.Comentario             := 'Expedición a palet';
-        gaMov.FechaCaduca            := LineaPL.FechaCaducidad;
-        gaMov.MovOrigen              := SQL_Execute ( Conn, 'SELECT NEWID()' );
-        gaMov.PreparacionId          := LineaPL.IdPreparacion;
-        gaMov.PickingId              := LineaPL.PickingId;
-        gaMov.CodigoColor            := LineaPL.CodigoColor;
-        gaMov.GrupoTalla             := LineaPL.GrupoTalla;
-        gaMov.CodigoTalla            := LineaPL.CodigoTalla;
-        gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
-        gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
-        gaMov.EjercicioDocumento     := LineaPL.EjercicioPedido;
-        gaMov.Matricula              := LineaPL.Matricula;
-        gaMov.CodigoAgrupacion       := LineaPL.CodigoAgrupacion;
+        if (lJSonArrayNS <> nil) and (lJSonArrayNS.Count > 0) then begin
 
-        if gaMov.Precio=0 then
-        begin
-          gaMov.Precio :=
-            ARTICULO_ConsultarPrecioStock (
-              Conn,
-              CodigoEmpresa,
-              gaMov.CodigoArticulo,
-              gaMov.Partida,
-              gaMov.CodigoColor,
-              gaMov.CodigoTalla,
-              gaMov.CodigoAlmacen,
-              gaMov.GrupoTalla
-            );
-        end;
+          // Moviments individuals per a cada número de sèrie
+          for iNS := 0 to lJSonArrayNS.Count - 1 do begin
 
-        gaMov.Importe := gaMov.Precio * gaMov.UnidadesBase;
+            lJSonNS := lJSonArrayNS.Items[iNS];
+            sNS_NumeroSerie           := _Get_JSonValue ( lJSonNS, 'NumeroSerie' );
+            sNS_NumeroSerieFabricante := _Get_JSonValue ( lJSonNS, 'NumeroSerieFabricante' );
+            fNS_Cantidad              := FS_StrToFloatDef( _Get_JSonValue ( lJSonNS, 'Cantidad' ), 1 );
 
-        if UbicacionOrigen.CodigoAlmacen<>UbicacionDestino.CodigoAlmacen then
-        begin
-          gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
-        end;
+            // ENTRADA a la ubicació del palet
+            SGA_FS_ALMACEN_PrepareMov ( gaMov );
+            gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
+            gaMov.EmpresaOrigen          := LineaPL.EmpresaOrigen;
+            gaMov.CodigoUsuario          := LineaPL.CodigoUsuario;
+            gaMov.Ejercicio              := LineaPL.Ejercicio;
+            gaMov.Periodo                := MonthOf(Now);
+            gaMov.Fecha                  := Date;
+            gaMov.FechaHora              := Now();
+            gaMov.CodigoAlmacen          := UbicacionDestino.CodigoAlmacen;
+            gaMov.CodigoUbicacion        := UbicacionDestino.CodigoUbicacion;
+            gaMov.CodigoAlmacenDestino   := UbicacionOrigen.CodigoAlmacen;
+            gaMov.CodigoUbicacionDestino := UbicacionOrigen.CodigoUbicacion;
+            gaMov.CodigoArticulo         := LineaPL.CodigoArticulo;
+            gaMov.TipoMovimiento         := 1;
+            gaMov.OrigenMovimiento       := 'E';
+            gaMov.Partida                := LineaPL.Partida;
+            gaMov.Unidades               := fNS_Cantidad * UnidadesAgrupacion;
+            gaMov.UnidadMedida           := LineaPL.UnidadMedida;
+            gaMov.UnidadesBase           := fNS_Cantidad * FactorConversion;
+            gaMov.UnidadMedidaBase       := LineaPL.UnidadMedidaBase;
+            gaMov.FactorConversion       := LineaPL.FactorConversion;
+            gaMov.Comentario             := 'Expedición a palet';
+            gaMov.FechaCaduca            := LineaPL.FechaCaducidad;
+            gaMov.MovOrigen              := SQL_Execute ( Conn, 'SELECT NEWID()' );
+            gaMov.PreparacionId          := LineaPL.IdPreparacion;
+            gaMov.PickingId              := LineaPL.PickingId;
+            gaMov.CodigoColor            := LineaPL.CodigoColor;
+            gaMov.GrupoTalla             := LineaPL.GrupoTalla;
+            gaMov.CodigoTalla            := LineaPL.CodigoTalla;
+            gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+            gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+            gaMov.EjercicioDocumento     := LineaPL.EjercicioPedido;
+            gaMov.Matricula              := LineaPL.Matricula;
+            gaMov.CodigoAgrupacion       := LineaPL.CodigoAgrupacion;
+            gaMov.NumeroSerie            := sNS_NumeroSerie;
+            gaMov.NumeroSerieFabricante  := sNS_NumeroSerieFabricante;
 
-        bErr := FALSE;
-        sMsg := '';
+            if gaMov.Precio=0 then
+            begin
+              gaMov.Precio :=
+                ARTICULO_ConsultarPrecioStock (
+                  Conn,
+                  CodigoEmpresa,
+                  gaMov.CodigoArticulo,
+                  gaMov.Partida,
+                  gaMov.CodigoColor,
+                  gaMov.CodigoTalla,
+                  gaMov.CodigoAlmacen,
+                  gaMov.GrupoTalla
+                );
+            end;
 
-        try
-          bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
-        except
-          on E:Exception do begin
-            bErr := TRUE;
-            sMsg := E.Message;
+            gaMov.Importe := gaMov.Precio * gaMov.UnidadesBase;
+
+            if UbicacionOrigen.CodigoAlmacen<>UbicacionDestino.CodigoAlmacen then
+              gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+
+            bErr := FALSE;
+            sMsg := '';
+
+            try
+              bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+            except
+              on E:Exception do begin
+                bErr := TRUE;
+                sMsg := E.Message;
+              end;
+            end;
+
+            if bErr then Break;
+
+            // SORTIDA des de la ubicació d'expedició
+            gaMov.TipoMovimiento         := 2;
+            gaMov.OrigenMovimiento       := 'S';
+            gaMov.Matricula              := LineaPl.MatriculaAnterior;
+            gaMov.CodigoAlmacen          := UbicacionOrigen.CodigoAlmacen;
+            gaMov.CodigoUbicacion        := UbicacionOrigen.CodigoUbicacion;
+            gaMov.CodigoAlmacenDestino   := UbicacionDestino.CodigoAlmacen;
+            gaMov.CodigoUbicacionDestino := UbicacionDestino.CodigoUbicacion;
+
+            if UbicacionOrigen.CodigoAlmacen<>UbicacionDestino.CodigoAlmacen then
+              gaMov.MovPosicion := SQL_Execute ( Conn, 'SELECT NEWID()' );
+
+            try
+              bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+            except
+              on E:Exception do begin
+                bErr := TRUE;
+                sMsg := E.Message;
+              end;
+            end;
+
+            if bErr then Break;
+
+          end; // for iNS
+
+        end else begin
+
+          // Sense números de sèrie: moviment únic original
+          SGA_FS_ALMACEN_PrepareMov ( gaMov );
+          gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
+          gaMov.EmpresaOrigen          := LineaPL.EmpresaOrigen;
+          gaMov.CodigoUsuario          := LineaPL.CodigoUsuario;
+          gaMov.Ejercicio              := LineaPL.Ejercicio;
+          gaMov.Periodo                := MonthOf(Now);
+          gaMov.Fecha                  := Date;
+          gaMov.FechaHora              := Now();
+          gaMov.CodigoAlmacen          := UbicacionDestino.CodigoAlmacen;
+          gaMov.CodigoUbicacion        := UbicacionDestino.CodigoUbicacion;
+          gaMov.CodigoAlmacenDestino   := UbicacionOrigen.CodigoAlmacen;
+          gaMov.CodigoUbicacionDestino := UbicacionOrigen.CodigoUbicacion;
+          gaMov.CodigoArticulo         := LineaPL.CodigoArticulo;
+          gaMov.TipoMovimiento         := 1;
+          gaMov.OrigenMovimiento       := 'E';
+          gaMov.Partida                := LineaPL.Partida;
+          gaMov.Unidades               := LineaPL.Unidades;
+          gaMov.UnidadMedida           := LineaPL.UnidadMedida;
+          gaMov.UnidadesBase           := LineaPL.UnidadesBase;
+          gaMov.UnidadMedidaBase       := LineaPL.UnidadMedidaBase;
+          gaMov.FactorConversion       := LineaPL.FactorConversion;
+          gaMov.Comentario             := 'Expedición a palet';
+          gaMov.FechaCaduca            := LineaPL.FechaCaducidad;
+          gaMov.MovOrigen              := SQL_Execute ( Conn, 'SELECT NEWID()' );
+          gaMov.PreparacionId          := LineaPL.IdPreparacion;
+          gaMov.PickingId              := LineaPL.PickingId;
+          gaMov.CodigoColor            := LineaPL.CodigoColor;
+          gaMov.GrupoTalla             := LineaPL.GrupoTalla;
+          gaMov.CodigoTalla            := LineaPL.CodigoTalla;
+          gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+          gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+          gaMov.EjercicioDocumento     := LineaPL.EjercicioPedido;
+          gaMov.Matricula              := LineaPL.Matricula;
+          gaMov.CodigoAgrupacion       := LineaPL.CodigoAgrupacion;
+
+          if gaMov.Precio=0 then
+          begin
+            gaMov.Precio :=
+              ARTICULO_ConsultarPrecioStock (
+                Conn,
+                CodigoEmpresa,
+                gaMov.CodigoArticulo,
+                gaMov.Partida,
+                gaMov.CodigoColor,
+                gaMov.CodigoTalla,
+                gaMov.CodigoAlmacen,
+                gaMov.GrupoTalla
+              );
           end;
-        end;
 
-        gaMov.TipoMovimiento         := 2; // Entrada a la ubicació on hi ha el palet
-        gaMov.OrigenMovimiento       := 'S';
-        gaMov.Matricula	             := LineaPl.MatriculaAnterior;
-        gaMov.CodigoAlmacen          := UbicacionOrigen.CodigoAlmacen;
-        gaMov.CodigoUbicacion        := UbicacionOrigen.CodigoUbicacion;
-        gaMov.CodigoAlmacenDestino   := UbicacionDestino.CodigoAlmacen;
-        gaMov.CodigoUbicacionDestino := UbicacionDestino.CodigoUbicacion;
+          gaMov.Importe := gaMov.Precio * gaMov.UnidadesBase;
 
-        if UbicacionOrigen.CodigoAlmacen<>UbicacionDestino.CodigoAlmacen then
-        begin
-          gaMov.MovPosicion := SQL_Execute ( Conn, 'SELECT NEWID()' );
-        end;
+          if UbicacionOrigen.CodigoAlmacen<>UbicacionDestino.CodigoAlmacen then
+            gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
 
-        try
-          bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
-        except
-          on E:Exception do begin
-            bErr := TRUE;
-            sMsg := E.Message;
+          bErr := FALSE;
+          sMsg := '';
+
+          try
+            bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+          except
+            on E:Exception do begin
+              bErr := TRUE;
+              sMsg := E.Message;
+            end;
           end;
-        end;
+
+          gaMov.TipoMovimiento         := 2;
+          gaMov.OrigenMovimiento       := 'S';
+          gaMov.Matricula              := LineaPl.MatriculaAnterior;
+          gaMov.CodigoAlmacen          := UbicacionOrigen.CodigoAlmacen;
+          gaMov.CodigoUbicacion        := UbicacionOrigen.CodigoUbicacion;
+          gaMov.CodigoAlmacenDestino   := UbicacionDestino.CodigoAlmacen;
+          gaMov.CodigoUbicacionDestino := UbicacionDestino.CodigoUbicacion;
+
+          if UbicacionOrigen.CodigoAlmacen<>UbicacionDestino.CodigoAlmacen then
+            gaMov.MovPosicion := SQL_Execute ( Conn, 'SELECT NEWID()' );
+
+          try
+            bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+          except
+            on E:Exception do begin
+              bErr := TRUE;
+              sMsg := E.Message;
+            end;
+          end;
+
+        end; // else sense sèries
 
       end;
 
@@ -23412,7 +23678,7 @@ begin
         proc.Parameters.ParamByName('@UnidadesAgrupacion').Value := Q.FieldByName('UnidadesAgrupacion').AsFloat;
         proc.Parameters.ParamByName('@UnidadMedida').Value       := AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString);
         proc.Parameters.ParamByName('@UnidadMedidaBase').Value   := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
-        proc.Parameters.ParamByName('@FactorConversion').Value   := Q.FieldByName('FactorConversion').AsFloat;
+        proc.Parameters.ParamByName('@FactorConversion').Value   := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat);
         proc.Parameters.ParamByName('@PaletId').Value            := PaletId;
         proc.Parameters.ParamByName('@Matricula').Value          := Matricula;
         proc.Parameters.ParamByName('@CajaId').Value             := CajaId;
@@ -24916,7 +25182,7 @@ begin
       SQL_FloatToStr(Q.FieldByName('Cantidad').AsFloat) + ', ' +
       '''' + AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString) + ''', ' +
       '''' + AnsiUpperCase(Q.FieldByName('UnidadMedida2').AsString) + ''', ' +
-      SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ', ' +
+      SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ', ' +
       '''' + Q.FieldByName('Caducidad').AsString + ''', ' +
       IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ', ' +
       SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ', ' +
@@ -25021,7 +25287,7 @@ begin
     '"CodigoColor":"' + JSON_Str(CodigoColor) + '",' +
     '"DescripcionColor":"' + JSON_Str(DescripcionColor) + '",' +
     '"CantidadBase":' + SQL_FloatToStr(CantidadBase) + ',' +
-    '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+    '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
     '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
     '"Matricula":"' + JSON_Str(Matricula) + '",' +
     '"NumeroSerie":"' + JSON_Str(NumeroSerie) + '",' +
@@ -25148,7 +25414,7 @@ begin
     end;
 
     PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, fCantidad, CodigoEmpresa.EmpresaOrigen );
-    fCantidadBase := fCantidad * Q.FieldByName('FactorConversion_').AsFloat;
+    fCantidadBase := fCantidad * FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
 
     Result := Result +
       '{' +
@@ -25166,6 +25432,8 @@ begin
       '"GrupoTalla":' + Q.FieldByName('GrupoTalla_').AsString + ',' +
       '"CodigoAgrupacion":0,' +
       '"UnidadesAgrupacion":1,' +
+      '"NumeroSerie":"",' +
+      '"NumeroSerieFabricante":"",' +
       '"Partida":"",' +
       '"FechaCaduca":"",' +
       '"CodigoTalla":"",' +
@@ -25174,7 +25442,7 @@ begin
       '"DescripcionColor":"",' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(sUnidadMedidaAlternativa)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedida2)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"ExtraField01":"' + JSON_Str(sExtraField01) + '",' +
       '"Cantidad":' + SQL_FloatToStr(fCantidad) + ',' +
       '"CantidadBase":' + SQL_FloatToStr(fCantidadBase) + ',' +
@@ -25481,7 +25749,7 @@ begin
       '"CodigoAlternativo2":"' + JSON_Str(Q.FieldByName('CodigoAlternativo2').AsString) + '",' +
       '"CodigoAlternativoTC":"' + JSON_Str(Q.FieldByName('CodigoAlternativoTC').AsString) + '",' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       //'"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
       '"FechaCaduca":"' + JSON_Str(Q.FieldByName('FechaCaduca').AsString) + '",' +
       '"FechaUltimaEntrada":"' + JSON_Str(Q.FieldByName('FechaUltimaEntrada').AsString) + '",' +
@@ -26003,7 +26271,7 @@ begin
       '"UnidadesSaldoBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldoBase').AsFloat) + ',' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) +
       '}';
 
     Q.Next;
@@ -26945,8 +27213,8 @@ begin
   fOldCantidadBase     := FS_StrToFloatDef ( contentfields.values['oldCantidadBase'], 0 );
   fOldCantidadBase     := fNewCantidadBase;
   sUnidadMedidaBase    := (AnsiUpperCase(contentfields.values['UnidadMedidaBase']));
-  foldFactorConversion := FS_StrToFloatDef ( contentfields.values['oldFactorConversion'], 1 );
-  fnewFactorConversion := FS_StrToFloatDef ( contentfields.values['newFactorConversion'], 1 );
+  foldFactorConversion := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef ( contentfields.values['oldFactorConversion'], 1 ));
+  fnewFactorConversion := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef ( contentfields.values['newFactorConversion'], 1 ));
 
   FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, sOldUnidadMedida, sUnidadMedidaBase );
 
@@ -28287,7 +28555,7 @@ begin
   end;
 
   Importe              := Unidades * Precio;
-  FactorConversion_    := FactorConversion; // FS_StrToFloatDef ( contentfields.values['FactorConversion_'], 1.0 );
+  FactorConversion_    := FS_SGA_FactorConversion(CodigoEmpresa,FactorConversion); // FS_StrToFloatDef ( contentfields.values['FactorConversion_'], 1.0 );
   Comentario           := contentfields.values['Comentario'];
   CodigoCanal          := contentfields.values['CodigoCanal'];
   CodigoCliente        := contentfields.values['CodigoCliente'];
@@ -28426,7 +28694,7 @@ begin
       gaMov.Unidades              := StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ),0);
       gaMov.UnidadesBase          := gaMov.Unidades * gaMov.FactorConversion;
       gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
-      gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStock,tmsageMovimientoStockSeries];
+      gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries];
 
       if not bErr then try
         bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
@@ -30358,7 +30626,7 @@ begin
 
     // Fem els moviments a les taules del SGA (sense sèries)
     gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
-    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStockSeries];
+    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
 
     if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
@@ -30367,6 +30635,7 @@ begin
 
   end;
 
+  (*
   sSQL := 'INSERT INTO TmpIME_MovimientoStock ( ' +
           '    CodigoEmpresa, Ejercicio, Periodo, Fecha, Serie, Documento, ' +
           '    CodigoArticulo, CodigoAlmacen, AlmacenContrapartida, Partida, ' +
@@ -30447,10 +30716,10 @@ begin
   except
     on E:Exception do begin
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
-
       Exit;
     end;
   end;
+  *)
 
   LP := LOG_Clear();
   LP.MovOrigen := gaMov.MovOrigen;
@@ -31752,7 +32021,7 @@ begin
     CantidadRechazos        := Q.FieldByName('CantidadErrorEntrada').AsFloat;
     CantidadEntradaBase     := Q.FieldByName('UnidadesEntradaBase').AsFloat;
     CantidadRechazosBase    := Q.FieldByName('UnidadesErrorBase').AsFloat;
-    FactorConversion        := Q.FieldByName('FactorConversion').AsFloat;
+    FactorConversion        := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat);
     UnidadMedidaEntrada     := AnsiUpperCase(Q.FieldByName('UnidadMedidaPedido').AsString);
     UnidadMedidaEntradaBase := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
     UnidadMedida            := AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString);
@@ -32249,7 +32518,7 @@ begin
     CantidadRechazos        := Q.FieldByName('CantidadErrorEntrada').AsFloat;
     CantidadEntradaBase     := Q.FieldByName('UnidadesEntradaBase').AsFloat;
     CantidadRechazosBase    := Q.FieldByName('UnidadesErrorBase').AsFloat;
-    FactorConversion        := Q.FieldByName('FactorConversion').AsFloat;
+    FactorConversion        := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat);
     UnidadMedidaEntrada     := AnsiUpperCase(Q.FieldByName('UnidadMedidaPedido').AsString);
     UnidadMedidaEntradaBase := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
     UnidadMedida            := AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString);
@@ -32795,7 +33064,7 @@ begin
     TratamientoPartidas     := (Q.FieldByName('TratamientoPartidas').AsInteger<>0);
     CodigoUbicacion         := Q.FieldByName('CodigoUbicacion').AsString;
     CodigoUbicacionRechazos := Q.FieldByName('CodigoUbicacionRechazos').AsString;
-    FactorConversion        := Q.FieldByName('FactorConversion').AsFloat;
+    FactorConversion        := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat);
     UnidadMedida            := AnsiUpperCase(Q.FieldByName('UnidadMedida1_').AsString);
     UnidadMedidaEntrada     := AnsiUpperCase(Q.FieldByName('UnidadMedidaPedido').AsString);
     UnidadMedidaEntradaBase := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
@@ -33359,7 +33628,7 @@ begin
   CodigoColor_         := contentfields.values['CodigoColor'];
   GrupoTalla_          := StrToIntDef(contentfields.values['GrupoTalla'],0);
   CodigoTalla01_       := contentfields.values['CodigoTalla'];
-  FactorConversion     := FS_StrToFloatDef ( contentfields.values['FactorConversion'], 1.0 );
+  FactorConversion     := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef ( contentfields.values['FactorConversion'], 1.0 ));
   Comentario           := contentfields.values['Comentario'];
   CodigoCanal          := contentfields.values['CodigoCanal'];
   CodigoCliente        := contentfields.values['CodigoCliente'];
@@ -36934,6 +37203,7 @@ var
   Ejercicio: Integer;
   NumeroSerie: String;
   NumeroSerieFabricante: String;
+  ScanCode: String;
   CantidadSerie: Integer;
   JSonValueDist: TJSONValue;
   JSonArrayDist: TJSONArray;
@@ -37175,14 +37445,14 @@ begin
     UnidadMedidaBase          := AnsiUpperCase(_Get_JSonValue ( JSonArrayD, 'UnidadMedidaBase' ));
     UnidadesEntrada           := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'UnidadesEntrada' ),0);
     UnidadesEntradaBase       := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'UnidadesEntradaBase' ),0);
-    FactorConversion          := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'FactorConversion' ),0);
+    FactorConversion          := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'FactorConversion' ),1));
     CodigoAgrupacion          := StrToIntDef(_Get_JSonValue ( JSonArrayD, 'CodigoAgrupacion' ),1);
     UnidadesAgrupacion        := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'UnidadesAgrupacion' ),0);
     UnidadMedidaRechazo       := AnsiUpperCase(_Get_JSonValue ( JSonArrayD, 'UnidadMedidaRechazo' ));
     UnidadMedidaBaseRechazo   := AnsiUpperCase(_Get_JSonValue ( JSonArrayD, 'UnidadMedidaBaseRechazo' ));
     UnidadesRechazo           := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'UnidadesRechazo' ),0);
     UnidadesRechazoBase       := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'UnidadesRechazoBase' ),0);
-    FactorConversionRechazo   := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'FactorConversionRechazo' ),0);
+    FactorConversionRechazo   := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'FactorConversionRechazo' ),1));
     CodigoAgrupacionRechazo   := StrToIntDef(_Get_JSonValue ( JSonArrayD, 'CodigoAgrupacionRechazo' ),1);
     UnidadesAgrupacionRechazo := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'UnidadesAgrupacionRechazo' ),0);
     Precio                    := FS_StrToFloatDef(_Get_JSonValue ( JSonArrayD, 'Precio' ),0);
@@ -37278,10 +37548,11 @@ begin
             NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
             NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
             CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+            ScanCode              := _Get_JSonValue ( lJSonValue, 'ScanCode' );
 
             sSQL :=
               'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
-              '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+              '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
               'VALUES ( ' +
               IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
               IntToStr(RecepcionId) + ', ' +
@@ -37290,6 +37561,7 @@ begin
               '0, ' +
               '''' + SQL_Str(NumeroSerie) + ''', ' +
               '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+              '''' + SQL_Str(ScanCode) + ''', ' +
               IntToStr(CantidadSerie) + ' ' +
               ') ';
             SQL_Execute_NoRes ( Conn, sSQL );
@@ -37304,10 +37576,11 @@ begin
             NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
             NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
             CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+            ScanCode              := _Get_JSonValue ( lJSonValue, 'ScanCode' );
 
             sSQL :=
               'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
-              '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+              '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
               'VALUES ( ' +
               IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
               IntToStr(RecepcionId) + ', ' +
@@ -37316,6 +37589,7 @@ begin
               '1, ' +
               '''' + SQL_Str(NumeroSerie) + ''', ' +
               '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+              '''' + SQL_Str(ScanCode) + ''', ' +
               IntToStr(CantidadSerie) + ' ' +
               ') ';
             SQL_Execute_NoRes ( Conn, sSQL );
@@ -37516,10 +37790,11 @@ begin
       NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
       NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
       CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+      ScanCode              := _Get_JSonValue ( lJSonValue, 'ScanCode' );
 
       sSQL :=
         'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
-        '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+        '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
         'VALUES ( ' +
         IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
         IntToStr(RecepcionId) + ', ' +
@@ -37528,6 +37803,7 @@ begin
         '0, ' +
         '''' + SQL_Str(NumeroSerie) + ''', ' +
         '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+        '''' + SQL_Str(ScanCode) + ''', ' +
         IntToStr(CantidadSerie) + ' ' +
         ') ';
 
@@ -37541,10 +37817,11 @@ begin
       NumeroSerie           := _Get_JSonValue ( lJSonValue, 'NumeroSerie' );
       NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
       CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValue, 'Cantidad' ),1);
+      ScanCode              := _Get_JSonValue ( lJSonValue, 'ScanCode' );
 
       sSQL :=
         'INSERT INTO FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, RecepcionId, RecepcionIdLinea, ' +
-        '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, Cantidad ) ' +
+        '  RecepcionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
         'VALUES ( ' +
         IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
         IntToStr(RecepcionId) + ', ' +
@@ -37553,6 +37830,7 @@ begin
         '1, ' +
         '''' + SQL_Str(NumeroSerie) + ''', ' +
         '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+        '''' + SQL_Str(ScanCode) + ''', ' +
         IntToStr(CantidadSerie) + ' ' +
         ') ';
 
@@ -37907,14 +38185,14 @@ begin
     UnidadMedidaBase          := AnsiUpperCase(_Get_JSonValue ( JSonArray, 'UnidadMedidaBase' ));
     UnidadesEntrada           := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesEntrada' ),0);
     UnidadesEntradaBase       := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesEntradaBase' ),0);
-    FactorConversion          := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversion' ),0);
+    FactorConversion          := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversion' ),1));
     CodigoAgrupacion          := StrToIntDef(_Get_JSonValue ( JSonArray, 'CodigoAgrupacion' ),1);
     UnidadesAgrupacion        := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesAgrupacion' ),0);
     UnidadMedidaRechazo       := AnsiUpperCase(_Get_JSonValue ( JSonArray, 'UnidadMedidaRechazo' ));
     UnidadMedidaBaseRechazo   := AnsiUpperCase(_Get_JSonValue ( JSonArray, 'UnidadMedidaBaseRechazo' ));
     UnidadesRechazo           := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesRechazo' ),0);
     UnidadesRechazoBase       := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesRechazoBase' ),0);
-    FactorConversionRechazo   := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversionRechazo' ),0);
+    FactorConversionRechazo   := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversionRechazo' ),1));
     CodigoAgrupacionRechazo   := CodigoAgrupacion;
     UnidadesAgrupacionRechazo := UnidadesAgrupacion;
     Precio                    := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'Precio' ),0);
@@ -38348,14 +38626,14 @@ begin
     UnidadMedidaBase          := AnsiUpperCase(_Get_JSonValue ( JSonArray, 'UnidadMedidaBase' ));
     UnidadesEntrada           := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesEntrada' ),0);
     UnidadesEntradaBase       := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesEntradaBase' ),0);
-    FactorConversion          := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversion' ),0);
+    FactorConversion          := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversion' ),1));
     CodigoAgrupacion          := StrToIntDef(_Get_JSonValue ( JSonArray, 'CodigoAgrupacion' ),1);
     UnidadesAgrupacion        := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesAgrupacion' ),0);
     UnidadMedidaRechazo       := AnsiUpperCase(_Get_JSonValue ( JSonArray, 'UnidadMedidaRechazo' ));
     UnidadMedidaBaseRechazo   := AnsiUpperCase(_Get_JSonValue ( JSonArray, 'UnidadMedidaBaseRechazo' ));
     UnidadesRechazo           := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesRechazo' ),0);
     UnidadesRechazoBase       := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesRechazoBase' ),0);
-    FactorConversionRechazo   := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversionRechazo' ),0);
+    FactorConversionRechazo   := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversionRechazo' ),1));
     CodigoAgrupacionRechazo   := StrToIntDef(_Get_JSonValue ( JSonArray, 'CodigoAgrupacionRechazo' ),1);
     UnidadesAgrupacionRechazo := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesAgrupacionRechazo' ),0);
     Precio                    := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'Precio' ),0);
@@ -39549,7 +39827,7 @@ begin
   Partida              := contentfields.values['Partida'];
   UnidadMedida         := AnsiUpperCase(contentfields.values['UnidadMedida']);
   UnidadMedidaBase     := AnsiUpperCase(contentfields.values['UnidadMedidaBase']);
-  FactorConversion     := FS_StrToFloatDef(contentfields.values['FactorConversion'],1);
+  FactorConversion     := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(contentfields.values['FactorConversion'],1));
   GrupoTalla           := StrToIntDef(contentfields.values['GrupoTalla'],0);
   CodigoTalla          := contentfields.values['CodigoTalla'];
   CodigoColor          := contentfields.values['CodigoColor'];
@@ -40062,7 +40340,7 @@ begin
     Partida           := Q.FieldByName('Partida').AsString;
     UnidadMedida      := AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString);
     UnidadMedidaBase  := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
-    FactorConversion  := Q.FieldByName('FactorConversion').AsFloat;
+    FactorConversion  := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat);
     EjercicioTrabajo  := Q.FieldByName('EjercicioTrabajo').AsInteger;
     NumeroTrabajo     := Q.FieldByName('NumeroTrabajo').AsInteger;
     Orden             := Q.FieldByName('Orden').AsInteger;
@@ -41526,7 +41804,7 @@ begin
       '},' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
       '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
       '"CantidadEntrada":' + SQL_FloatToStr(Q.FieldByName('CantidadEntrada').AsFloat) + ',' +
@@ -41771,7 +42049,7 @@ begin
       '"Descripcion2Articulo":"' + JSON_Str(Q.FieldByName('Descripcion2Articulo').AsString) + '",' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
       '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('TratamientoColores').AsInteger<>0) + ',' +
@@ -42052,7 +42330,7 @@ begin
       '"Descripcion2Articulo":"' + JSON_Str(Q.FieldByName('Descripcion2Articulo').AsString) + '",' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
       '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
       '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('TratamientoColores').AsInteger<>0) + ',' +
@@ -43219,7 +43497,7 @@ begin
       '"CodigoAlternativo":"' + JSON_Str(Q.FieldByName('CodigoArticuloAlternativo').AsString) + '",' +
       '"CodigoAlternativo2":"' + JSON_Str(Q.FieldByName('CodigoAlternativo2').AsString) + '",' +
       '"CodigoAlternativoTC":"' + JSON_Str(Q.FieldByName('CodigoAlternativoTC').AsString) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion').AsFloat)) + ',' +
       '"GrupoTalla":' + IntToStr(Q.FieldByName('TratamientoTallas').AsInteger) + ',' +
       '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
       '"CodigoColor":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
@@ -46881,7 +47159,7 @@ begin
       gaMov.UnidadMedida           := AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString);
       gaMov.UnidadesBase           := Q.FieldByName('UnidadesSaldoBase').AsFloat;
       gaMov.UnidadMedidaBase       := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
-      gaMov.FactorConversion       := Q.FieldByName('FactorConversion_').AsFloat;
+      gaMov.FactorConversion       := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
       gaMov.Comentario             := 'Cambio ubicación palet';
       gaMov.FechaCaduca            := Q.FieldByName('FechaCaduca').AsDateTime;
       gaMov.Precio                 := Q.FieldByName('PrecioMedio').AsFloat;
@@ -47228,7 +47506,7 @@ begin
     *)
 
     PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, fCantidad, CodigoEmpresa.EmpresaOrigen );
-    fCantidadBase := fCantidad * Q.FieldByName('FactorConversion_').AsFloat;
+    fCantidadBase := fCantidad * FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
 
     Result := Result +
       '{' +
@@ -47252,7 +47530,7 @@ begin
       '"FechaCaduca":"",' +
       '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaAlternativa_').AsString) )+ '",' +
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida2_').AsString)) + '",' +
-      '"FactorConversion":' + SQL_FloatToStr(Q.FieldByName('FactorConversion_').AsFloat) + ',' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"ExtraField01":"' + JSON_Str(sExtraField01) + '",' +
       '"Cantidad":' + SQL_FloatToStr(fCantidadBase) + ',' +
       '"CantidadBase":' + SQL_FloatToStr(fCantidadBase) + ',' +
@@ -47626,6 +47904,24 @@ begin
     end;
   end;
 
+  // Esborrem els nº de sèrie d'expedició (els que no pertanyen a detalls de preparació)
+  sSQL :=
+    'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ' +
+    'WHERE ' +
+    '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND AutoID NOT IN (SELECT AutoID FROM FS_SGA_Picking_Pedido_Lineas_Detalle ' +
+    '    WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ')';
+
+  if PickingId <> 0 then
+    sSQL := sSQL + ' AND PickingId = ' + IntToStr(PickingId);
+
+  try
+    SQL_Execute_NoRes ( Conn, sSQL );
+  except
+    on E:Exception do
+      gaLogFile.Write_DBException(E,sSQL,'Error al eliminar números de serie de expedición', CONST_LOGID_BBDD);
+  end;
+
   if SQL_Procedure_Exists ( Conn, 'FS_SGA_PROC_UpdatePaletCaja', sPROCCustom ) then
   begin
 
@@ -47970,7 +48266,7 @@ begin
     gaMov.UnidadMedida           := AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString);
     gaMov.UnidadesBase           := Q.FieldByName('UnidadesSaldoBase').AsFloat;
     gaMov.UnidadMedidaBase       := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
-    gaMov.FactorConversion       := Q.FieldByName('FactorConversion_').AsFloat;
+    gaMov.FactorConversion       := FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
     gaMov.FechaCaduca            := Q.FieldByName('FechaCaduca').AsDateTime;
     gaMov.IdProcesoIME           := SQL_Execute ( Conn, 'SELECT NEWID()' );
     gaMov.Comentario             := Comentario;
@@ -48537,7 +48833,7 @@ begin
   CodigoColor            := (contentfields.values['CodigoColor']);
   UnidadMedida           := AnsiUpperCase(contentfields.values['UnidadMedida']);
   UnidadMedidaBase       := AnsiUpperCase(contentfields.values['UnidadMedidaBase']);
-  FactorConversion       := FS_StrToFloatDef(Trim(contentfields.values['FactorConversion']),1);
+  FactorConversion       := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(Trim(contentfields.values['FactorConversion']),1));
   Unidades               := FS_StrToFloatDef(Trim(contentfields.values['Cantidad']),1);
   UnidadesBase           := FS_StrToFloatDef(Trim(contentfields.values['CantidadBase']),1);
   CodigoAgrupacion       := StrToIntDef(Trim(contentfields.values['CodigoAgrupacion']),0);
@@ -49529,6 +49825,8 @@ var
   fNS_Cantidad: Double;
   fNS_FactorConversion: Double;
   bTeSeries: Boolean;
+  iAutoIdDetalle: Integer;
+  QNS: TADOQuery;
 {$ENDREGION}
 
 begin
@@ -49617,7 +49915,7 @@ begin
   CodigoColor            := (contentfields.values['CodigoColor']);
   UnidadMedida           := AnsiUpperCase(contentfields.values['UnidadMedida']);
   UnidadMedidaBase       := AnsiUpperCase(contentfields.values['UnidadMedidaBase']);
-  FactorConversion       := FS_StrToFloatDef(Trim(contentfields.values['FactorConversion']),1);
+  FactorConversion       := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(Trim(contentfields.values['FactorConversion']),1));
   Unidades               := FS_StrToFloatDef(Trim(contentfields.values['Cantidad']),1);
   CodigoAgrupacion       := StrToIntDef(Trim(contentfields.values['CodigoAgrupacion']),0);
   CodigoAgrupacionPedido := StrToIntDef(Trim(contentfields.values['CodigoAgrupacionPedido']),0);
@@ -49626,6 +49924,7 @@ begin
   // Números de sèrie (JSON opcional)
   sNumerosSerie := contentfields.values['NumerosSerie'];
   bTeSeries := (sNumerosSerie <> '');
+  iAutoIdDetalle := StrToIntDef(contentfields.values['AutoIdDetalle'], 0);
 
   FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, UnidadMedida, UnidadMedidaBase );
 
@@ -50060,7 +50359,155 @@ begin
     end;
   end;
 
-  // Si hi ha números de sèrie, fem un moviment per a cada un
+  // Si estem esborrant un detall (AutoIdDetalle > 0), consultem els nº de sèrie de la BBDD
+  // i fem moviments inversos per a cada un
+  if (iAutoIdDetalle > 0) and (Unidades < 0) then begin
+
+    sSQL :=
+      'SELECT NumeroSerie, NumeroSerieFabricante, Cantidad ' +
+      'FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+      'WHERE AutoId = ' + IntToStr(iAutoIdDetalle) + ' ' +
+      '  AND Tipo = 0';
+
+    QNS := SQL_PrepareQuery ( Conn, sSQL );
+    QNS.Open;
+
+    while not QNS.Eof do begin
+
+      if bErr then Break;
+
+      sNS_NumeroSerie           := QNS.FieldByName('NumeroSerie').AsString;
+      sNS_NumeroSerieFabricante := QNS.FieldByName('NumeroSerieFabricante').AsString;
+      fNS_Cantidad              := QNS.FieldByName('Cantidad').AsFloat;
+      if FactorConversion <> 0 then
+        fNS_FactorConversion := fNS_Cantidad * FactorConversion
+      else
+        fNS_FactorConversion := fNS_Cantidad;
+
+      gaLogFile.Write ( 'Moviment invers sèrie: NS=' + sNS_NumeroSerie + ' Qty=' + FloatToStr(fNS_Cantidad), sIDCall );
+
+      // ENTRADA a la ubicació de preparació (retornem l'article)
+      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
+      gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
+      gaMov.CodigoUsuario          := CodigoUsuario;
+      gaMov.Ejercicio              := YY;
+      gaMov.Periodo                := MonthOf(Date());
+      gaMov.Fecha                  := Date();
+      gaMov.FechaHora              := Now();
+      gaMov.CodigoAlmacen          := aUbicacion.CodigoAlmacen;
+      gaMov.CodigoUbicacion        := CodigoUbicacion;
+      gaMov.CodigoArticulo         := CodigoArticulo;
+      gaMov.Partida                := Partida;
+      gaMov.Partida2               := PartidaPedido;
+      gaMov.CodigoTalla            := CodigoTalla;
+      gaMov.CodigoColor            := CodigoColor;
+      gaMov.TipoMovimiento         := 2;
+      gaMov.OrigenMovimiento       := TipoSalida;
+      gaMov.Unidades               := -fNS_Cantidad;
+      gaMov.UnidadMedida           := AnsiUpperCase(UnidadMedida);
+      gaMov.UnidadesBase           := -fNS_FactorConversion;
+      gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
+      gaMov.FactorConversion       := FactorConversion;
+      gaMov.FechaCaduca            := dFechaCaduca;
+      gaMov.IdProcesoIME           := sNewGuid;
+      gaMov.Comentario             := 'SGAMobile: ' + DescripcionSalida;
+      gaMov.PreparacionId          := IdPreparacion;
+      gaMov.MovOrigen              := sNewMovOrigen;
+      gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      gaMov.NumeroSerie            := sNS_NumeroSerie;
+      gaMov.NumeroSerieFabricante  := sNS_NumeroSerieFabricante;
+
+      gaMov.Precio :=
+        ARTICULO_ConsultarPrecioStock (
+          Conn,
+          CodigoEmpresa,
+          gaMov.CodigoArticulo,
+          gaMov.Partida,
+          gaMov.CodigoColor,
+          gaMov.CodigoTalla,
+          gaMov.CodigoAlmacen,
+          gaMov.GrupoTalla
+        );
+
+      if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
+        gaMov.CodigoAlmacenDestino   := aUbicacionExpedicion.CodigoAlmacen;
+        gaMov.CodigoUbicacionDestino := aUbicacionExpedicion.CodigoUbicacion;
+        gaMov.MovTraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      end;
+
+      try
+        gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida invers NS=' + sNS_NumeroSerie, sIDCall );
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+      if bErr then Break;
+
+      // SORTIDA de la ubicació d'expedició (retirem l'article)
+      if aUbicacion.CodigoAlmacen<>aUbicacionExpedicion.CodigoAlmacen then begin
+        gaMov.CodigoAlmacenDestino   := aUbicacion.CodigoAlmacen;
+        gaMov.CodigoUbicacionDestino := aUbicacion.CodigoUbicacion;
+      end;
+
+      gaMov.FechaHora              := Now();
+      gaMov.CodigoAlmacen          := aUbicacionExpedicion.CodigoAlmacen;
+      gaMov.CodigoUbicacion        := CodigoUbicacionExpedicion;
+      gaMov.CodigoArticulo         := CodigoArticulo;
+      gaMov.TipoMovimiento         := 1;
+      gaMov.OrigenMovimiento       := TipoEntrada;
+      gaMov.Comentario             := 'SGAMobile: ' + DescripcionEntrada;
+      gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+
+      gaMov.Precio :=
+        ARTICULO_ConsultarPrecioStock (
+          Conn,
+          CodigoEmpresa,
+          gaMov.CodigoArticulo,
+          gaMov.Partida,
+          gaMov.CodigoColor,
+          gaMov.CodigoTalla,
+          gaMov.CodigoAlmacen,
+          gaMov.GrupoTalla,
+          gaMov.CodigoAlmacenDestino
+        );
+
+      try
+        gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock entrada invers NS=' + sNS_NumeroSerie, sIDCall );
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg, sIDCall );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+      QNS.Next;
+
+    end; // while QNS
+
+    QNS.Close;
+    FreeAndNil(QNS);
+
+    // Esborrar els números de sèrie de la taula
+    if not bErr then begin
+      sSQL :=
+        'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie ' +
+        'WHERE AutoId = ' + IntToStr(iAutoIdDetalle);
+      try
+        SQL_Execute_NoRes ( Conn, sSQL );
+      except
+        on E:Exception do
+          gaLogFile.Write_DBException(E,sSQL,'Error al eliminar números de serie del detalle', CONST_LOGID_BBDD);
+      end;
+    end;
+
+  end else
+  // Si hi ha números de sèrie (afegint), fem un moviment per a cada un
   // Si no n'hi ha, fem un sol moviment com fins ara
   if (lJSonArrayNS <> nil) and (lJSonArrayNS.Count > 0) then begin
 
@@ -50481,92 +50928,106 @@ begin
   end else begin
 
     // RESTEM UNITATS AL DETALL
-    fQtat := abs(Unidades);
-    fQtatBase := abs(UnidadesBase);
-    bFinal := FALSE;
-    while not bFinal do
-    begin
 
-      sSQL := 'SELECT TOP 1 ' +
-              '  AutoId, Unidades, UnidadesBase ' +
-              'FROM FS_SGA_Picking_Pedido_Lineas_Detalle WITH (NOLOCK) ' +
-              'WHERE ' +
-              '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-              '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-              '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
-              '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
-              '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
-              '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-              '  AND LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ' +
-              '  AND (Unidades > 0 OR UnidadesBase > 0) ' +
-              '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ';
-
-      if sModoPackingList='AUTOMÁTICO' then
-      begin
-        // MODE AUTOMÀTIC
-        if MatriculaActual<>'' then
-        begin
-          sSQL := sSQL +
-            '  AND CajaId = ' + IntToStr(CajaActual) + ' ' +
-            '  AND Matricula = ''' + SQL_Str(MatriculaActual) + ''' ';
-        end else begin
-          sSQL := sSQL +
-            '  AND CajaId = ' + IntToStr(CajaActual) + ' ' +
-            '  AND PaletId = ' + IntToStr(PaletActual) + ' ';
-        end;
+    // Si tenim AutoIdDetalle concret (esborrant un detall amb sèries), esborrem directament
+    if iAutoIdDetalle > 0 then begin
+      sSQL := 'DELETE FROM FS_SGA_Picking_Pedido_Lineas_Detalle ' +
+              'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+              '  AND AutoId = ' + IntToStr(iAutoIdDetalle);
+      try
+        SQL_Execute_NoRes ( Conn, sSQL );
+      except
+        on E:Exception do
+          gaLogFile.Write_DBException(E,sSQL,'Error al eliminar detalle de preparación', CONST_LOGID_BBDD);
       end;
-
-      sSQL := sSQL +
-        'ORDER BY ' +
-        '  AutoId DESC';
-
-      Q := SQL_PrepareQuery ( Conn, sSQL );
-      Q.Open;
-
-      fQtatDetalle     := 0;
-      fQtatDetalleBase := 0;
-
-      if not Q.EOF then
-      begin
-        iAutoID          := Q.FieldByName('AutoId').AsInteger;
-        fQtatDetalle     := Q.FieldByName('Unidades').AsFloat;
-        fQtatDetalleBase := Q.FieldByName('UnidadesBase').AsFloat;
-      end;
-
-      Q.Close;
-      FreeAndNil(Q);
-
-      bFinal := (fQtatDetalle=0) and (fQtatDetalleBase=0);
-
-      if not bFinal then
+    end else begin
+      fQtat := abs(Unidades);
+      fQtatBase := abs(UnidadesBase);
+      bFinal := FALSE;
+      while not bFinal do
       begin
 
-        if fQtatDetalle>fQtat then
-        begin
-          fQtatARestar     := fQtat;
-          fQtatARestarBase := fQtatBase;
-        end else begin
-          fQtatARestar     := fQtatDetalle;
-          fQtatARestarBase := fQtatDetalleBase;
-        end;
-
-        sSQL := 'UPDATE ' +
-                '  FS_SGA_Picking_Pedido_Lineas_Detalle ' +
-                'SET ' +
-                '  Unidades = Unidades - ' + SQL_FloatToStr(fQtatARestar) + ', ' +
-                '  UnidadesBase = UnidadesBase - ' + SQL_FloatToStr(fQtatARestarBase) + ' ' +
+        sSQL := 'SELECT TOP 1 ' +
+                '  AutoId, Unidades, UnidadesBase ' +
+                'FROM FS_SGA_Picking_Pedido_Lineas_Detalle WITH (NOLOCK) ' +
                 'WHERE ' +
                 '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-                '  AND AutoId = ' + IntToStr(iAutoID);
-        SQL_Execute_NoRes ( Conn, sSQL );
+                '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+                '  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+                '  AND Partida = ''' + SQL_Str(Partida) + ''' ' +
+                '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+                '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+                '  AND LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ' +
+                '  AND (Unidades > 0 OR UnidadesBase > 0) ' +
+                '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ';
 
-        fQtat     := fQtat - fQtatARestar;
-        fQtatBase := fQtatBase - fQtatARestarBase;
-        bFinal := (fQtat<=0)
+        if sModoPackingList='AUTOMÁTICO' then
+        begin
+          // MODE AUTOMÀTIC
+          if MatriculaActual<>'' then
+          begin
+            sSQL := sSQL +
+              '  AND CajaId = ' + IntToStr(CajaActual) + ' ' +
+              '  AND Matricula = ''' + SQL_Str(MatriculaActual) + ''' ';
+          end else begin
+            sSQL := sSQL +
+              '  AND CajaId = ' + IntToStr(CajaActual) + ' ' +
+              '  AND PaletId = ' + IntToStr(PaletActual) + ' ';
+          end;
+        end;
+
+        sSQL := sSQL +
+          'ORDER BY ' +
+          '  AutoId DESC';
+
+        Q := SQL_PrepareQuery ( Conn, sSQL );
+        Q.Open;
+
+        fQtatDetalle     := 0;
+        fQtatDetalleBase := 0;
+
+        if not Q.EOF then
+        begin
+          iAutoID          := Q.FieldByName('AutoId').AsInteger;
+          fQtatDetalle     := Q.FieldByName('Unidades').AsFloat;
+          fQtatDetalleBase := Q.FieldByName('UnidadesBase').AsFloat;
+        end;
+
+        Q.Close;
+        FreeAndNil(Q);
+
+        bFinal := (fQtatDetalle=0) and (fQtatDetalleBase=0);
+
+        if not bFinal then
+        begin
+
+          if fQtatDetalle>fQtat then
+          begin
+            fQtatARestar     := fQtat;
+            fQtatARestarBase := fQtatBase;
+          end else begin
+            fQtatARestar     := fQtatDetalle;
+            fQtatARestarBase := fQtatDetalleBase;
+          end;
+
+          sSQL := 'UPDATE ' +
+                  '  FS_SGA_Picking_Pedido_Lineas_Detalle ' +
+                  'SET ' +
+                  '  Unidades = Unidades - ' + SQL_FloatToStr(fQtatARestar) + ', ' +
+                  '  UnidadesBase = UnidadesBase - ' + SQL_FloatToStr(fQtatARestarBase) + ' ' +
+                  'WHERE ' +
+                  '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+                  '  AND AutoId = ' + IntToStr(iAutoID);
+          SQL_Execute_NoRes ( Conn, sSQL );
+
+          fQtat     := fQtat - fQtatARestar;
+          fQtatBase := fQtatBase - fQtatARestarBase;
+          bFinal := (fQtat<=0)
+
+        end;
 
       end;
-
-    end;
+    end; // else iAutoIdDetalle
 
   end;
 
