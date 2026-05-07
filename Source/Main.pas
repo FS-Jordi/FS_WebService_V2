@@ -56,7 +56,8 @@ uses
   IdHTTP, IdServerIOHandler, IdSSL, IdSSLOpenSSL, ppPrnabl, ppClass, ppCtrls,
   ppBarCod, ppBands, ppCache, ppDesignLayer, ppParameter, ppComm, ppRelatv,
   ppProd, ppReport, raCodMod, ppModule, ppDB, ppDBPipe, System.SyncObjs,
-  dxBarBuiltInMenu, cxClasses, cxGridCustomPopupMenu, cxGridPopupMenu;
+  dxBarBuiltInMenu, cxClasses, cxGridCustomPopupMenu, cxGridPopupMenu,
+  Vcl.Imaging.pngimage;
 
 
 {$ENDREGION}
@@ -72,22 +73,21 @@ type
     IdHTTP1: TIdHTTP;
     IdServerIOHandlerSSLOpenSSL1: TIdServerIOHandlerSSLOpenSSL;
     ppReport1: TppReport;
-    ppHeaderBand1: TppHeaderBand;
-    ppDetailBand1: TppDetailBand;
-    ppBarCode1: TppBarCode;
-    ppFooterBand1: TppFooterBand;
-    raCodeModule1: TraCodeModule;
-    raProgramInfo1: TraProgramInfo;
-    ppDesignLayers1: TppDesignLayers;
-    ppDesignLayer1: TppDesignLayer;
-    ppParameterList1: TppParameterList;
-    ppParameter1: TppParameter;
-    ppParameter2: TppParameter;
-    ppParameter3: TppParameter;
     tmrTimeout: TTimer;
-    ppDBPipeline1: TppDBPipeline;
+    ppDBPipelineLineas: TppDBPipeline;
     DataSource1: TDataSource;
     cxGridPopupMenu1: TcxGridPopupMenu;
+    ppParameterList2: TppParameterList;
+    ppDesignLayers1: TppDesignLayers;
+    ppDesignLayer1: TppDesignLayer;
+    ppHeaderBand1: TppHeaderBand;
+    ppDetailBand1: TppDetailBand;
+    ppFooterBand1: TppFooterBand;
+    ppDBText8: TppDBText;
+    ppLabel8: TppLabel;
+    ppDBText9: TppDBText;
+    ppImage2: TppImage;
+    ppDBBarCode1: TppDBBarCode;
     procedure ServiceExecute(Sender: TService);
     procedure ServiceAfterInstall(Sender: TService);
     procedure tmrFinalitzarTimer(Sender: TObject);
@@ -2077,6 +2077,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/listinformesall') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1listInformesAllAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/startpreparacion') then
     begin
       TAsyncWebModuleThread.Create(
@@ -2101,6 +2118,40 @@ begin
       sParams,
       AConnection.PeerIP,
       @WebModule1stopPreparacionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/startrecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1startRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/stoprecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1stopRecepcionAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,
@@ -2560,6 +2611,244 @@ begin
       sParams,
       AConnection.PeerIP,
       @WebModule1getPackingListExpedicionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/insertpackinglistpalet') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1insertPackingListPaletAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/deletepackinglistpalet') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1deletePackingListPaletAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/reorderpalets') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1reorderPaletsAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/updatepackinglistpalet') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updatePackingListPaletAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/getubicacionexpedicion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getUbicacionExpedicionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/getarticulosdisponiblesparapacking') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getArticulosDisponiblesParaPackingAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/getnumerosseriedisponibles') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getNumerosSerieDisponiblesAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/addarticuloacaja') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1addArticuloACajaAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/removearticulofromcaja') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1removeArticuloFromCajaAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/updatearticuloencaja') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updateArticuloEnCajaAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/insertpackinglistcaja') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1insertPackingListCajaAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/deletepackinglistcaja') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1deletePackingListCajaAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/reordercajas') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1reorderCajasAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/updatepackinglistcaja') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1updatePackingListCajaAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,
@@ -4531,13 +4820,13 @@ begin
       bAsyncRequest := True;
     end
 
-    else if (sCommand='/imprimirinforme') then
+    else if (sCommand='/imprimirtemplate') then
     begin
       TAsyncWebModuleThread.Create(
         SQLConn.ConnectionString,
       sParams,
       AConnection.PeerIP,
-      @WebModule1imprimirInformeAction,
+      @WebModule1imprimirTemplateAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,
@@ -5844,6 +6133,7 @@ begin
     gbFinalitzar := TRUE;
   end;
 
+  SQLConn.Close;
   SQLConn.ConnectionString :=
     'Provider=' + gsProv + ';' +
     'Persist Security Info=True;' +
