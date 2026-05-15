@@ -5511,6 +5511,7 @@ var
   CodigoUsuario: Integer;
   PickingIdAsignado: Integer;
   Ejercicio: Integer;
+  ScanCode: String;
 {$ENDREGION}
 
 begin
@@ -5596,11 +5597,12 @@ begin
       Cantidad          := FS_StrToFloatDef( _Get_JSonValue ( lJSonValue, 'Cantidad' ),0);
       CantidadBase      := FS_StrToFloatDef( _Get_JSonValue ( lJSonValue, 'CantidadBase' ),0);
       PickingIdAsignado := StrToIntDef( _Get_JSonValue ( lJSonValue, 'PickingIdAsignado' ),0);
+      ScanCode          := (_Get_JSonValue ( lJSonValue, 'ScanCode' ));
 
       sSQL :=
         'INSERT INTO FS_SGA_Picking_Pedido_Scans ( PreparacionId, PickingId, Ejercicio, FechaRegistro, CodigoUsuario, ' +
         '  CodigoUbicacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, UnidadMedida, Cantidad, ' +
-        '  CantidadBase, PaletId, CajaId, PickingIdAsignado ) ' +
+        '  CantidadBase, PaletId, CajaId, PickingIdAsignado, ScanCode ) ' +
         'VALUES ( ' +
         IntToStr(IdPreparacion) + ', ' +
         IntToStr(PickingId) + ', ' +
@@ -5617,7 +5619,8 @@ begin
         SQL_FloatToStr(CantidadBase) + ', ' +
         '0, ' +
         '0, ' +
-        IntToStr(PickingIdAsignado) + ' ' +
+        IntToStr(PickingIdAsignado) + ', ' +
+        '''' + SQL_Str(ScanCode) + '''' +
         ')';
 
       SQL_Execute_NoRes ( Conn, sSQL );
@@ -24847,7 +24850,7 @@ begin
   if (LineaPL.Matricula <> '') then
   begin
 
-    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
     gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
     gaMov.EmpresaOrigen          := LineaPL.EmpresaOrigen;
     gaMov.CodigoUsuario          := LineaPL.CodigoUsuario;
@@ -25838,7 +25841,7 @@ begin
             fNS_Cantidad              := FS_StrToFloatDef( _Get_JSonValue ( lJSonNS, 'Cantidad' ), 1 );
 
             // ENTRADA a la ubicació del palet
-            SGA_FS_ALMACEN_PrepareMov ( gaMov );
+            SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
             gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
             gaMov.EmpresaOrigen          := LineaPL.EmpresaOrigen;
             gaMov.CodigoUsuario          := LineaPL.CodigoUsuario;
@@ -25937,7 +25940,7 @@ begin
         end else begin
 
           // Sense números de sèrie: moviment únic original
-          SGA_FS_ALMACEN_PrepareMov ( gaMov );
+          SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
           gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
           gaMov.EmpresaOrigen          := LineaPL.EmpresaOrigen;
           gaMov.CodigoUsuario          := LineaPL.CodigoUsuario;
@@ -30413,7 +30416,7 @@ begin
   iLastID := 0;
   iStatus := 1;
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
 
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
@@ -31155,7 +31158,7 @@ begin
     end;
   end;
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
 
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
@@ -32036,7 +32039,7 @@ begin
   iLastID := 0;
   iStatus := 1;
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
   gaMov.CodigoUsuario          := CodigoUsuario;
@@ -33928,7 +33931,7 @@ begin
 
   end;
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
   gaMov.CodigoUsuario          := CodigoUsuario;
@@ -34437,7 +34440,7 @@ begin
     end;
 
     // Fem els moviments d'entrada a les ubicacions del magatzem del SGA
-    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
     gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
     gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
     gaMov.CodigoUsuario          := CodigoUsuario;
@@ -35465,7 +35468,7 @@ begin
     // Fem els moviments d'entrada a les ubicacions del magatzem del SGA
     if TipoArticulo='M' then
     begin
-      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
       gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
       gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
       gaMov.CodigoUsuario          := CodigoUsuario;
@@ -35962,7 +35965,7 @@ begin
     // Fem els moviments d'entrada a les ubicacions del magatzem del SGA
     if TipoArticulo='M' then
     begin
-      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
       gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
       gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
       gaMov.CodigoUsuario          := CodigoUsuario;
@@ -36525,7 +36528,7 @@ begin
     // Fem els moviments d'entrada a les ubicacions del magatzem del SGA
     if TipoArticulo='M' then
     begin
-      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
       gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
       gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
       gaMov.CodigoUsuario          := CodigoUsuario;
@@ -36878,6 +36881,7 @@ var
   bErr: Boolean;
   sMsg: String;
   bCambioMagatzem: Boolean;
+  bCheckStockSage: Boolean;
 {$ENDREGION}
 
 begin
@@ -37102,7 +37106,6 @@ begin
   except
     on E:Exception do begin
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
-
       gaLogFile.Write ( 'ERROR: ' + Result, sIDCall );
       Exit;
     end;
@@ -37124,7 +37127,7 @@ begin
 
   {$ENDREGION}
 
-  {$ENDREGION 'Validación restricciones'}
+  {$REGION 'Validación restricciones'}
 
   RestriccionesUbicacion := FS_SGA_UBICACION_Restricciones ( Conn, CodigoEmpresa, CodigoUbicacionDestino );
   OcupacionActual        := FS_SGA_UBICACION_OcupacionActual ( Conn, CodigoEmpresa, CodigoUbicacionDestino );
@@ -37188,6 +37191,45 @@ begin
 
   {$ENDREGION}
 
+  {$REGION 'Validació d´estocs'}
+
+  sSQL := 'SELECT ' +
+          '  sysContenidoIni ' +
+          'FROM lsysIni WITH (NOLOCK) ' +
+          'WHERE ' +
+          '  sysGrupo = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
+          '  sysFicheroIni = ''CUESTIONARIO'' AND ' +
+          '  sysSeccion = ''GES'' AND ' +
+          '  sysItem = ''StockNegativo'' ';
+  giPermiteStockNegativo := SQL_Execute ( Conn, sSQL );
+
+  if giPermiteStockNegativo=0 then
+  begin
+
+    bCheckStockSage := SAGE_Check_Stock_Sage (
+      Conn,
+      CodigoEmpresa,
+      CodigoAlmacen,
+      CodigoArticulo,
+      Partida,
+      CodigoTalla01_,
+      CodigoColor_,
+      UnidadMedida,
+      Unidades,
+      UnidadesBase
+    );
+
+    if not bCheckStockSage then
+    begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No hay estoc suficiente en Sage para realizar el traspaso. Revise las diferencias.","Data":[]}';
+      gaLogFile.Write ( 'ERROR: ' + Result, sIDCall );
+      Exit;
+    end;
+
+  end;
+
+  {$ENDREGION}
+
   {$REGION 'Realitzar operació'}
 
   iLastID := 0;
@@ -37195,15 +37237,6 @@ begin
 
   if (Unidades<>0) or (UnidadesBase<>0) then begin
 
-    sSQL := 'SELECT ' +
-            '  sysContenidoIni ' +
-            'FROM lsysIni WITH (NOLOCK) ' +
-            'WHERE ' +
-            '  sysGrupo = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
-            '  sysFicheroIni = ''CUESTIONARIO'' AND ' +
-            '  sysSeccion = ''GES'' AND ' +
-            '  sysItem = ''StockNegativo'' ';
-    giPermiteStockNegativo := SQL_Execute ( Conn, sSQL );
     if giPermiteStockNegativo=0 then begin
 
       fStock :=
@@ -37243,7 +37276,7 @@ begin
       OrigenMovimiento := sOrigenMovimiento;
     end;
 
-    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
     gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
     gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
     gaMov.CodigoUsuario          := CodigoUsuario;
@@ -37298,13 +37331,14 @@ begin
 
     bCambioMagatzem := CodigoAlmacen<>CodigoAlmacenDestino;
 
+    // Guardem la MovPosicion agregada per lligar els moviments individuals de sèries via MovPosicionOrigen.
+    gaMov.MovPosicionOrigen := gaMov.MovPosicion;
+
     if TratamientoSeries then
     begin
 
-      // Moviment de sortida: 1 INSERT per cada NS a SGA + (si canvi de magatzem) a MovimientoArticuloSerie de SAGE.
-      // NO fem el moviment global a MovimientoStock de SAGE: ja el genera l'INSERT a TmpIME_MovimientoStock que es fa
-      // un sol cop al final del bloc 'Si fem canvi de magatzem'. Aquest INSERT inclou la contrapartida (origen↔destí)
-      // i des d'allà el procés de SAGE (RebajeStock) genera el moviment de tipus 'T' i la seva contrapartida.
+      {$REGION 'SORTIDA: 1 moviment SGA + SAGE Series per cada NS'}
+
       for lJSonValue in JSonArray do begin
 
         gaMov.MovPosicion           := SQL_Execute ( Conn, 'SELECT NEWID()' );
@@ -37312,6 +37346,7 @@ begin
         gaMov.NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
         gaMov.Unidades              := StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ), 0 );
         gaMov.UnidadesBase          := gaMov.Unidades * gaMov.FactorConversion;
+        gaMov.OrigenDocumento       := OD_SALIDA_STOCK;
         gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
         if bCambioMagatzem then
           gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries]
@@ -37336,7 +37371,16 @@ begin
         Exit;
       end;
 
+      {$ENDREGION}
+
     end else begin
+
+      // SORTIDA sense sèries: SGA + (si canvi de magatzem) SAGE com un sol moviment T (RebajeStock fa la contrapartida).
+      gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
+      if bCambioMagatzem then
+        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock]
+      else
+        gaMov.TipoMovimientoSAGE := [];
 
       if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
         Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
@@ -37388,8 +37432,8 @@ begin
     if TratamientoSeries then
     begin
 
-      // Moviment d'entrada: només movem el SGA per cada NS. NO toquem MovimientoStock de SAGE,
-      // que ja es generarà mitjançant el flux estàndard (vegeu nota a la sortida).
+      {$REGION 'ENTRADA: 1 moviment SGA + SAGE Series per cada NS'}
+
       for lJSonValue in JSonArray do begin
 
         gaMov.MovPosicion           := SQL_Execute ( Conn, 'SELECT NEWID()' );
@@ -37397,10 +37441,12 @@ begin
         gaMov.NumeroSerieFabricante := _Get_JSonValue ( lJSonValue, 'NumeroSerieFabricante' );
         gaMov.Unidades              := StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ), 0 );
         gaMov.UnidadesBase          := gaMov.Unidades * gaMov.FactorConversion;
+        gaMov.OrigenDocumento       := OD_ENTRADA_STOCK;
         gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
-        // Per a l'entrada, no calen els INSERT a MovimientoArticuloSerie perquè ja s'han fet a la sortida.
-        // Si calen un dia, només es farien quan bCambioMagatzem=true.
-        gaMov.TipoMovimientoSAGE    := [];
+        if bCambioMagatzem then
+          gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries]
+        else
+          gaMov.TipoMovimientoSAGE    := [];
 
         if not bErr then try
           bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
@@ -37420,9 +37466,51 @@ begin
         Exit;
       end;
 
+      {$ENDREGION}
+
+      {$REGION 'Moviment AGREGAT: 1 sol cop, només SAGE MovimientoStock'}
+      // Aquest moviment és l'únic registre que arriba a MovimientoStock de SAGE per al traspàs.
+      // Només es fa quan hi ha canvi de magatzem (SAGE no controla ubicacions dins el mateix magatzem).
+      // RebajeStock generarà la contrapartida automàticament.
+
+      if bCambioMagatzem then
+      begin
+        // Restablim les dades d'origen (la sortida real és des d'origen cap a destí).
+        gaMov.CodigoAlmacen          := CodigoAlmacen;
+        gaMov.CodigoUbicacion        := CodigoUbicacion;
+        gaMov.CodigoAlmacenDestino   := CodigoAlmacenDestino;
+        gaMov.CodigoUbicacionDestino := CodigoUbicacionDestino;
+        gaMov.Matricula              := Matricula;
+        gaMov.TipoMovimiento         := 2;
+        gaMov.MovPosicion            := gaMov.MovPosicionOrigen;
+        gaMov.NumeroSerie            := '';
+        gaMov.NumeroSerieFabricante  := '';
+        gaMov.Unidades               := Unidades;
+        gaMov.UnidadesBase           := UnidadesBase;
+        gaMov.Precio                 := PrecioOrigen;
+        gaMov.Importe                := PrecioOrigen * UnidadesBase;
+        gaMov.OrigenMovimiento       := 'T';
+        gaMov.OrigenDocumento        := OD_SALIDA_STOCK;
+        gaMov.TipoMovimientoSGA      := [];
+        gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+
+        if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
+          Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
+          gaLogFile.Write ( 'ERROR: ' + Result, sIDCall );
+          if JSonObject<>nil then JSonObject.Free;
+          Exit;
+        end;
+      end;
+
       if JSonObject<>nil then JSonObject.Free;
 
+      {$ENDREGION}
+
     end else begin
+
+      // ENTRADA sense sèries: només SGA (l'únic moviment SAGE T ja s'ha fet a la sortida).
+      gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
+      gaMov.TipoMovimientoSAGE := [];
 
       if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
         Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
@@ -37432,75 +37520,11 @@ begin
 
     end;
 
-    // Si fem canvi de magatzem, fem els moviments a SAGE
+    // Si fem canvi de magatzem, actualitzem aprovisionaments i FS_Operations.
+    // El moviment a SAGE (MovimientoStock) ja s'ha generat dins SGA_FS_ALMACEN_MovimientoStock
+    // via TipoMovimientoSAGE := [tmsageMovimientoStock] al moviment de sortida (sense sèries)
+    // o al moviment agregat (amb sèries). RebajeStock genera la contrapartida.
     if CodigoAlmacen<>CodigoAlmacenDestino then begin
-
-      sSQL := 'INSERT INTO TmpIME_MovimientoStock ( ' +
-              '    CodigoEmpresa, Ejercicio, Periodo, Fecha, Serie, Documento, ' +
-              '    CodigoArticulo, CodigoAlmacen, AlmacenContrapartida, Partida, ' +
-              '    Partida2_, CodigoColor_, GrupoTalla_, CodigoTalla01_, TipoMovimiento, ' +
-              '    Unidades, UnidadMedida1_, Precio, Importe, Unidades2_, UnidadMedida2_, ' +
-              '    FactorConversion_, Comentario, CodigoCanal, CodigoCliente, CodigoProveedor, ' +
-              '    FechaCaduca, Ubicacion, OrigenMovimiento, EmpresaOrigen, MovOrigen, ' +
-              '    EjercicioDocumento, NumeroSerieLc, IdProcesoIME, MovIdentificadorIME, ' +
-              '    StatusTraspasadoIME, TipoImportacionIME, DocumentoUnico, FechaRegistro, ' +
-              '    MovPosicion ' +
-              '  ) ' +
-              'VALUES ( ' +
-              IntToStr(CodigoEmpresa.Stocks) + ', ' +
-              IntToStr(YY) + ', ' +
-              IntToStr(MM) + ', ' +
-              SQL_DateToStr ( Now() ) + ', ' +
-              '''' + SQL_Str(Serie) + ''', ' +
-              IntToStr(Documento) + ', ' +
-              '''' + SQL_Str(CodigoArticulo) + ''', ' +
-              '''' + SQL_Str(CodigoAlmacenDestino) + ''', ' +
-              '''' + SQL_Str(CodigoAlmacen) + ''', ' +
-              '''' + SQL_Str(Partida) + ''', ' +
-              '''' + SQL_Str(Partida) + ''', ' +
-              '''' + SQL_Str(CodigoColor_) + ''', ' +
-              IntToStr(GrupoTalla_) + ', ' +
-              '''' + SQL_Str(CodigoTalla01_) + ''', ' +
-              '1, ' +
-              SQL_FloatToStr ( Unidades ) + ', '+
-              '''' + SQL_Str( UnidadMedida ) + ''', ' +
-              SQL_FloatToStr ( PrecioOrigen ) + ', ' +
-              SQL_FloatToStr ( Unidades * PrecioOrigen ) + ', ' +
-              SQL_FloatToStr ( UnidadesBase ) + ', '+
-              '''' + SQL_Str( UnidadMedidaBase ) + ''', ' +
-              SQL_FloatToStr ( FactorConversion ) + ', '+
-              '''' + SQL_Str( Comentario ) + ''', ' +
-              '''' + SQL_Str( CodigoCanal ) + ''', ' +
-              '''' + SQL_Str( CodigoCliente ) + ''', ' +
-              '''' + SQL_Str( CodigoProveedor ) + ''', ' +
-              FechaCaduca + ', ' +
-              '''' + SQL_Str( Ubicacion ) + ''', ' +
-              '''T'', ' +
-              IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
-              '''' + SQL_GUID_ToStr(MovOrigen) + ''', ' +
-              IntToStr(EjercicioDocumento) + ', ' +
-              '''' + SQL_Str( NumeroSerieLc ) + ''', ' +
-              '''' + SQL_GUID_ToStr( IdProcesoIME ) + ''', ' +
-              '''' + SQL_GUID_ToStr( MovIdentificadorIME ) + ''', ' +
-              IntToStr(StatusTraspasadoIME) + ', ' +
-              IntToStr(TipoImportacionIME) + ', ' +
-              IntToStr(DocumentoUnico) + ', ' +
-              SQL_DateTimeToStr ( FechaRegistro ) + ', ' +
-              '''' + SQL_GUID_ToStr(gaMov.MovPosicion) + ''' )';
-
-      if Assigned(gaLogFile) then
-        gaLogFile.Write ( 'Realizamos INSERT TMPIME: ' + sSQL, CONST_LOGID_GENERAL, LOG_LEVEL_INFO );
-
-      try
-        SQL_Execute_NoRes ( Conn, sSQL );
-      except
-        on E:Exception do begin
-          Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
-
-          gaLogFile.Write ( 'ERROR: ' + Result, sIDCall );
-          Exit;
-        end;
-      end;
 
       if IdAprovisionamiento<>0 then
       begin
@@ -39528,7 +39552,7 @@ begin
   if bErr then
     gaLogFile.Write ( 'ERROR: ' + sMsg, sIDCall );
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
   gaMov.CodigoUsuario          := CodigoUsuario;
@@ -43551,7 +43575,7 @@ begin
   sNewGuid           := SQL_Execute ( Conn, 'SELECT NEWID()' );
   sNewMovOrigen      := SQL_Execute ( Conn, 'SELECT NEWID()' );
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
   gaMov.CodigoUsuario          := CodigoUsuario;
@@ -43950,7 +43974,7 @@ begin
     sNewGuid           := SQL_Execute ( Conn, 'SELECT NEWID()' );
     sNewMovOrigen      := SQL_Execute ( Conn, 'SELECT NEWID()' );
 
-    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
     gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
     gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
     gaMov.CodigoUsuario          := CodigoUsuario;
@@ -44376,7 +44400,7 @@ begin
   Q.Close;
   FreeAndNil(Q);
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
   gaMov.CodigoUsuario          := CodigoUsuario;
@@ -46144,80 +46168,13 @@ begin
 
   end else begin
 
-    sSQL := 'SELECT DISTINCT ' +
-            '  fsa.UbicacionExpedicion, ISNULL(Comptadors.NumPedidos, 0) AS NumPedidos, ' +
-            '  CASE WHEN Comptadors.NumPedidos=1 THEN CAST(EjercicioPedido AS varchar) ELSE ''-'' END as EjercicioPedido, ' +
-            '  CASE WHEN Comptadors.NumPedidos=1 THEN SeriePedido ELSE ''-'' END as SeriePedido, ' +
-            '  CASE WHEN Comptadors.NumPedidos=1 THEN CAST(NumeroPedido AS varchar) ELSE ''-'' END as NumeroPedido, ' +
-            '  ISNULL(NumLineasTotales,0) AS NumLineasTotales, ' +
-            '  ISNULL(NumLineasPendientesExpedir,0) AS NumLineasPendientesExpedir, ' +
-            '  ISNULL(NumArticulosTotales, 0) AS NumArticulosTotales, ' +
-            '  ISNULL(NumArticuloPendientesPreparar,0) AS NumArticuloPendientesPreparar, ' +
-            '  p.* ' +
-            'FROM FS_SGA_Picking_Preparaciones p WITH ( NOLOCK ) ' +
-            'LEFT JOIN dbo.FS_SGA_TABLE_AlmacenesUbicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ', ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) FSA ' +
-            'ON fsa.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
-            'AND fsa.CodigoAlmacen = fsa.AlmacenPreparacion ' +
-            'LEFT JOIN FS_SGA_Operarios_Preparacion fsop WITH (NOLOCK) ' +
-            'ON ' +
-            '  fsop.CodigoEmpresa = 0 ' +
-            '  AND fsop.PreparacionId = p.PreparacionId ' +
-            'LEFT JOIN ( ' +
-            '  SELECT ' +
-            '    CodigoEmpresa, PreparacionId, ' +
-            '    MIN(EjercicioPedido) AS EjercicioPedido, ' +
-            '    MIN(NumeroPedido) AS NumeroPedido, ' +
-            '    MIN(SeriePedido) AS SeriePedido, ' +
-            '    COUNT ( DISTINCT CONCAT ( EjercicioPedido, SeriePedido, NumeroPedido ) ) as NumPedidos, ' +
-            '    COUNT ( PickingId ) AS NumLineasTotales, ' +
-            '    SUM ( CASE WHEN UdSaldo>0 THEN 1 ELSE 0 END ) as NumLineasPendientesExpedir, ' +
-            '    COUNT ( DISTINCT CONCAT ( CodigoArticulo, Partida ) ) as NumArticulosTotales ' +
-            '  FROM FS_SGA_Picking_Pedido_Lineas pl WITH ( NOLOCK ) ' +
-            '  GROUP BY ' +
-            '    CodigoEmpresa, PreparacionId ' +
-            ') Comptadors ' +
-            'ON ' +
-            '  Comptadors.CodigoEmpresa = p.CodigoEmpresa ' +
-            '  AND Comptadors.PreparacionId = p.PreparacionId ' +
-            'LEFT JOIN ( ' +
-            '  SELECT ' +
-            '    CodigoEmpresa, PreparacionId, ' +
-            '    COUNT(*) AS NumArticuloPendientesPreparar ' +
-            '  FROM ( ' +
-            '    SELECT ' +
-            '      CodigoEmpresa, PreparacionId, CodigoArticulo, Partida, ' +
-            '      SUM ( UdNecesarias ) AS Necesarias, MAX ( UdRetiradas ) AS Preparadas ' +
-            '    FROM FS_SGA_Picking_Pedido_Lineas WITH ( NOLOCK ) ' +
-            '    GROUP BY ' +
-            '      CodigoEmpresa, PreparacionId, CodigoArticulo, Partida ' +
-            '    HAVING ( ' +
-            '      SUM ( UdNecesarias ) > MAX ( UdRetiradas ) ' +
-            '      OR SUM ( UdNecesariasBase ) > MAX ( UdRetiradasBase ) ' +
-            '    ) ' +
-            '  ) B ' +
-            '  GROUP BY ' +
-            '    CodigoEmpresa, PreparacionId ' +
-            ') Pendientes ' +
-            'ON ' +
-            '  Pendientes.CodigoEmpresa = p.CodigoEmpresa ' +
-            '  AND Pendientes.PreparacionId = p.PreparacionId ';
-
-    sSQL := sSQL + 'WHERE ' +
-            '  p.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND ' +
-            '  ISNULL(Comptadors.NumPedidos,0)>0 ' +
-            sAndWhere + ' ';
-
-    if (CodigoUsuario>1) then
-      sSQL := sSQL + 'AND fsop.OperarioId = ' + IntToStr(CodigoUsuario) + ' ';
-
-    sSQL := sSQL + 'ORDER BY ' +
-            sSort +
-            'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
-            'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se encuentra el procedimiento FS_SGA_PROC_ListAprovisionamientos","Data":[]}';
+    Exit;
 
   end;
 
 
+  gaLogFile.Write(sSQL);
   Q := SQL_PrepareQuery ( Conn, sSQL );
 
   try
@@ -46267,6 +46224,8 @@ begin
       '"NumeroFabricacion":' + IntToStr(Q.FieldByName('NumeroFabricacion').AsInteger) + ', ' +
       '"EjercicioTrabajo":' + IntToStr(Q.FieldByName('EjercicioTrabajo').AsInteger) + ', ' +
       '"NumeroTrabajo":' + IntToStr(Q.FieldByName('NumeroTrabajo').AsInteger) + ', ' +
+      '"CodigoArticulo":"' + JSON_Str(Q.FieldByName('CodigoArticulo').AsString) + '", ' +
+      '"DescripcionArticulo":"' + JSON_Str(Q.FieldByName('DescripcionArticulo').AsString) + '", ' +
       '"Ejercicio":' + IntToStr(Q.FieldByName('Ejercicio').AsInteger) + ',' +
       '"FechaCreacion":"' + FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('FechaCreacion').AsDateTime) + '",' +
       '"FechaInicio":"' + sFechaInicioAprovisionamiento + '",' +
@@ -50732,7 +50691,7 @@ begin
       FS_SGA_UBICACION_Desglosar ( Conn, CodigoEmpresa, UbicacionOrigen, CodigoAlmacen, CodigoPasillo, CodigoEstanteria, Altura, Fondo, CodigoAlternativo );
       FS_SGA_UBICACION_Desglosar ( Conn, CodigoEmpresa, UbicacionDestino, CodigoAlmacen2, CodigoPasillo2, CodigoEstanteria2, Altura2, Fondo2, CodigoAlternativo2 );
 
-      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
 
       gaMov.TipoMovimiento         := 2; // SORTIDA
       gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
@@ -51869,7 +51828,7 @@ begin
 
     TratamientoSeries := ARTICULO_TratamientoSeries ( Conn, CodigoEmpresa, sCodigoArticulo );
 
-    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
     gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
     gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
     gaMov.CodigoUsuario          := CodigoUsuario;
@@ -51914,8 +51873,10 @@ begin
     if aUbicacionOrigen.CodigoAlmacen<>aUbicacionDestino.CodigoAlmacen then begin
       gaMov.CodigoAlmacenDestino   := aUbicacionDestino.CodigoAlmacen;
       gaMov.CodigoUbicacionDestino := aUbicacionDestino.CodigoUbicacion;
-      gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
     end;
+
+    // Guardem la MovPosicion agregada per al moviment de SAGE final (cas amb sèries).
+    gaMov.MovPosicionOrigen := gaMov.MovPosicion;
 
     {$REGION 'Pre-càrrega dels NS de la ubicació origen (els NS a moure)'}
 
@@ -51970,28 +51931,7 @@ begin
     if TratamientoSeries then
     begin
 
-      // Moviment global de sortida: només si hi ha canvi de magatzem (SAGE).
-      if bCambioMagatzem then
-      begin
-        gaMov.Unidades           := fUnidades;
-        gaMov.UnidadesBase       := fUnidadesBase;
-        gaMov.NumeroSerie        := '';
-        gaMov.NumeroSerieFabricante := '';
-        gaMov.TipoMovimientoSGA  := [];
-        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
-
-        if not bErr then try
-          gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida (global series)', sIDCall );
-          bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
-        except
-          on E:Exception do begin
-            bErr := TRUE;
-            sMsg := E.Message;
-          end;
-        end;
-      end;
-
-      // Per cada NS pre-carregat, fer moviment de sortida al SGA i (només si canvi de magatzem) a SAGE Series
+      // Per cada NS pre-carregat: SORTIDA SGA + (si canvi de magatzem) SAGE Series amb OrigenDocumento = OD_SALIDA_STOCK.
       iSer := 0;
       while (not bErr) and (iSer < iLenSer) do
       begin
@@ -52000,6 +51940,7 @@ begin
         gaMov.NumeroSerieFabricante := aSeriesArticulo[iSer].NumeroSerieFabricante;
         gaMov.Unidades              := aSeriesArticulo[iSer].UnidadesSaldo;
         gaMov.UnidadesBase          := gaMov.Unidades * fFactorConversion;
+        gaMov.OrigenDocumento       := OD_SALIDA_STOCK;
         gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
         if bCambioMagatzem then
           gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries]
@@ -52020,6 +51961,13 @@ begin
 
     end else begin
 
+      // SORTIDA sense sèries: SGA + (si canvi de magatzem) SAGE com un sol moviment T (RebajeStock fa la contrapartida).
+      gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
+      if bCambioMagatzem then
+        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock]
+      else
+        gaMov.TipoMovimientoSAGE := [];
+
       if not bErr then try
         gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida', sIDCall );
         bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
@@ -52037,7 +51985,6 @@ begin
     if aUbicacionOrigen.CodigoAlmacen<>aUbicacionDestino.CodigoAlmacen then begin
       gaMov.CodigoAlmacenDestino   := aUbicacionOrigen.CodigoAlmacen;
       gaMov.CodigoUbicacionDestino := aUbicacionOrigen.CodigoUbicacion;
-      gaMov.TipoMovimientoSAGE     := [];
     end;
 
     gaMov.FechaHora              := Now();
@@ -52065,27 +52012,7 @@ begin
     if TratamientoSeries then
     begin
 
-      // Moviment global d'entrada: només si hi ha canvi de magatzem (SAGE).
-      if bCambioMagatzem then
-      begin
-        gaMov.Unidades           := fUnidades;
-        gaMov.UnidadesBase       := fUnidadesBase;
-        gaMov.NumeroSerie        := '';
-        gaMov.NumeroSerieFabricante := '';
-        gaMov.TipoMovimientoSGA  := [];
-        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
-
-        if not bErr then try
-          bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg, sIDCall );
-        except
-          on E:Exception do begin
-            bErr := TRUE;
-            sMsg := E.Message;
-          end;
-        end;
-      end;
-
-      // Per cada NS pre-carregat, fer moviment d'entrada al SGA i (només si canvi de magatzem) a SAGE Series.
+      // Per cada NS pre-carregat: ENTRADA SGA + (si canvi de magatzem) SAGE Series amb OrigenDocumento = OD_ENTRADA_STOCK.
       iSer := 0;
       while (not bErr) and (iSer < iLenSer) do
       begin
@@ -52094,6 +52021,7 @@ begin
         gaMov.NumeroSerieFabricante := aSeriesArticulo[iSer].NumeroSerieFabricante;
         gaMov.Unidades              := aSeriesArticulo[iSer].UnidadesSaldo;
         gaMov.UnidadesBase          := gaMov.Unidades * fFactorConversion;
+        gaMov.OrigenDocumento       := OD_ENTRADA_STOCK;
         gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
         if bCambioMagatzem then
           gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries]
@@ -52114,6 +52042,10 @@ begin
 
     end else begin
 
+      // ENTRADA sense sèries: només SGA. L'únic moviment SAGE T ja s'ha fet a la sortida.
+      gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
+      gaMov.TipoMovimientoSAGE := [];
+
       if not bErr then try
         bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg, sIDCall );
       except
@@ -52123,6 +52055,41 @@ begin
         end;
       end;
 
+    end;
+
+    {$ENDREGION}
+
+    {$REGION 'Moviment AGREGAT (només cas amb sèries i canvi de magatzem)'}
+    // Aquest és l'únic registre que arriba a MovimientoStock de SAGE per al traspàs (cas sèries).
+    // Només es fa quan hi ha canvi de magatzem (SAGE no controla ubicacions dins el mateix magatzem).
+    // RebajeStock generarà la contrapartida automàticament.
+
+    if (not bErr) and TratamientoSeries and bCambioMagatzem then
+    begin
+      gaMov.CodigoAlmacen          := aUbicacionOrigen.CodigoAlmacen;
+      gaMov.CodigoUbicacion        := aUbicacionOrigen.CodigoUbicacion;
+      gaMov.CodigoAlmacenDestino   := aUbicacionDestino.CodigoAlmacen;
+      gaMov.CodigoUbicacionDestino := aUbicacionDestino.CodigoUbicacion;
+      gaMov.Matricula              := Matricula;
+      gaMov.TipoMovimiento         := 2;
+      gaMov.MovPosicion            := gaMov.MovPosicionOrigen;
+      gaMov.NumeroSerie            := '';
+      gaMov.NumeroSerieFabricante  := '';
+      gaMov.Unidades               := fUnidades;
+      gaMov.UnidadesBase           := fUnidadesBase;
+      gaMov.OrigenMovimiento       := 'T';
+      gaMov.OrigenDocumento        := OD_SALIDA_STOCK;
+      gaMov.TipoMovimientoSGA      := [];
+      gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+
+      try
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
     end;
 
     {$ENDREGION}
@@ -52137,10 +52104,16 @@ begin
 
   {$ENDREGION}
 
+  if bErr then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + sMsg + '","Data":[]}';
+    gaLogFile.Write ( 'ERROR: ' + Result, sIDCall );
+    Exit;
+  end;
+
   LP := LOG_Clear();
   LP.MovOrigen := sMovOrigen;
   LP.Matricula := Matricula;
- 
+
   LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'TRANSFER-LIST', 'Traspasar lista de artículos de ' + aUbicacionOrigen.CodigoUbicacion +
     ' a ' + aUbicacionDestino.CodigoUbicacion, @LP );
 
@@ -53182,7 +53155,7 @@ begin
   if bErr then
     gaLogFile.Write ( 'ERROR: ' + sMsg, sIDCall );
 
-  SGA_FS_ALMACEN_PrepareMov ( gaMov );
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
   gaMov.CodigoUsuario          := CodigoUsuario;
@@ -54337,7 +54310,7 @@ begin
       gaLogFile.Write ( 'Moviment invers sèrie: NS=' + sNS_NumeroSerie + ' Qty=' + FloatToStr(fNS_Cantidad), sIDCall );
 
       // ENTRADA a la ubicació de preparació (retornem l'article)
-      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
       gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
       gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
       gaMov.CodigoUsuario          := CodigoUsuario;
@@ -54478,7 +54451,7 @@ begin
         ': NS=' + sNS_NumeroSerie + ' Qty=' + FloatToStr(fNS_Cantidad), sIDCall );
 
       // SORTIDA
-      SGA_FS_ALMACEN_PrepareMov ( gaMov );
+      SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
       gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
       gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
       gaMov.CodigoUsuario          := CodigoUsuario;
@@ -54582,7 +54555,7 @@ begin
   end else begin
 
     // Sense números de sèrie: comportament original (un sol moviment)
-    SGA_FS_ALMACEN_PrepareMov ( gaMov );
+    SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
     gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
     gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
     gaMov.CodigoUsuario          := CodigoUsuario;
