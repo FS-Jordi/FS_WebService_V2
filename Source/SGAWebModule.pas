@@ -83,6 +83,8 @@ procedure WebModule1reconnectDBAction  ( Conn: TADOConnection; sParams, sRemoteA
 procedure WebModule1logoAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1userImageAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1artImageAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getManualAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getManualVersionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1logoutAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getLicenseInfoAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getConnectionInfoAction  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -10961,6 +10963,108 @@ begin
   Stream.Free;
 
   Result := '{"Result":"OK","Error":"","Data":"' + sBase64 + '"}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ RECUPERAR MANUAL PDF                                                  │ \\
+// │ L'arxiu ha d'estar a la mateixa carpeta del servei i s'ha de dir      │ \\
+// │ manual.pdf                                                            │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+procedure WebModule1getManualAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+var
+  sBase64 : String;
+  Stream  : TFileStream;
+  Encoder : TIdEncoderMIME;
+  sFile   : String;
+begin
+
+  sFile := gsPath + '\Manual FS SGA_PDA.pdf';
+
+  if not FileExists ( sFile ) then
+  begin
+    Result := '{"Result":"ERROR","Error":"Manual no disponible en el servidor","Data":""}';
+    Exit;
+  end;
+
+  try
+    Stream := TFileStream.Create ( sFile, fmOpenRead or fmShareDenyWrite );
+  except
+    on E:Exception do
+    begin
+      gaLogFile.Write_DBException ( E, '', 'Error al cargar el manual', CONST_LOGID_GENERAL );
+      Result := '{"Result":"ERROR","Error":"Error al cargar el manual","Data":""}';
+      Exit;
+    end;
+  end;
+
+  Encoder := TIdEncoderMIME.Create ( nil );
+
+  try
+    sBase64 := Encoder.Encode ( Stream );
+  except
+    on E:Exception do
+    begin
+      Encoder.Free;
+      Stream.Free;
+      gaLogFile.Write_DBException ( E, '', 'Error al codificar en base64 el manual', CONST_LOGID_GENERAL );
+      Result := '{"Result":"ERROR","Error":"Error al codificar el manual","Data":""}';
+      Exit;
+    end;
+  end;
+
+  Encoder.Free;
+  Stream.Free;
+
+  Result := '{"Result":"OK","Error":"","Data":"' + sBase64 + '"}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ VERSIÓ DEL MANUAL (timestamp del fitxer + mida)                       │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+procedure WebModule1getManualVersionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+var
+  sFile    : String;
+  dtModif  : TDateTime;
+  iSize    : Int64;
+  sVersion : String;
+  fStream  : TFileStream;
+begin
+
+  sFile := gsPath + '\Manual FS SGA_PDA.pdf';
+
+  if not FileExists ( sFile ) then
+  begin
+    Result := '{"Result":"OK","Error":"","Data":[{"Version":"","Size":0,"Available":false}]}';
+    Exit;
+  end;
+
+  try
+    dtModif := 0;
+    FileAge ( sFile, dtModif );
+    fStream := TFileStream.Create ( sFile, fmOpenRead or fmShareDenyWrite );
+    try
+      iSize := fStream.Size;
+    finally
+      fStream.Free;
+    end;
+    sVersion := FormatDateTime ( 'yyyymmddhhnnss', dtModif );
+    Result :=
+      '{"Result":"OK","Error":"","Data":[{' +
+      '"Version":"' + sVersion + '",' +
+      '"Size":' + IntToStr ( iSize ) + ',' +
+      '"Available":true' +
+      '}]}';
+  except
+    on E:Exception do
+    begin
+      gaLogFile.Write_DBException ( E, '', 'Error al leer la versión del manual', CONST_LOGID_GENERAL );
+      Result := '{"Result":"ERROR","Error":"Error al leer la versión del manual","Data":""}';
+    end;
+  end;
 
 end;
 

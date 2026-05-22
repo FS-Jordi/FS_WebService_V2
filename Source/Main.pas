@@ -5572,6 +5572,30 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/getmanual') then
+    begin
+      AConnection.ResponseHeader.ContentType := '';
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+        sParams,
+        AConnection.PeerIP,
+        @WebModule1getManualAction,
+        HttpServer,
+        AConnection,
+        AConnection.ResponseHeader.ContentType,
+        AConnection.ResponseHeader.CharSet,
+        AConnection.ResponseHeader.ContentLanguage,
+        SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/getmanualversion') then
+    begin
+      WebModule1getManualVersionAction
+        ( SQLConn, sParams, AConnection.PeerIP, statusCode, statusText, sResponse );
+    end
+
     // ═══════════════════════════════════════════════════════════════════════
     // END OF ASYNC ENDPOINTS (High Priority)
     // To add more: Use template in walkthrough.md or run PowerShell script
