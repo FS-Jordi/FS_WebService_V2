@@ -5878,6 +5878,7 @@ begin
       '"Cantidad":' + SQL_FloatToStr(Q.FieldByName('Cantidad').AsFloat) + ',' +
       '"CantidadBase":' + SQL_FloatToStr(Q.FieldByName('CantidadBase').AsFloat) + ',' +
       '"PickingIdAsignado":' + IntToStr(Q.FieldByName('PickingIdAsignado').AsInteger) + ',' +
+      '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '",' +
       '"Saved":1' +
       '}';
 
@@ -18442,10 +18443,14 @@ begin
 
   {$REGION 'Recuperació de totals'}
 
+  // Build query against Ubicaciones with LEFT JOIN to favorites so that
+  // UbicacionDestino can be returned even if it is not in the favorites list
+  // (used when SoloTransito is requested but the destination is the final
+  // approvisionament location, which is not necessarily a transit location).
   sSQL := 'SELECT ' +
           '  COUNT(*) ' +
-          'FROM dbo.FS_SGA_TABLE_UbicacionesFavoritas ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fsuf ' +
-          'INNER JOIN dbo.FS_SGA_TABLE_Ubicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fstu ' +
+          'FROM dbo.FS_SGA_TABLE_Ubicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fstu ' +
+          'LEFT JOIN dbo.FS_SGA_TABLE_UbicacionesFavoritas ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fsuf ' +
           'ON ' +
           '  fsuf.ubifav_CodigoUbicacion = fstu.CodigoUbicacion ' +
           'INNER JOIN ( ' +
@@ -18461,7 +18466,7 @@ begin
   if (SoloTransito) and (UbicacionDestino<>'') then
   begin
     sSQL := sSQL +
-      'AND (fstu.Transito <> 0 OR fsuf.ubifav_CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + ''')';
+      'AND (fstu.Transito <> 0 OR fstu.CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + ''')';
   end else begin
     if (SoloTransito) then
     begin
@@ -18470,7 +18475,12 @@ begin
     end else if (UbicacionDestino<>'') then
     begin
       sSQL := sSQL +
-        'AND fsuf.ubifav_CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + '''';
+        'AND fstu.CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + '''';
+    end else
+    begin
+      // Without filters, return only favorites (original behaviour)
+      sSQL := sSQL +
+        'AND fsuf.ubifav_CodigoUbicacion IS NOT NULL ';
     end;
   end;
 
@@ -18507,9 +18517,14 @@ begin
 
   sSQL :=
     'SELECT ' +
-    '  fsuf.*, fstu.CodigoAlternativo, fstu.CodigoAlmacen, fstu.PesoMaxPermitido ' +
-    'FROM dbo.FS_SGA_TABLE_UbicacionesFavoritas ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fsuf ' +
-    'INNER JOIN dbo.FS_SGA_TABLE_Ubicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fstu ' +
+    '  fstu.CodigoUbicacion AS ubifav_CodigoUbicacion, ' +
+    '  ISNULL(fsuf.ubifav_Descripcion, fstu.CodigoUbicacion) AS ubifav_Descripcion, ' +
+    '  ISNULL(fsuf.ubifav_order, 999999) AS ubifav_order, ' +
+    '  CASE WHEN fsuf.ubifav_CodigoUbicacion IS NULL THEN 0 ELSE 1 END AS EsFavorita, ' +
+    '  fstu.CodigoAlternativo, fstu.CodigoAlmacen, fstu.PesoMaxPermitido, ' +
+    '  fstu.Transito, fstu.Bloqueada ' +
+    'FROM dbo.FS_SGA_TABLE_Ubicaciones ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fstu ' +
+    'LEFT JOIN dbo.FS_SGA_TABLE_UbicacionesFavoritas ( ' + IntToStr(CodigoEmpresa.Almacenes) + ' ) fsuf ' +
     'ON ' +
     '  fsuf.ubifav_CodigoUbicacion = fstu.CodigoUbicacion ' +
     'INNER JOIN ( ' +
@@ -18524,7 +18539,7 @@ begin
   if (SoloTransito) and (UbicacionDestino<>'') then
   begin
     sSQL := sSQL +
-      'AND (fstu.Transito <> 0 OR fsuf.ubifav_CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + ''')';
+      'AND (fstu.Transito <> 0 OR fstu.CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + ''')';
   end else begin
     if (SoloTransito) then
     begin
@@ -18533,14 +18548,19 @@ begin
     end else if (UbicacionDestino<>'') then
     begin
       sSQL := sSQL +
-        'AND fsuf.ubifav_CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + '''';
+        'AND fstu.CodigoUbicacion=''' + SQL_Str(UbicacionDestino) + '''';
+    end else
+    begin
+      // Without filters, return only favorites (original behaviour)
+      sSQL := sSQL +
+        'AND fsuf.ubifav_CodigoUbicacion IS NOT NULL ';
     end;
   end;
 
   if HideAlmacen<>'' then
   begin
     sSQL := sSQL +
-      'AND fsuf.CodigoAlmacen <> ''' + SQL_Str(HideAlmacen) + ''' ';
+      'AND fstu.CodigoAlmacen <> ''' + SQL_Str(HideAlmacen) + ''' ';
   end;
 
   if ShowAlmacen<>'' then
@@ -18551,7 +18571,7 @@ begin
 
   sSQL := sSQL +
     'ORDER BY ' +
-    '  fsuf.ubifav_order, fsuf.ubifav_descripcion ' +
+    '  EsFavorita DESC, ubifav_order, ubifav_Descripcion ' +
     'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
     'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
