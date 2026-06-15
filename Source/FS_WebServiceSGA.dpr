@@ -24,7 +24,8 @@ uses
   Functions_Registry in '..\..\..\COMMON\Functions_Registry.pas',
   Functions_SGA in '..\..\..\COMMON\Functions_SGA.pas',
   Functions_LicenseDLL in '..\..\..\COMMON\Functions_LicenseDLL.pas',
-  Functions_Types in '..\..\..\COMMON\Functions_Types.pas';
+  Functions_Types in '..\..\..\COMMON\Functions_Types.pas',
+  PrintJobsWatchdog in '..\..\..\COMMON\PrintJobsWatchdog.pas';
 
 {$R *.RES}
 

@@ -64,6 +64,9 @@ var
   gsUser: WideString;                     // Usuari de la base de dades
   gsPass: WideString;                     // Password de la base de dades
 
+  gbShellExecute: Boolean;
+  gbSageDirectCall: Boolean;
+
   gsActualizarCabeceraVentas: String;
   gsActualizarCabeceraCompras: String;
   gsActualizarCabeceraDevVentas: String;

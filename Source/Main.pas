@@ -88,6 +88,7 @@ type
     ppDBText9: TppDBText;
     ppImage2: TppImage;
     ppDBBarCode1: TppDBBarCode;
+    QPrint: TADOQuery;
     procedure ServiceExecute(Sender: TService);
     procedure ServiceAfterInstall(Sender: TService);
     procedure tmrFinalitzarTimer(Sender: TObject);
@@ -5929,6 +5930,11 @@ begin
   gdtLastLive := 0;
 
   gaLogFile.Write('Memoria ocupada = ' + IntToStr(WIN_MEMORY_Usage()), CONST_LOGID_WEBSERVER );
+
+  // Recollim longituds de camps
+  gaLongitudCampo.MovimientoArticuloSerie.Comentario := FS_SGA_LongitudCampo ( SQLConn, 'MovimientoArticuloSerie', 'Comentario' );
+  gaLongitudCampo.MovimientoPendientes.Comentario    := FS_SGA_LongitudCampo ( SQLConn, 'MovimientoPendientes', 'Comentario' );
+  gaLongitudCampo.MovimientoStock.Comentario         := FS_SGA_LongitudCampo ( SQLConn, 'MovimientoStock', 'Comentario' );
 
   while (not gbFinalitzar) and (not Terminated) do begin
 

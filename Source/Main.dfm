@@ -7,8 +7,8 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
   OnExecute = ServiceExecute
   OnStart = ServiceStart
   OnStop = ServiceStop
-  Height = 445
-  Width = 949
+  Height = 277
+  Width = 693
   PixelsPerInch = 96
   object SQLConn: TADOConnection
     CommandTimeout = 600
@@ -135,6 +135,8 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
     RTFSettings.DefaultFont.Name = 'Arial'
     RTFSettings.DefaultFont.Style = []
     RTFSettings.Title = 'Report'
+    ShowCancelDialog = False
+    ShowPrintDialog = False
     TextFileName = '($MyDocuments)\Report.pdf'
     TextSearchSettings.DefaultString = '<EncontrarTexto>'
     TextSearchSettings.Enabled = True
@@ -155,7 +157,7 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
     CloudDriveSettings.OneDriveSettings.OAuth2.RedirectURI = 'http://localhost'
     CloudDriveSettings.OneDriveSettings.OAuth2.RedirectPort = 0
     CloudDriveSettings.OneDriveSettings.DirectorySupport = True
-    Left = 582
+    Left = 583
     Top = 39
     Version = '22.02'
     mmColumnWidth = 80000
@@ -504,7 +506,7 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
   end
   object tmrTimeout: TTimer
     Enabled = False
-    Interval = 5000
+    Interval = 10000
     OnTimer = tmrTimeoutTimer
     Left = 166
     Top = 90
@@ -512,17 +514,25 @@ object FS_MainWebServiceSGA: TFS_MainWebServiceSGA
   object ppDBPipelineLineas: TppDBPipeline
     DataSource = DataSource1
     CloseDataSource = True
-    UserName = 'RecepcionLineas'
+    RefreshAfterPost = True
+    UserName = 'DBMatriculas'
     Left = 584
     Top = 123
   end
   object DataSource1: TDataSource
-    Left = 59
+    DataSet = QPrint
+    Left = 57
     Top = 175
   end
   object cxGridPopupMenu1: TcxGridPopupMenu
     PopupMenus = <>
     Left = 233
     Top = 123
+  end
+  object QPrint: TADOQuery
+    Connection = SQLConn
+    Parameters = <>
+    Left = 464
+    Top = 174
   end
 end

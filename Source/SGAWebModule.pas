@@ -14440,6 +14440,12 @@ begin
     sPathInformes := ExcludeTrailingBackslash(sPathInformes);
 
     case Tipo of
+
+      TI_PREPARACION:
+      begin
+        sPathInformes := sPathInformes + '\labels\recepcion\palets';
+      end;
+
       TI_RECEPCION:
       begin
         case Subtipo of
@@ -23427,15 +23433,15 @@ begin
     'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
     'AND Matricula = ''' + SQL_Str(Matricula) + '''';
 
-  Q := SQL_PrepareQuery ( Conn, sSQL );
-  Q.Open;
+  FS_MainWebServiceSGA.QPrint.Close;
+  FS_MainWebServiceSGA.QPrint.SQL.Text := sSQL;
+  FS_MainWebServiceSGA.QPrint.Open;
 
-  if Q.EOF then
+  if FS_MainWebServiceSGA.QPrint.EOF then
   begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
         JSON_Str('No se han encontrado los datos del palet para imprimir') + '","Data":[]}';
-    Q.Close;
-    FreeAndNil(Q);
+    FS_MainWebServiceSGA.QPrint.Close;
     Exit;
   end;
 
@@ -23446,8 +23452,7 @@ begin
     begin
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
         JSON_Str('Error en el archivo de plantilla ' + gsPathRepositorio + '\' + Template + ': ' + E.Message) + '","Data":[]}';
-      Q.Close;
-      FreeAndNil(Q);
+      FS_MainWebServiceSGA.QPrint.Close;
       Exit;
     end;
   end;
@@ -23455,7 +23460,9 @@ begin
   FS_MainWebServiceSGA.tmrTimeout.Enabled := FALSE;
   FS_MainWebServiceSGA.tmrTimeout.Interval := 3000;
 
-  FS_MainWebServiceSGA.DataSource1.DataSet := Q;
+  FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'DBMatriculas';
+
+  //FS_MainWebServiceSGA.DataSource1.DataSet := Q;
   FS_MainWebServiceSGA.ppReport1.PrinterSetup.PrinterName := Impresora;
   FS_MainWebServiceSGA.ppReport1.DeviceType := 'Printer';
   FS_MainWebServiceSGA.ppReport1.PrinterSetup.Copies := 1;
@@ -23463,16 +23470,13 @@ begin
   FS_MainWebServiceSGA.ppReport1.ShowCancelDialog := FALSE;
   FS_MainWebServiceSGA.ppReport1.ShowAutoSearchDialog := FALSE;
 
-  FS_MainWebServiceSGA.ppReport1.Parameters['Matricula'].AsString  := Matricula;
-
-  Q.Close;
-  FreeAndNil(Q);
+  //FS_MainWebServiceSGA.ppReport1.Parameters['Matricula'].AsString  := Matricula;
 
   FS_MainWebServiceSGA.tmrTimeout.Enabled := TRUE;
   FS_MainWebServiceSGA.ppReport1.Print;
   FS_MainWebServiceSGA.tmrTimeout.Enabled := FALSE;
 
-  FS_SGA_Audita ( 
+  FS_SGA_Audita (
     Conn, 
     CodigoEmpresa.EmpresaOrigen, 
     CodigoUsuario, 
@@ -25307,7 +25311,9 @@ begin
 
     SQL_Execute_NoRes ( Conn, sSQL );
 
+  gaLogFile.Write(sSQL);
   end;
+
 
   DeleteFile ( PWideChar(gsPath + '\GenerarPackingList.tmp') );
 
@@ -28558,6 +28564,7 @@ var
   sFUNCCustom: String;
   sUnidadMedidaAlternativa: String;
   sUnidadMedida2: String;
+  sCantidadAlEscanear: String;
   fCantidad: Double;
   fCantidadBase: Double;
 {$ENDREGION}
@@ -28649,8 +28656,15 @@ begin
       sUnidadMedida2           := '';
     end;
 
-    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, fCantidad, CodigoEmpresa.EmpresaOrigen );
-    fCantidadBase := fCantidad * FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
+    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, sCantidadAlEscanear, CodigoEmpresa.EmpresaOrigen );
+    if (sCantidadAlEscanear<>'CANTIDAD SCAN') then
+    begin
+      fCantidad     := StrToFloatDef(sCantidadAlEscanear,0);
+      fCantidadBase := fCantidad * FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
+    end else begin
+      fCantidad     := 0;
+      fCantidadBase := 0;
+    end;
 
     Result := Result +
       '{' +
@@ -29883,7 +29897,7 @@ begin
     CodigoEmpresa
   );
 
-  CodigoAlmacen := contentfields.values['CodigoAlmacenDefecto'];
+  CodigoAlmacen := contentfields.values['CodigoAlmacen'];
   Version       := contentfields.values['Version'];
   ByPassLocked  := (AnsiLowerCase(contentfields.Values['ByPassLocked'])='true');
   SoloAlmacen   := contentfields.values['SoloAlmacen'];;
@@ -29912,10 +29926,8 @@ begin
 
   {$REGION 'Realitzar operació'}
 
-  if SoloAlmacen='' then
-    CodigoAlmacen := '';
-
-  CodigoAlmacen := '';
+  if SoloAlmacen<>'' then
+    CodigoAlmacen := SoloAlmacen;
 
   TipoDetectado := BARCODE_Tipo ( Conn, CodigoEmpresa, CodigoAlmacen, Barcode );
 
@@ -29964,7 +29976,7 @@ begin
 
   end else if (Tipo=2) or (TipoDetectado=2) then begin
 
-    sParams := sParams + '&CodigoUbicacion=' + Barcode;
+    sParams := sParams + '&CodigoAlmacen=' + CodigoAlmacen + '&CodigoUbicacion=' + Barcode;
     WebModule1validateUbicacionAction ( Conn, sParams, sRemoteAddr, statusCode, statusText, Result );
     Exit;
 
@@ -30018,7 +30030,7 @@ begin
 
   end else if (Tipo=40) or (TipoDetectado=40) then begin
 
-    sParams := sParams + '&Matricula=' + RightStr(Barcode,18);
+    sParams := sParams + '&CodigoAlmacen=' + CodigoAlmacen + '&Matricula=' + RightStr(Barcode,18);
     WebModule1getMatriculaAction ( Conn, sParams, sRemoteAddr, statusCode, statusText, Result );
     Exit;
 
@@ -34801,6 +34813,9 @@ var
   sGUIDOperacion: string;
   Impresora: string;
   iFind: Integer;
+  informeImpresoraParam: String;
+  lInformeImpresora: TStringList;
+  ImpresoraInforme: String;
 {$ENDREGION}
 
 begin
@@ -34848,6 +34863,15 @@ begin
   ImprimirFactura    := StrToBoolDef(contentfields.Values['ImprimirFactura'], false );
   informesAuto       := contentfields.Values['InformeAuto'];
   Impresora          := contentfields.Values['Printer'];
+
+  // Impressora per informe: 'id:printer|id:printer'. La convertim a llista id=printer
+  // per poder consultar-la amb .Values[idInforme].
+  informeImpresoraParam := contentfields.Values['InformeImpresora'];
+  lInformeImpresora := TStringList.Create;
+  if informeImpresoraParam<>'' then
+    lInformeImpresora.Text := StringReplace(
+      StringReplace(informeImpresoraParam, '|', sLineBreak, [rfReplaceAll]),
+      ':', '=', [rfReplaceAll]);
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_FechaAlbaran, paramFechaAlbaran, CodigoEmpresa.EmpresaOrigen );
   if paramFechaAlbaran='FECHA DE PROCESO' then
@@ -34913,6 +34937,7 @@ begin
       sMsg := E.Message;
       Q.Close;
       FreeAndNil(Q);
+      FreeAndNil(lInformeImpresora);
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
         '"No se han podido generar los albaranes de la preparación ' + IntToStr(PreparacionId) + '","Data":[]}';
       gaLogFile.Write_DBException(E,sSQL,'ERROR: No se han podido generar los albaranes de la preparación ' +
@@ -35049,6 +35074,12 @@ begin
           while (informeAuto>0) do
           begin
 
+            // Impressora específica per aquest informe (si s'ha enviat), sinó la general
+            if lInformeImpresora.IndexOfName(IntToStr(informeAuto))>=0 then
+              ImpresoraInforme := lInformeImpresora.Values[IntToStr(informeAuto)]
+            else
+              ImpresoraInforme := Impresora;
+
             sOperParams := '{' +
               '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
               '"Informe":' + IntToStr(InformeAuto) + ',' +
@@ -35057,7 +35088,7 @@ begin
               '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
               '"SeriePedido":"' + JSON_Str(Q.FieldbyName('SeriePedido').asString) + '",' +
               '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
-              '"Impresora":"' + JSON_Str(Impresora) + '",' +
+              '"Impresora":"' + JSON_Str(ImpresoraInforme) + '",' +
               '"Usuario":' + IntToStr(CodigoUsuario) +
             '}';
 
@@ -35144,6 +35175,7 @@ begin
   FreeAndNil(Q);
 
   FreeAndNil(lstSQL);
+  FreeAndNil(lInformeImpresora);
 
   if (bPedidoServido) and (not bErr) then
   begin
@@ -36341,6 +36373,9 @@ var
   NumeroSerie: string;
   NumeroSerieFabricante: string;
   MovOrigen: string;
+  informeImpresoraParam: String;
+  lInformeImpresora: TStringList;
+  ImpresoraInforme: String;
 {$ENDREGION}
 
 begin
@@ -36376,6 +36411,7 @@ begin
 
   informesAuto  := contentfields.Values['InformeAuto'];
   Impresora     := contentfields.Values['Printer'];
+  informeImpresoraParam := contentfields.Values['InformeImpresora'];
 
   bIgnorarPendientes := true; // StrToBoolDef(contentfields.values['IgnorarPendientes'], false);
   bMantenerAbierta   := (StrToIntDef(contentfields.values['MantenerAbierta'], 0) <> 0);
@@ -36794,6 +36830,14 @@ begin
   if (not bErr) and (informesAuto<>'') then
   begin
 
+    // Impressora per informe: 'id:printer|id:printer'. La convertim a llista id=printer
+    // per poder consultar-la amb .Values[idInforme].
+    lInformeImpresora := TStringList.Create;
+    if informeImpresoraParam<>'' then
+      lInformeImpresora.Text := StringReplace(
+        StringReplace(informeImpresoraParam, '|', sLineBreak, [rfReplaceAll]),
+        ':', '=', [rfReplaceAll]);
+
     lInformes := TStringList.Create;
     lInformes.Delimiter := ',';
     lInformes.StrictDelimiter := true;
@@ -36807,6 +36851,12 @@ begin
     while (not bErr) and (informeAuto>0) do
     begin
 
+      // Impressora específica per aquest informe (si s'ha enviat), sinó la general
+      if lInformeImpresora.IndexOfName(IntToStr(informeAuto))>=0 then
+        ImpresoraInforme := lInformeImpresora.Values[IntToStr(informeAuto)]
+      else
+        ImpresoraInforme := Impresora;
+
       sOperParams := '{' +
         '"CodigoEmpresa":' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ',' +
         '"Informe":' + IntToStr(InformeAuto) + ',' +
@@ -36815,7 +36865,7 @@ begin
         '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
         '"SeriePedido":"' + JSON_Str(Q.FieldbyName('SeriePedido').asString) + '",' +
         '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ', ' +
-        '"Impresora":"' + JSON_Str(Impresora) + '",' +
+        '"Impresora":"' + JSON_Str(ImpresoraInforme) + '",' +
         '"Usuario":' + IntToStr(CodigoUsuario) +
       '}';
 
@@ -36861,6 +36911,7 @@ begin
     end;
 
     FreeAndNil(lInformes);
+    FreeAndNil(lInformeImpresora);
 
   end;
 
@@ -42691,6 +42742,7 @@ begin
     CodigoEmpresa
   );
 
+  CodigoAlmacen   := (contentfields.Values['CodigoAlmacen'] );
   CodigoUbicacion := (contentfields.Values['CodigoUbicacion'] );
 
   if Pos('.$',CodigoUbicacion)>0 then
@@ -42714,8 +42766,7 @@ begin
   end;
 
   // Conversió al codi d'article real
-  CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
-
+  CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion, CodigoAlmacen );
   if CodigoUbicacion='' then begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado la ubicación","Data":[]}';
     Exit;
@@ -43722,7 +43773,7 @@ begin
   gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
   gaMov.FactorConversion       := FactorConversion;
   gaMov.FechaCaduca            := 0; // dFechaCaduca;
-  gaMov.IdProcesoIME           := sNewGuid;
+  gaMov.IdProcesoIME           := GUID0;
   gaMov.Comentario             := sComentario;
   gaMov.AprovisionamientoId    := IdAprovisionamiento;
   gaMov.MovOrigen              := sNewMovOrigen;
@@ -44121,7 +44172,7 @@ begin
     gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
     gaMov.FactorConversion       := FactorConversion;
     gaMov.FechaCaduca            := FechaCaduca;
-    gaMov.IdProcesoIME           := sNewGuid;
+    gaMov.IdProcesoIME           := GUID0;
     gaMov.Comentario             := 'Aprovisionamiento a ubicación final';
     gaMov.AprovisionamientoId    := IdAprovisionamiento;
     gaMov.MovOrigen              := sNewMovOrigen;
@@ -44334,6 +44385,9 @@ var
 begin
 
   REQUEST_Split ( sParams, contentfields );
+
+  //Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"OK","Message":"","Data":[]}';
+  //eXIT;
 
   {$REGION 'Recuperació de paràmetres'}
 
@@ -44548,7 +44602,7 @@ begin
   gaMov.UnidadMedidaBase       := AnsiUpperCase(UnidadMedidaBase);
   gaMov.FactorConversion       := FactorConversion;
   gaMov.FechaCaduca            := 0; // dFechaCaduca;
-  gaMov.IdProcesoIME           := sNewGuid;
+  gaMov.IdProcesoIME           := GUID0;
   gaMov.Comentario             := 'Aprovisionamiento a ubicación final';
   gaMov.AprovisionamientoId    := IdAprovisionamiento;
   gaMov.MovOrigen              := sNewMovOrigen;
@@ -51049,6 +51103,7 @@ var
   sFUNCCustom: string;
   fCantidad: Double;
   fCantidadBase: Double;
+  sCantidadAlEscanear: String;
 {$ENDREGION}
 
 begin
@@ -51180,8 +51235,15 @@ begin
       '}';
     *)
 
-    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, fCantidad, CodigoEmpresa.EmpresaOrigen );
-    fCantidadBase := fCantidad * FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
+    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_CantidadAlLeerCodigo, sCantidadAlEscanear, CodigoEmpresa.EmpresaOrigen );
+    if (sCantidadAlEscanear<>'CANTIDAD SCAN') then
+    begin
+      fCantidad     := StrToFloatDef(sCantidadAlEscanear,0);
+      fCantidadBase := fCantidad * FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat);
+    end else begin
+      fCantidad     := 0;
+      fCantidadBase := 0;
+    end;
 
     Result := Result +
       '{' +
