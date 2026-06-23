@@ -5514,6 +5514,7 @@ var
   PickingIdAsignado: Integer;
   Ejercicio: Integer;
   ScanCode: String;
+  EXTRA1, EXTRA2: String;
 {$ENDREGION}
 
 begin
@@ -5600,11 +5601,13 @@ begin
       CantidadBase      := FS_StrToFloatDef( _Get_JSonValue ( lJSonValue, 'CantidadBase' ),0);
       PickingIdAsignado := StrToIntDef( _Get_JSonValue ( lJSonValue, 'PickingIdAsignado' ),0);
       ScanCode          := (_Get_JSonValue ( lJSonValue, 'ScanCode' ));
+      EXTRA1            := (_Get_JSonValue ( lJSonValue, 'EXTRA1' ));
+      EXTRA2            := (_Get_JSonValue ( lJSonValue, 'EXTRA2' ));
 
       sSQL :=
         'INSERT INTO FS_SGA_Picking_Pedido_Scans ( PreparacionId, PickingId, Ejercicio, FechaRegistro, CodigoUsuario, ' +
         '  CodigoUbicacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, UnidadMedida, Cantidad, ' +
-        '  CantidadBase, PaletId, CajaId, PickingIdAsignado, ScanCode ) ' +
+        '  CantidadBase, PaletId, CajaId, PickingIdAsignado, ScanCode, EXTRA1, EXTRA2 ) ' +
         'VALUES ( ' +
         IntToStr(IdPreparacion) + ', ' +
         IntToStr(PickingId) + ', ' +
@@ -5622,7 +5625,9 @@ begin
         '0, ' +
         '0, ' +
         IntToStr(PickingIdAsignado) + ', ' +
-        '''' + SQL_Str(ScanCode) + '''' +
+        '''' + SQL_Str(ScanCode) + ''',' +
+        '''' + SQL_Str(EXTRA1) + ''', ' +
+        '''' + SQL_Str(EXTRA2) + ''' ' +
         ')';
 
       SQL_Execute_NoRes ( Conn, sSQL );
@@ -5879,6 +5884,8 @@ begin
       '"CantidadBase":' + SQL_FloatToStr(Q.FieldByName('CantidadBase').AsFloat) + ',' +
       '"PickingIdAsignado":' + IntToStr(Q.FieldByName('PickingIdAsignado').AsInteger) + ',' +
       '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '",' +
+      '"EXTRA1":"' + JSON_Str(Q.FieldByName('EXTRA1').AsString) + '",' +
+      '"EXTRA2":"' + JSON_Str(Q.FieldByName('EXTRA2').AsString) + '",' +
       '"Saved":1' +
       '}';
 
@@ -23435,15 +23442,15 @@ begin
 
   FS_MainWebServiceSGA.QPrint.Close;
   FS_MainWebServiceSGA.QPrint.SQL.Text := sSQL;
-  FS_MainWebServiceSGA.QPrint.Open;
+  FS_MainWebServiceSGA.QPrint.Close;
 
-  if FS_MainWebServiceSGA.QPrint.EOF then
+  (*if FS_MainWebServiceSGA.QPrint.EOF then
   begin
     Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +
         JSON_Str('No se han encontrado los datos del palet para imprimir') + '","Data":[]}';
     FS_MainWebServiceSGA.QPrint.Close;
     Exit;
-  end;
+  end;*)
 
   try
     FS_MainWebServiceSGA.ppReport1.Template.LoadFromFile;
@@ -23459,7 +23466,6 @@ begin
 
   FS_MainWebServiceSGA.tmrTimeout.Enabled := FALSE;
   FS_MainWebServiceSGA.tmrTimeout.Interval := 3000;
-
   FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'DBMatriculas';
 
   //FS_MainWebServiceSGA.DataSource1.DataSet := Q;
@@ -23469,6 +23475,8 @@ begin
   FS_MainWebServiceSGA.ppReport1.ShowPrintDialog := FALSE;
   FS_MainWebServiceSGA.ppReport1.ShowCancelDialog := FALSE;
   FS_MainWebServiceSGA.ppReport1.ShowAutoSearchDialog := FALSE;
+
+  //FS_MainWebServiceSGA.QPrint.Open;
 
   //FS_MainWebServiceSGA.ppReport1.Parameters['Matricula'].AsString  := Matricula;
 
@@ -23818,7 +23826,7 @@ begin
   if Folder<>'' then FullFolder := FullFolder + '\' + Folder;
   if Tipo<>'' then FullFolder := FullFolder + '\' + Tipo;
 
-  gaLogfile.Write(FullFolder + '\*.*');
+  gaLogfile.Write(FullFolder + '\*.*');     
   sTemplate := '';
 
   if FindFirst ( FullFolder + '\*.*', faArchive, SR) = 0 then
@@ -28315,6 +28323,7 @@ var
   dFH: TDateTime;
   NumeroSerie: string;
   NumeroSerieFabricante: String;
+  EXTRA1, EXTRA2: string;
 {$ENDREGION}
 
 begin
@@ -28462,6 +28471,8 @@ begin
   Matricula             := Q.FieldByName('Matricula').AsString;
   NumeroSerie           := Q.FieldByName('NumeroSerie').AsString;
   NumeroSerieFabricante := Q.FieldByName('NumeroSerieFabricante').AsString;
+  EXTRA1                := Q.FieldByName('EXTRA1').AsString;
+  EXTRA2                := Q.FieldByName('EXTRA2').AsString;
 
   sResultUbi := '{"Estado":0}';
   if Matricula<>'' then
@@ -28534,6 +28545,8 @@ begin
     '"Matricula":"' + JSON_Str(Matricula) + '",' +
     '"NumeroSerie":"' + JSON_Str(NumeroSerie) + '",' +
     '"NumeroSerieFabricante":"' + JSON_Str(NumeroSerieFabricante) + '",' +
+    '"EXTRA1":"' + JSON_Str(EXTRA1) + '",' +
+    '"EXTRA2":"' + JSON_Str(EXTRA2) + '",' +
     '"Ubicacion":' + sResultUbi + ',' +
     JSonUnidadesMedida +
     '}]}';
@@ -44426,6 +44439,8 @@ begin
       IntToStr(YY) + ', ' +
       '''' + SQL_Str(CodigoAlmacen) + '''';
 
+    gaLogFile.write(sSQL);
+
     try
       SQL_Execute_NoRes ( Conn, sSQL );
     except
@@ -44767,6 +44782,67 @@ begin
 end;
 
 
+// Construeix la clàusula ORDER BY per al llistat d'aprovisionaments a partir
+// d'una llista de criteris separats per '|'. Cada criteri pot anar prefixat per
+// '-' per indicar ordre descendent. sDefaultType s'usa si un criteri no porta prefix.
+function SGA_APROV_BuildOrderBy ( const sOrdenarPor, sDefaultType: String ): String;
+var
+  sl: TStringList;
+  i: Integer;
+  sItem, sCol, sDir: String;
+  bDesc: Boolean;
+begin
+  Result := '';
+  sl := TStringList.Create;
+  try
+    sl.Delimiter := '|';
+    sl.StrictDelimiter := True;
+    sl.DelimitedText := AnsiLowerCase(sOrdenarPor);
+
+    for i := 0 to sl.Count-1 do begin
+      sItem := Trim(sl[i]);
+      if sItem='' then Continue;
+
+      bDesc := False;
+      if (Length(sItem)>0) and (sItem[1]='-') then begin
+        bDesc := True;
+        sItem := Copy(sItem, 2, MaxInt);
+      end else begin
+        bDesc := (sDefaultType='desc');
+      end;
+
+      if (sItem='fecha') then
+        sCol := 'p.fechacreacion'
+      else if (sItem='prioridad') then
+        sCol := 'p.prioridad'
+      else if (sItem='trabajo') then
+        sCol := 'p.EjercicioTrabajo, p.NumeroTrabajo'
+      else if (sItem='aprovisionamiento') or (sItem='preparacion') then
+        sCol := 'p.Id'
+      else
+        sCol := '';
+
+      if sCol='' then Continue;
+
+      if bDesc then begin
+        // Apliquem DESC a cada columna del criteri
+        sCol := StringReplace(sCol, ',', ' DESC,', [rfReplaceAll]) + ' DESC';
+      end;
+
+      if Result<>'' then Result := Result + ', ';
+      Result := Result + sCol;
+    end;
+  finally
+    FreeAndNil(sl);
+  end;
+
+  if Result='' then
+    Result := ' p.Id ';
+
+  Result := ' ' + Result + ' ';
+end;
+
+
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ LLISTAR APROVISIONAMENT                                               │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
@@ -44792,6 +44868,7 @@ var
   contentfields: TStringList;
   sFechaInicioPreparacion, sFechaFinPreparacion: string;
   sPROCCustom: String;
+  SoloMias: Integer;
 {$ENDREGION}
 
 begin
@@ -44824,15 +44901,9 @@ begin
   sSort := AnsiLowerCase((contentfields.Values['OrdenarPor']));
   sSortType := AnsiLowerCase((contentfields.Values['TipoOrden']));
 
-  if (sSort='fecha') then
-    sSort := ' p.fechacreacion '
-  else if (sSort='prioridad') then
-    sSort := ' p.prioridad '
-  else
-    sSort := ' p.Id ';
-
-  if sSortType='desc' then
-    sSort := sSort + ' DESC ';
+  // Ordenació múltiple: OrdenarPor pot portar diversos criteris separats per '|'.
+  // Cada criteri pot anar prefixat per '-' per indicar DESC. Ex: "fecha|-trabajo|aprovisionamiento"
+  sSort := SGA_APROV_BuildOrderBy ( sSort, sSortType );
 
   {$ENDREGION}
 
@@ -46073,12 +46144,15 @@ begin
   if Segment='pendientes' then
   begin
     sSQL := sSQL +
-      'AND UnidadesTraspasadas < UnidadesATraspasar';
-  end else if Segment='transito' then
+      'AND UnidadesTraspasadasBase < UnidadesATraspasarBase ';
+  end else if Segment='necesario' then
+    sSQL := sSQL +
+      'AND UnidadesATraspasarBase > ISNULL(FSASDestino.UnidadesSaldoBase,0) ';
   begin
 
   end;
 
+  sSQL := sSQL + 'ORDER BY FSAD.ArticuloComponente';
   Q := SQL_PrepareQuery ( Conn, sSQL );
   Q.Open;
 
@@ -46192,6 +46266,10 @@ var
   sPROCCustom: String;
   sPedidos: string;
   sTrabajos: String;
+  lSortItems: TStringList;
+  sortItem: string;
+  sAscDesc: string;
+  SoloMias: Integer;
 {$ENDREGION}
 
 begin
@@ -46224,25 +46302,59 @@ begin
   IdAprovisionamiento := StrToIntDef(contentfields.values['IdAprovisionamiento'],0);
   sSort               := AnsiLowerCase((contentfields.Values['OrdenarPor']));
   sSortType           := AnsiLowerCase((contentfields.Values['TipoOrden']));
+  SoloMias            := StrToIntDef(contentfields.Values['SoloMias'], 0 );
 
-  if (sSort='fecha') then
-    sSort := ' FechaCreacion '
-  else if (sSort='lineas') then
-    sSort := ' NumLineasTotales '
-  else if (sSort='trabajo') then
-    sSort := ' CASE WHEN NumOT=1 THEN CAST(EjercicioTrabajo AS varchar) ELSE FechaCreacion END, NumeroTrabajo '
-  else if (sSort='aprovisionamiento') then
-    sSort := ' Id '
-  else if (sSort='progreso') then
-    sSort := ' Progreso '
-  else
-    sSort := ' Id ';
+  if SoloMias = 0 then
+    CodigoUsuario := 0;
 
-  if sSortType='desc' then
-    sSort := sSort + ' DESC ';
+  lSortItems := TStringList.Create;
+  lSortItems.Delimiter := '|';
+  lSortItems.StrictDelimiter := TRUE;
+  lSortItems.DelimitedText := sSort;
 
-  //if (Pos('IdAprovisionamiento', ansilowercase(sSort))<=0) then
-  //  sSort := sSort + ', fsa.Id ';
+  sSort := '';
+
+  while lSortItems.Count>0 do
+  begin
+
+    if sSort<>'' then
+      sSort := sSort + ', ';
+
+    sortItem := AnsiUpperCase(lSortItems[0]);
+    sAscDesc := '';
+
+    if LeftStr(sortItem,1)='-' then
+    begin
+      sAscDesc := ' DESC';
+      Delete(sortItem,1,1);
+    end;
+
+    if sortItem = 'FECHA' then
+      sSort := sSort + 'FechaCreacion' + sAscDesc
+    else if (sortItem='TRABAJO') then
+      sSort := sSort + 'CASE WHEN NumOT=1 THEN CAST(EjercicioTrabajo AS varchar) ELSE FechaCreacion END' + sAscDesc + ', NumeroTrabajo' + sAscDesc
+    else if (sortItem='PRIORIDAD') then
+      sSort := sSort + 'prioridad' + sAscDesc
+    else if (sortItem='APROVISIONAMIENTO') then
+      sSort := sSort + 'Id' + sAscDesc
+    else if (sortItem='LINEAS') then
+      sSort := sSort + 'NumLineasTotales' + sAscDesc
+    else if (sortItem='PROGRESO') then
+      sSort := sSort + 'Progreso' + sAscDesc;
+
+    lSortItems.Delete(0);
+
+  end;
+
+  lSortItems.Free;
+
+  if sSort='' then
+  begin
+    sSort := 'Id';
+  end;
+
+  if (Pos('id', ansilowercase(sSort))<=0) then
+    sSort := sSort + ', Id ';
 
   {$ENDREGION}
 
