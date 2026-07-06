@@ -16543,7 +16543,7 @@ begin
 
   if CodigoUbicacion<>'' then
     sSQL := sSQL +
-      '  AND (ubi.UnidadesSaldo>0 OR ubi.UnidadesSaldoBase>0) ' +
+      '  AND (ubi.UnidadesSaldo<>0 OR ubi.UnidadesSaldoBase<>0) ' +
       '  AND ubi.Matricula = ''' + SQL_Str(Matricula) + ''' ';
 
   sSQL := sSQL + sAndWhere;
@@ -16605,7 +16605,7 @@ begin
       '  AND CTC.CodigoColor_ = ubi.CodigoColor_ ' +
       'WHERE ' +
       '  art.TipoArticulo = ''M'' ' +
-      '  AND (ubi.UnidadesSaldo>0 OR ubi.UnidadesSaldoBase>0) ' +
+      '  AND (ubi.UnidadesSaldo<>0 OR ubi.UnidadesSaldoBase<>0) ' +
       '  AND ubi.CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ';
     if Matricula<>'' then
     begin
@@ -16708,6 +16708,8 @@ begin
       'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
   end;
+
+  gaLogFile.Write(sSQL);
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -24104,6 +24106,7 @@ var
   OldId: Integer;
   UUID: string;
   iNum: Integer;
+  YY: Integer;
 {$ENDREGION}
 
 begin
@@ -24148,12 +24151,14 @@ begin
     '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
   CodigoUbicacion := SQL_Execute ( Conn, sSQL );
 
+  YY := SGA_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
+
   {$ENDREGION}
 
   {$REGION 'Actualitzem les ubicacions'}
 
-  sSQL :=
-    'SELECT COUNT(*) ' +
+  (*sSQL :=
+    'SELECT COUNT ( * ) ' +
     'FROM FS_SGA_Inventario_Detalle WITH (NOLOCK) ' +
     'WHERE ' +
     '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
@@ -24182,7 +24187,42 @@ begin
       '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
       '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
       '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
-  end;
+  end; *)
+
+
+   sSQL :=
+    'UPDATE ID ' +
+    'SET ' +
+    '  Verificada = 1, ' +
+    '  UsuarioId = ' + IntToStr(CodigoUsuario) + ', ' +
+    '  FechaHoraValidacion = GETDATE(), ' +
+    '  UnidadesIniciales = STOCK.UnidadesSaldo, ' +
+    '  UnidadesInicialesBase = STOCK.UnidadesSaldoBase, ' +
+    '  UnidadesSaldo = 0, ' +
+    '  UnidadesSaldoBase = 0 ' +
+    'FROM FS_SGA_Inventario_Detalle ID ' +
+    'CROSS APPLY ( ' +
+    'SELECT ' +
+    '  ISNULL(SUM(A.UnidadesSaldo), 0) AS UnidadesSaldo, ' +
+    '  ISNULL(SUM(A.UnidadesSaldoBase), 0) AS UnidadesSaldoBase ' +
+    'FROM FS_SGA_AcumuladoStock A WITH (NOLOCK) ' +
+    'WHERE A.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+    '  AND A.Ejercicio = ' + IntToStr(YY) + ' ' +
+    '  AND A.Periodo = 99 ' +
+    '  AND A.CodigoAlmacen = ID.CodigoAlmacen ' +
+    '  AND A.CodigoUbicacion = ID.CodigoUbicacion ' +
+    '  AND A.CodigoArticulo = ID.CodigoArticulo ' +
+    '  AND A.CodigoTalla01_ = ID.CodigoTalla01_ ' +
+    '  AND A.CodigoColor_ = ID.CodigoColor_ ' +
+    '  AND A.Partida = ID.Partida ' +
+    '  AND A.Matricula = ID.Matricula ' +
+    '  AND A.UnidadMedida = ID.UnidadMedida ' +
+    '  AND A.UnidadMedidaBase = ID.UnidadMedidaBase ' +
+    ') STOCK ' +
+    'WHERE ' +
+    '  ID.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND ID.Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+    '  AND ID.Inventario_UbicacionId = ' + IntToStr(OldId);
 
   try
     SQL_Execute_NoRes(Conn,sSQL);
@@ -24230,6 +24270,17 @@ var
   bVerificada: Boolean;
   sFechaVerificacion: string;
   UUID: string;
+  CodigoAlmacen: string;
+  CodigoArticulo: string;
+  Partida: string;
+  CodigoColor: string;
+  CodigoTalla: string;
+  UnidadMedida: string;
+  UnidadMedidaBase: string;
+  fStockBase: Double;
+  Matricula: string;
+  Stock: Double;
+  UnidadesMedida: Boolean;
 {$ENDREGION}
 
 begin
@@ -24265,6 +24316,7 @@ begin
 
   CodigoUbicacion := (contentfields.Values['CodigoUbicacion']);
   CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
+  CodigoAlmacen   := FS_SGA_CodigoAlmacen ( CodigoUbicacion );
 
   OldId := StrToIntDef(contentfields.Values['oldArticuloLineId'],0);
   NewArticulo := Trim(contentfields.Values['New']);
@@ -24294,29 +24346,59 @@ begin
     sFechaVerificacion := 'NULL';
   end;
 
+  CodigoArticulo   := JSonObjectNew.Get('CodigoArticulo').JsonValue.Value;
+  Partida          := JSonObjectNew.Get('Partida').JsonValue.Value;
+  CodigoTalla      := JSonObjectNew.Get('CodigoTalla').JsonValue.Value;
+  CodigoColor      := JSonObjectNew.Get('CodigoColor').JsonValue.Value;
+  UnidadMedida     := JSonObjectNew.Get('UnidadMedida').JsonValue.Value;
+  UnidadMedidaBase := JSonObjectNew.Get('UnidadMedidaBase').JsonValue.Value;
+  Matricula        := ''; //JSonObjectNew.Get('Matricula').JsonValue.Value;
+  UnidadMedidaBase := JSonObjectNew.Get('UnidadMedidaBase').JsonValue.Value;
+
+  SGA_ALMACEN_UnidadesMedida ( Conn, CodigoEmpresa, UnidadesMedida, gbTratamientoSimplificado );
+
+  Stock :=
+    SGA_ALMACEN_Stock (
+      Conn,
+      CodigoEmpresa,
+      CodigoAlmacen,
+      CodigoUbicacion,
+      CodigoArticulo,
+      Partida,
+      CodigoTalla,
+      CodigoColor,
+      Matricula,
+      UnidadMedida,
+      UnidadMedidaBase,
+      fStockBase,
+      gbTratamientoSimplificado
+    );
+
   // Fem l'entrada de l'article
   sSQL :=
     'INSERT INTO FS_SGA_Inventario_Detalle ( CodigoEmpresa, Inventario_Id, CodigoUbicacion, CodigoArticulo, Partida, UnidadMedida, ' +
-    '  UnidadesSaldo, Verificada, UsuarioId, FechaHoraValidacion, FechaCaduca, UnidadesIniciales, CodigoTalla01_, CodigoColor_, ' +
-    '  UnidadesSaldoBase, FactorConversion_, UnidadMedidaBase ) ' +
+    '  UnidadesSaldo, Verificada, UsuarioId, FechaHoraValidacion, FechaCaduca, UnidadesIniciales, UnidadesInicialesBase, CodigoTalla01_, ' +
+    '  CodigoColor_, UnidadesSaldoBase, Matricula, FactorConversion_, UnidadMedidaBase ) ' +
     'VALUES ( ' +
     IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
     IntToStr(IdInventario) + ', ' +
     '''' + SQL_Str(CodigoUbicacion) + ''', ' +
-    '''' + SQL_Str(JSonObjectNew.Get('CodigoArticulo').JsonValue.Value) + ''', ' +
-    '''' + SQL_Str(JSonObjectNew.Get('Partida').JsonValue.Value) + ''', ' +
-    '''' + SQL_Str(AnsiUpperCase(JSonObjectNew.Get('UnidadMedida').JsonValue.Value)) + ''', ' +
+    '''' + SQL_Str(CodigoArticulo) + ''', ' +
+    '''' + SQL_Str(Partida) + ''', ' +
+    '''' + SQL_Str(AnsiUpperCase(UnidadMedida)) + ''', ' +
     JSonObjectNew.Get('UnidadesSaldo').JsonValue.Value + ', ' +
     SQL_BooleanToStr(bVerificada) + ', ' +
     IntToStr(CodigoUsuario) + ', ' +
     sFechaVerificacion + ', ' +
     sFechaCaduca + ', ' +
-    '0, ' + // Unidades iniciales
-    '''' + SQL_Str(JSonObjectNew.Get('CodigoTalla').JsonValue.Value) + ''', ' +
-    '''' + SQL_Str(JSonObjectNew.Get('CodigoColor').JsonValue.Value) + ''', ' +
+    SQL_FloatToStr(Stock) + ', ' +
+    SQL_FloatToStr(fStockBase) + ', ' +
+    '''' + SQL_Str(CodigoTalla) + ''', ' +
+    '''' + SQL_Str(CodigoColor) + ''', ' +
     JSonObjectNew.Get('UnidadesSaldoBase').JsonValue.Value + ', ' +
+    '''' + SQL_Str(Matricula) + ''', ' +
     JSonObjectNew.Get('FactorConversion').JsonValue.Value + ', ' +
-    '''' + SQL_Str(AnsiUpperCase(JSonObjectNew.Get('UnidadMedidaBase').JsonValue.Value)) + ''' ' +
+    '''' + SQL_Str(AnsiUpperCase(UnidadMedidaBase)) + ''' ' +
     ')';
 
   try
@@ -24381,6 +24463,8 @@ var
   Fondo: string;
   CodigoAlternativo: string;
   UUID: string;
+  YY: Integer;
+  UnidadesMedida: Boolean;
 {$ENDREGION}
 
 begin
@@ -24416,21 +24500,46 @@ begin
 
   CodigoUbicacion := (contentfields.Values['CodigoUbicacion']);
   CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
+  YY              := SGA_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
+
+  SGA_ALMACEN_UnidadesMedida ( Conn, CodigoEmpresa, UnidadesMedida, gbTratamientoSimplificado );
+
 
   {$ENDREGION}
 
   {$REGION 'Actualitzem les ubicacions'}
 
   sSQL :=
-    'UPDATE FS_SGA_Inventario_Detalle ' +
+    'UPDATE ID ' +
     'SET ' +
     '  Verificada = 1, ' +
     '  UsuarioId = ' + IntToStr(CodigoUsuario) + ', ' +
-    '  FechaHoraValidacion = GETDATE() ' +
+    '  FechaHoraValidacion = GETDATE(), ' +
+    '  UnidadesIniciales = STOCK.UnidadesSaldo, ' +
+    '  UnidadesInicialesBase = STOCK.UnidadesSaldoBase ' +
+    'FROM FS_SGA_Inventario_Detalle ID ' +
+    'CROSS APPLY ( ' +
+    'SELECT ' +
+    '  ISNULL(SUM(A.UnidadesSaldo), 0) AS UnidadesSaldo, ' +
+    '  ISNULL(SUM(A.UnidadesSaldoBase), 0) AS UnidadesSaldoBase ' +
+    'FROM FS_SGA_AcumuladoStock A WITH (NOLOCK) ' +
+    'WHERE A.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+    '  AND A.Ejercicio = ' + IntToStr(YY) + ' ' +
+    '  AND A.Periodo = 99 ' +
+    '  AND A.CodigoAlmacen = ID.CodigoAlmacen ' +
+    '  AND A.CodigoUbicacion = ID.CodigoUbicacion ' +
+    '  AND A.CodigoArticulo = ID.CodigoArticulo ' +
+    '  AND A.CodigoTalla01_ = ID.CodigoTalla01_ ' +
+    '  AND A.CodigoColor_ = ID.CodigoColor_ ' +
+    '  AND A.Partida = ID.Partida ' +
+    '  AND A.Matricula = ID.Matricula ' +
+    '  AND A.UnidadMedida = ID.UnidadMedida ' +
+    '  AND A.UnidadMedidaBase = ID.UnidadMedidaBase ' +
+    ') STOCK ' +
     'WHERE ' +
-    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
-    '  AND CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ';
+    '  ID.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND ID.Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+    '  AND ID.CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ';
 
   try
     SQL_Execute_NoRes ( Conn, sSQL );
@@ -31319,7 +31428,6 @@ begin
   gaMov.CodigoAlmacen          := CodigoAlmacen;
   gaMov.CodigoUbicacion        := CodigoUbicacion;
   gaMov.CodigoArticulo         := CodigoArticulo;
-  gaMov.IdProcesoIME           := IdProcesoIME;
   gaMov.IdDocumento            := IdDocumento;
   gaMov.Serie                  := Serie;
   gaMov.GrupoTalla             := GrupoTalla_;
@@ -31349,7 +31457,7 @@ begin
       gaMov.CodigoColor            := sOldColor;
       gaMov.CodigoTalla            := sOldTalla;
       gaMov.FechaCaduca            := 0;
-      gaMov.Comentario             := 'Salida regularización';
+      gaMov.Comentario             := 'PDA Salida regulariz.';
       gaMov.MovOrigen              := MovOrigen;
       gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
       gaMov.Precio                 := Precio;
@@ -31380,7 +31488,7 @@ begin
       gaMov.CodigoColor            := sNewColor;
       gaMov.CodigoTalla            := sNewTalla;
       gaMov.FechaCaduca            := dFechaCaduca;
-      gaMov.Comentario             := 'Entrada regularización';
+      gaMov.Comentario             := 'PDA Entrada regulariz.';
       gaMov.MovOrigen              := MovOrigen;
       gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
       gaMov.Precio                 := Precio;
@@ -31416,7 +31524,7 @@ begin
         gaMov.CodigoColor            := sNewColor;
         gaMov.CodigoTalla            := sNewTalla;
         gaMov.FechaCaduca            := dFechaCaduca;
-        gaMov.Comentario             := 'Entrada regularización (delta)';
+        gaMov.Comentario             := 'PDA Entrada regulariz. (delta)';
         gaMov.MovOrigen              := MovOrigen;
         gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
         gaMov.Precio                 := Precio;
@@ -31446,7 +31554,7 @@ begin
         gaMov.CodigoColor            := sOldColor;
         gaMov.CodigoTalla            := sOldTalla;
         gaMov.FechaCaduca            := 0;
-        gaMov.Comentario             := 'Salida regularización (delta)';
+        gaMov.Comentario             := 'PDA Salida regulariz. (delta)';
         gaMov.MovOrigen              := MovOrigen;
         gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
         gaMov.Precio                 := Precio;
@@ -31487,7 +31595,7 @@ begin
         gaMov.CodigoColor            := sOldColor;
         gaMov.CodigoTalla            := sOldTalla;
         gaMov.FechaCaduca            := 0;
-        gaMov.Comentario             := 'Salida regularización serie';
+        gaMov.Comentario             := 'PDA Salida regulariz. serie';
         gaMov.MovOrigen              := MovOrigen;
         gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
         gaMov.NumeroSerie            := sNS_NumeroSerie;
@@ -31529,7 +31637,7 @@ begin
         gaMov.CodigoColor            := sNewColor;
         gaMov.CodigoTalla            := sNewTalla;
         gaMov.FechaCaduca            := dFechaCaduca;
-        gaMov.Comentario             := 'Entrada regularización serie';
+        gaMov.Comentario             := 'PDA Entrada regulariz. serie';
         gaMov.MovOrigen              := MovOrigen;
         gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
         gaMov.NumeroSerie            := sNS_NumeroSerie;
@@ -31561,7 +31669,7 @@ begin
     gaMov.Unidades               := fNewCantidad;
     gaMov.UnidadesBase           := fNewCantidadBase;
     gaMov.FactorConversion       := fNewFactorConversion;
-    gaMov.Comentario             := 'Entrada regularización';
+    gaMov.Comentario             := 'PDA Entrada regulariz.';
     gaMov.Precio                 := Precio;
     gaMov.MovOrigen              := MovOrigen;
     gaMov.FechaCaduca            := dFechaCaduca;
@@ -31570,6 +31678,8 @@ begin
     gaMov.UnidadMedida           := AnsiUpperCase(sNewUnidadMedida);
     gaMov.UnidadMedidaBase       := AnsiUpperCase(sNewUnidadMedidaBase);
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.TipoMovimientoSGA      := [tmsgaMovimientoStock];
+    gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
 
     if Precio=0 then
       gaMov.Precio := ARTICULO_ConsultarPrecioStock ( Conn, CodigoEmpresa, gaMov.CodigoArticulo, gaMov.Partida, gaMov.CodigoColor, gaMov.CodigoTalla, gaMov.CodigoAlmacen, gaMov.GrupoTalla );
@@ -31579,13 +31689,14 @@ begin
 
     if (fNewCantidad>0) or (fNewCantidadBase>0) then
     begin
+
       if not bErr then try
         bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
       except
         on E:Exception do begin bErr := TRUE; sMsg := E.Message + ' - ' + sMsg; end;
       end;
 
-      if not bErr then try
+      (*if not bErr then try
         MovIdentificadorIME := SQL_Execute ( Conn,'select NEWID()');
         MovIdentificadorIME := StringReplace ( MovIdentificadorIME, '{', '', [] );
         MovIdentificadorIME := StringReplace ( MovIdentificadorIME, '}', '', [] );
@@ -31651,7 +31762,8 @@ begin
         SQL_Execute_NoRes ( Conn, sSQL );
       except
         on E:Exception do begin bErr := TRUE; sMsg := E.Message; end;
-      end;
+      end;  *)
+
     end;
 
     gaMov.Partida                := sOldPartida;
@@ -31664,7 +31776,7 @@ begin
     gaMov.CodigoColor            := sOldColor;
     gaMov.CodigoTalla            := sOldTalla;
     gaMov.FactorConversion       := fOldFactorConversion;
-    gaMov.Comentario             := 'Salida regularización';
+    gaMov.Comentario             := 'PDA Salida regulariz.';
     gaMov.Precio                 := Precio;
     gaMov.MovOrigen              := MovOrigen;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
@@ -31674,7 +31786,7 @@ begin
 
     sStr := sStr + 'Movimiento salida SGA<br>';
 
-    if (fOldCantidad>0) or (fOldCantidadBase>0) then
+    if (fOldCantidad<>0) or (fOldCantidadBase<>0) then
     begin
       if not bErr then try
         bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
@@ -31682,7 +31794,7 @@ begin
         on E:Exception do begin bErr := TRUE; sMsg := E.Message + ' - ' + sMsg; end;
       end;
 
-      if not bErr then try
+      (*if not bErr then try
         MovIdentificadorIME := SQL_Execute ( Conn,'select NEWID()');
         MovIdentificadorIME := StringReplace ( MovIdentificadorIME, '{', '', [] );
         MovIdentificadorIME := StringReplace ( MovIdentificadorIME, '}', '', [] );
@@ -31747,12 +31859,13 @@ begin
         SQL_Execute_NoRes ( Conn, sSQL );
       except
         on E:Exception do begin bErr := TRUE; sMsg := E.Message; end;
-      end;
+      end;   *)
+
     end;
 
   end;
 
-  sSQL := 'INSERT INTO ' +
+  (*sSQL := 'INSERT INTO ' +
           '  FS_Operations ( oper_product_code, oper_name, oper_datetime, oper_status, oper_params, oper_CodigoEmpresa ) ' +
           'VALUES ( ' +
           '''E4E8'', ' +
@@ -31762,9 +31875,10 @@ begin
           '''{"IdProcesoIME":"' + SQL_GUID_ToStr(IdProcesoIME) + '","MantenerDatos":"1","MantenerErrores":"1","Módulos":"4","CodigoEmpresa":' + IntToStr(CodigoEmpresa.Stocks) + '}'', ' +
           IntToStr(CodigoEmpresa.Stocks) +
           ')';
-
+              *)
   sStr := sStr + 'FS_Operations: ' + sSQL + '<br>';
 
+  (*
   if not bErr then try
     SQL_Execute_NoRes ( Conn, sSQL );
     sSQL := 'SELECT IDENT_CURRENT(''FS_Operations'')';
@@ -31775,6 +31889,7 @@ begin
       sMsg := E.Message;
     end;
   end;
+  *)
 
   // Commit o rollback segons bErr
   if bTransOk then
@@ -36389,6 +36504,7 @@ var
   informeImpresoraParam: String;
   lInformeImpresora: TStringList;
   ImpresoraInforme: String;
+  TratamientoSeries: Boolean;
 {$ENDREGION}
 
 begin
@@ -36592,7 +36708,8 @@ begin
     '  lpp.EjercicioPedido, lpp.SeriePedido, lpp.NumeroPedido, lpp.TipoArticulo, art.TratamientoPartidas, ' +
     '  srl.UnidadMedida1_ as UnidadMedidaPedido, srl.CodigoArticulo, srl.GrupoTalla_, srl.CodigoTalla01_, ' +
     '  srl.CodigoColor_, srld.*, ISNULL(srlds.NumeroSerie,'''') AS NumeroSerie, lpp.LineasPosicion, ' +
-    '  ISNULL(srlds.NumeroSerieFabricante, '''') AS NumeroSerieFabricante, ISNULL(srlds.Cantidad,0) AS CantidadSerie ' +
+    '  ISNULL(srlds.NumeroSerieFabricante, '''') AS NumeroSerieFabricante, ISNULL(srlds.Cantidad,0) AS CantidadSerie, ' +
+    '  art.TrataNumerosSerieLc ' +
     'FROM FS_SGA_Recepciones_Lineas srl WITH (NOLOCK) ' +
     'INNER JOIN FS_COMMON_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
     'ON ' +
@@ -36605,6 +36722,7 @@ begin
     'ON ' +
     '  srld.RecepcionId = srlds.RecepcionId ' +
     '  AND srld.RecepcionIdLinea = srlds.RecepcionIdLinea ' +
+    '  AND srld.RecepcionIdLineaDetalle = srlds.RecepcionIdLineaDetalle ' +
     'INNER JOIN LineasPedidoProveedor lpp WITH (NOLOCK) ' +
     'ON ' +
     '  lpp.CodigoEmpresa = srl.CodigoEmpresa ' +
@@ -36640,6 +36758,19 @@ begin
     end;
   end;
 
+  sSQL :=
+    'UPDATE FS_SGA_Recepciones ' +
+    'SET Estado = 3 ' +
+    'WHERE RecepcionId = ' + IntToStr(RecepcionId);
+  try
+    SQL_Execute_NoRes ( Conn, sSQL );
+  except
+    on E:Exception do begin
+      bErr := TRUE;
+      sMsg := E.Message;
+    end;
+  end;
+
   while (not bErr) and (not Q.Eof) do begin
 
     CodigoArticulo          := Q.FieldByName('CodigoArticulo').AsString;
@@ -36659,17 +36790,20 @@ begin
     GrupoTalla              := Q.FieldByName('GrupoTalla_').AsInteger;
     CodigoTalla             := Q.FieldByName('CodigoTalla01_').AsString;
     CodigoColor             := Q.FieldByName('CodigoColor_').AsString;
-    NumeroSerie             := Q.FieldByName('NumeroSerie').AsString;
-    NumeroSerieFabricante   := Q.FieldByName('NumeroSerieFabricante').AsString;
     MovOrigen               := Q.FieldByName('LineasPosicion').AsString;
+    TratamientoSeries       := (Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0);
 
-    if Q.FieldByName('CantidadSerie').AsFloat > 0 then
+    if (TratamientoSeries and (Q.FieldByName('CantidadSerie').AsFloat > 0)) then
     begin
+      NumeroSerie             := Q.FieldByName('NumeroSerie').AsString;
+      NumeroSerieFabricante   := Q.FieldByName('NumeroSerieFabricante').AsString;
       CantidadEntrada         := Q.FieldByName('CantidadSerie').AsFloat;
       CantidadEntradaBase     := CantidadEntrada * FactorConversion;
       CantidadRechazos        := 0;
       CantidadRechazosBase    := 0;
     end else begin
+      NumeroSerie             := '';
+      NumeroSerieFabricante   := '';
       CantidadEntrada         := Q.FieldByName('UnidadesEntrada').AsFloat;
       CantidadEntradaBase     := Q.FieldByName('UnidadesEntradaBase').AsFloat;
       CantidadRechazos        := Q.FieldByName('CantidadErrorEntrada').AsFloat;
@@ -37616,6 +37750,7 @@ begin
     gaMov.TipoMovimiento         := 1;
     gaMov.Importe	               := gaMov.Precio * gaMov.UnidadesBase;
     gaMov.OrigenMovimiento       := OrigenMovimiento;
+    gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
 
     if TratamientoSeries then
     begin
@@ -37763,6 +37898,7 @@ begin
 
       end;
 
+      (*
       sSQL := 'INSERT INTO FS_Operations ( oper_product_code, oper_mac_address, ' +
               '  oper_ip_address, oper_name, oper_datetime, oper_status, oper_params, oper_CodigoEmpresa ) ' +
               'VALUES ( ' +
@@ -37788,6 +37924,7 @@ begin
           Exit;
         end;
       end;
+      *)
 
     end;
 
@@ -49563,6 +49700,7 @@ var
   pbc: TFSParsedBarCode;
   i: Integer;
   sBC: String;
+  sWhereAlm: string;
 begin
 
   Result := 0;
@@ -49593,27 +49731,28 @@ begin
     Exit;
   end;
 
+  if (CodigoAlmacen<>'') then
+  begin
+    sWhereAlm := '(CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' AND CodigoUbicacion = ''' + SQL_Str(BarCode) + ''') ';
+  end else begin
+    sWhereAlm := '(CodigoUbicacion = ''' + SQL_Str(BarCode) + ''') ';
+  end;
+
+  sWhereAlm := '(CodigoUbicacion = ''' + SQL_Str(BarCode) + ''') ';
+
   sSQL :=
     'SELECT COUNT(CodigoUbicacion) ' +
     'FROM FS_SGA_ESTR_UBICA WITH (NOLOCK) ' +
-    'WHERE (CodigoUbicacion = ''' + SQL_Str(BarCode) + ''' ' +
-    'OR CodigoAlternativo = ''' + SQL_Str(BarCode) + ''')' ;
-  if (CodigoAlmacen<>'') then
-  begin
-      sSQL := sSQL + 'AND CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' ';
-  end;
+    'WHERE ' + sWhereAlm + ' ' +
+    'OR (CodigoAlternativo = ''' + SQL_Str(BarCode) + ''')';
 
   if SQL_Execute ( Conn, sSQL )>0 then
   begin
     sSQL :=
       'SELECT CodigoUbicacion ' +
       'FROM FS_SGA_ESTR_UBICA WITH (NOLOCK) ' +
-      'WHERE (CodigoUbicacion = ''' + SQL_Str(BarCode) + ''' ' +
-      'OR CodigoAlternativo = ''' + SQL_Str(BarCode) + ''')' ;
-    if (CodigoAlmacen<>'') then
-    begin
-      sSQL := sSQL + 'AND CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' ';
-    end;
+      'WHERE ' + sWhereAlm + ' ' +
+      'OR (CodigoAlternativo = ''' + SQL_Str(BarCode) + ''')' ;
     Barcode := SQL_Execute ( Conn, sSQL );
     Result := 2;
     Exit;

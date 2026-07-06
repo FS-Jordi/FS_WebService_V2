@@ -80,6 +80,13 @@ var
   gsGD_TempPath: String;
   gsGD_DestPath: String;
 
+  gbReportViaTask: Boolean;
+  gsReportTaskName: String;
+  gbReportRunAs: Boolean;
+  gsReportRunAsUser: String;
+  gsReportRunAsDomain: String;
+  gsReportRunAsPassword: String;
+
   gbGS1Estandar: Boolean;
   gsGS1GroupSeparator: String;
 
