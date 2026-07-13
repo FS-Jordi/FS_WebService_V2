@@ -260,6 +260,16 @@ procedure WebModule1detallePackingListArticuloAction ( Conn: TADOConnection; sPa
 procedure WebModule1saveScansAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1saveNumerosSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1loadScansAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1listScansPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1expedirScanAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1expedirScansPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+// Expedeix UN scan concret (lògica compartida entre expedirScan i expedirScansPreparacion).
+// Retorna el JSON resultat de l'expedició; actualitza CajaId amb la caixa finalment usada
+// (pot canviar per la numeració automàtica) i posa bOK=True si l'expedició ha estat correcta.
+function FS_SGA_ExpedirUnScan ( Conn: TADOConnection; CodigoEmpresa: TOrigenCodigoEmpresa; EmpresaOrigen, CodigoUsuario: Integer; MACAddress, sRemoteAddr: String; IdPreparacion, ScanId, PaletId: Integer; var CajaId: Integer; Matricula: String; PaletPackagingId, CajaPackagingId: Integer; var bOK: Boolean ): String;
+procedure WebModule1desexpedirScanAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1vaciarExpedicionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1checkScanCodePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getDetallePartidasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getAgrupacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getInfoPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -295,6 +305,13 @@ procedure WebModule1checkNumeroSerieRecepcionAction ( Conn: TADOConnection; sPar
 procedure WebModule1borrarLineaExpedicionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getLastCajaIdAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1renumerarCajasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+// Reordena/renumera les caixes d'UN palet segons un ordre nou (llista de CajaId antics en
+// l'ordre desitjat → nou CajaId = posició 1..N). Actualitza FS_SGA_PackingList i, en paral·lel,
+// FS_SGA_PackingList_PackagingCaja (IdCaja + Caja). Usa un offset temporal per evitar
+// col·lisions de PK. Els scans no cal tocar-los (enllacen per PackingListId → Id).
+procedure WebModule1reordenarCajasPaletAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+// Mou una caixa d'un palet a un altre i renumera les caixes dels DOS palets afectats.
+procedure WebModule1moverCajaPaletAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1recibirLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1proximaUbicacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkUbicacionInventarioAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -5515,6 +5532,8 @@ var
   Ejercicio: Integer;
   ScanCode: String;
   EXTRA1, EXTRA2: String;
+  UnidadMedidaBase: String;
+  bFound: Boolean;
 {$ENDREGION}
 
 begin
@@ -5552,6 +5571,15 @@ begin
   CodigoColor    := contentfields.values['CodigoColor'];
   UnidadMedida   := AnsiUpperCase(contentfields.values['UnidadMedida']);
   Scans          := contentfields.values['Scans'];
+
+  sSQL :=
+    'SELECT UnidadMedidaBase ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas WITH (NOLOCK) ' +
+    'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    'AND PickingId = ' + IntToStr(PickingId);
+  UnidadMedidaBase := SQL_Execute ( Conn, sSQL, bFound );
+  if not bFound then
+    UnidadMedidaBase := '';
 
   JSonObject := _Parse_JSonObject ( Scans );
   if JSonObject=nil then
@@ -5607,7 +5635,7 @@ begin
       sSQL :=
         'INSERT INTO FS_SGA_Picking_Pedido_Scans ( PreparacionId, PickingId, Ejercicio, FechaRegistro, CodigoUsuario, ' +
         '  CodigoUbicacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, UnidadMedida, Cantidad, ' +
-        '  CantidadBase, PaletId, CajaId, PickingIdAsignado, ScanCode, EXTRA1, EXTRA2 ) ' +
+        '  UnidadMedidaBase, CantidadBase, PaletId, CajaId, PickingIdAsignado, ScanCode, EXTRA1, EXTRA2 ) ' +
         'VALUES ( ' +
         IntToStr(IdPreparacion) + ', ' +
         IntToStr(PickingId) + ', ' +
@@ -5621,6 +5649,7 @@ begin
         '''' + SQL_Str(CodigoColor) + ''', ' +
         '''' + SQL_Str(UnidadMedida) + ''', ' +
         SQL_FloatToStr(Cantidad) + ', ' +
+        '''' + SQL_Str(UnidadMedidaBase) + ''', ' +
         SQL_FloatToStr(CantidadBase) + ', ' +
         '0, ' +
         '0, ' +
@@ -5898,6 +5927,1341 @@ begin
   FreeAndNil(Q);
 
   Result := Result + ']}';
+
+  {$ENDREGION}
+
+end;
+
+
+// Llista els scans d'una preparació (taula FS_SGA_Picking_Pedido_Scans), opcionalment
+// filtrats pel flag Expedido. Params: CodigoEmpresa, IdPreparacion, Expedido (0/1; -1 = tots).
+// Utilitzat per la pantalla "EXPEDICIÓN POR SCAN" (tabs pendents / expedits).
+procedure WebModule1listScansPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  IdPreparacion: Integer;
+  iExpedido: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  i: Integer;
+  sFechaCaduca: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de preparación no especificado","Data":[]}';
+    Exit;
+  end;
+
+  iExpedido := StrToIntDef(contentfields.values['Expedido'],-1);
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  // Fem servir un JOIN amb els articles/tallas/colors (com detalleExpedicionTC) per
+  // enriquir cada scan amb descripció, codis alternatius, tractaments i caducitat.
+  sSQL :=
+    'SELECT ' +
+    '  fsps.Id, fsps.FechaRegistro, fsps.CodigoUsuario, fsps.PickingId, ' +
+    '  fsps.CodigoArticulo, fsps.Partida, fsps.CodigoTalla01_, fsps.CodigoColor_, ' +
+    '  fsps.UnidadMedida, fsps.UnidadMedidaBase, fsps.Cantidad, fsps.CantidadBase, ' +
+    '  fsps.ScanCode, fsps.Expedido, ' +
+    '  ISNULL(pkl.PaletId,0) AS PaletId, ' +
+    '  ISNULL(pkl.CajaId,0) AS CajaId, ' +
+    '  ISNULL(lin.EjercicioPedido,0) AS EjercicioPedido, ' +
+    '  ISNULL(lin.SeriePedido,'''') AS SeriePedido, ' +
+    '  ISNULL(lin.NumeroPedido,0) AS NumeroPedido, ' +
+    '  ISNULL(art.DescripcionArticulo,'''') AS DescripcionArticulo, ' +
+    '  ISNULL(art.Descripcion2Articulo,'''') AS Descripcion2Articulo, ' +
+    '  ISNULL(art.CodigoAlternativo,'''') AS CodigoAlternativo, ' +
+    '  ISNULL(art.TipoArticulo,'''') AS TipoArticulo, ' +
+    '  ISNULL(art.TratamientoPartidas,0) AS TratamientoPartidas, ' +
+    '  ISNULL(art.Colores_,0) AS TratamientoColores, ' +
+    '  ISNULL(art.TrataNumerosSerieLc,0) AS TratamientoSeries, ' +
+    '  ISNULL(art.GrupoTalla_,0) AS GrupoTalla_, ' +
+    '  ISNULL(CTC.CodigoAlternativo,'''') AS CodigoAlternativoTC, ' +
+    '  ISNULL(T.DescripcionTalla01_,'''') AS DescripcionTalla, ' +
+    '  ISNULL(C.Color_,'''') AS DescripcionColor, ' +
+    '  ACUM.FechaCaduca AS FechaCaduca ' +
+    'FROM FS_SGA_Picking_Pedido_Scans fsps WITH (NOLOCK) ' +
+    'LEFT JOIN FS_SGA_PACKINGLIST pkl WITH (NOLOCK) ' +
+    '  ON pkl.Id = fsps.PackingListId ' +
+    'LEFT JOIN FS_SGA_Picking_Pedido_Lineas lin WITH (NOLOCK) ' +
+    '  ON lin.PreparacionId = fsps.PreparacionId AND lin.PickingId = fsps.PickingId ' +
+    'LEFT JOIN FS_COMMON_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
+    '  ON fsps.CodigoArticulo = art.CodigoArticulo ' +
+    'LEFT JOIN Colores_ C WITH (NOLOCK) ' +
+    '  ON C.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Colores) + ' ' +
+    ' AND C.CodigoColor_ = fsps.CodigoColor_ ' +
+    'LEFT JOIN Vis_VistaTallas T WITH (NOLOCK) ' +
+    '  ON T.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.GrupoTallas) + ' ' +
+    ' AND T.GrupoTalla_ = art.GrupoTalla_ ' +
+    ' AND T.CodigoTalla01_ = fsps.CodigoTalla01_ ' +
+    'LEFT JOIN CodigosTallaColor CTC WITH (NOLOCK) ' +
+    '  ON CTC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.CodigosTallaColor) + ' ' +
+    ' AND CTC.CodigoArticulo = fsps.CodigoArticulo ' +
+    ' AND CTC.CodigoTalla01_ = fsps.CodigoTalla01_ ' +
+    ' AND CTC.CodigoColor_ = fsps.CodigoColor_ ' +
+    'OUTER APPLY ( ' +
+    '   SELECT TOP (1) ap.FechaCaduca ' +
+    '   FROM FS_SGA_AcumuladoPendiente ap WITH (NOLOCK) ' +
+    '   WHERE ap.IdPreparacion = fsps.PreparacionId ' +
+    '     AND ap.CodigoArticulo = fsps.CodigoArticulo ' +
+    '     AND ap.Partida = fsps.Partida ' +
+    '     AND ap.CodigoTalla01_ = fsps.CodigoTalla01_ ' +
+    '     AND ap.CodigoColor_ = fsps.CodigoColor_ ' +
+    ') ACUM ' +
+    'WHERE ' +
+    '  fsps.PreparacionId = ' + IntToStr(IdPreparacion) + ' ';
+
+  if iExpedido>=0 then
+    sSQL := sSQL + '  AND ISNULL(fsps.Expedido,0) = ' + IntToStr(iExpedido) + ' ';
+
+  sSQL := sSQL + 'ORDER BY fsps.Id ';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+  except
+  end;
+
+  Result := '{"Result":"OK","Error":"","Data":[';
+
+  i := 0;
+
+  while not Q.EOF do
+  begin
+
+    if i>0 then
+      Result := Result + ',';
+
+    if Q.FieldByName('FechaCaduca').IsNull then
+      sFechaCaduca := ''
+    else
+      sFechaCaduca := FormatDateTime('dd/mm/yyyy', Q.FieldByName('FechaCaduca').AsDateTime);
+
+    Result := Result +
+      '{' +
+      '"Id":' + IntToStr(Q.FieldByName('Id').AsInteger) + ',' +
+      '"DT":"' + FormatDateTime('dd/mm/yyyy hh:nn:ss', Q.FieldByName('FechaRegistro').AsDateTime) + '",' +
+      '"CodigoUsuario":' + IntToStr(Q.FieldByName('CodigoUsuario').AsInteger) + ',' +
+      '"PickingId":' + IntToStr(Q.FieldByName('PickingId').AsInteger) + ',' +
+      '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
+      '"SeriePedido":"' + JSON_Str(Q.FieldByName('SeriePedido').AsString) + '",' +
+      '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ',' +
+      '"CodigoArticulo":"' + JSON_Str(Q.FieldByName('CodigoArticulo').AsString) + '",' +
+      '"DescripcionArticulo":"' + JSON_Str(Q.FieldByName('DescripcionArticulo').AsString) + '",' +
+      '"Descripcion2Articulo":"' + JSON_Str(Q.FieldByName('Descripcion2Articulo').AsString) + '",' +
+      '"CodigoAlternativo":"' + JSON_Str(Q.FieldByName('CodigoAlternativo').AsString) + '",' +
+      '"CodigoAlternativoTC":"' + JSON_Str(Q.FieldByName('CodigoAlternativoTC').AsString) + '",' +
+      '"TipoArticulo":"' + JSON_Str(Q.FieldByName('TipoArticulo').AsString) + '",' +
+      '"TratamientoPartidas":' + SQL_BooleanToStr(Q.FieldByName('TratamientoPartidas').AsInteger<>0) + ',' +
+      '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('TratamientoColores').AsInteger<>0) + ',' +
+      '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TratamientoSeries').AsInteger<>0) + ',' +
+      '"GrupoTalla":' + IntToStr(Q.FieldByName('GrupoTalla_').AsInteger) + ',' +
+      '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '",' +
+      '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
+      '"DescripcionTalla":"' + JSON_Str(Q.FieldByName('DescripcionTalla').AsString) + '",' +
+      '"CodigoColor":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
+      '"DescripcionColor":"' + JSON_Str(Q.FieldByName('DescripcionColor').AsString) + '",' +
+      '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
+      '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
+      '"Cantidad":' + SQL_FloatToStr(Q.FieldByName('Cantidad').AsFloat) + ',' +
+      '"CantidadBase":' + SQL_FloatToStr(Q.FieldByName('CantidadBase').AsFloat) + ',' +
+      '"FechaCaduca":"' + sFechaCaduca + '",' +
+      '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '",' +
+      '"PaletId":' + IntToStr(Q.FieldByName('PaletId').AsInteger) + ',' +
+      '"CajaId":' + IntToStr(Q.FieldByName('CajaId').AsInteger) + ',' +
+      '"Expedido":' + IntToStr(Ord(Q.FieldByName('Expedido').AsBoolean)) +
+      '}';
+
+    Inc(i);
+    Q.Next;
+
+  end;
+
+  SQL_CloseFree(Q);
+
+  Result := Result + ']}';
+
+  {$ENDREGION}
+
+end;
+
+
+// Expedeix un scan concret (una fila de FS_SGA_Picking_Pedido_Scans) cap al packing list.
+// Resol la línia de preparació amb els camps del scan, reutilitza tota la lògica
+// d'expedirLinea (crida interna) i, si va bé, marca Expedido=1.
+// Params: CodigoEmpresa, CodigoUsuario, UUID, IdPreparacion, ScanId,
+//         PaletId, CajaId, Matricula, PaletPackagingId, CajaPackagingId.
+procedure WebModule1expedirScanAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  MACAddress: String;
+  IdPreparacion: Integer;
+  ScanId: Integer;
+  PaletId: Integer;
+  CajaId: Integer;
+  Matricula: String;
+  PaletPackagingId: Integer;
+  CajaPackagingId: Integer;
+  bOK: Boolean;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  MACAddress    := contentfields.Values['UUID'];
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de preparación no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  ScanId := StrToIntDef(contentfields.values['ScanId'],0);
+  if ScanId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado el scan a expedir","Data":[]}';
+    Exit;
+  end;
+
+  PaletId          := StrToIntDef(contentfields.values['PaletId'],0);
+  CajaId           := StrToIntDef(contentfields.values['CajaId'],0);
+  Matricula        := contentfields.values['Matricula'];
+  PaletPackagingId := StrToIntDef(contentfields.values['PaletPackagingId'],0);
+  CajaPackagingId  := StrToIntDef(contentfields.values['CajaPackagingId'],0);
+
+  {$ENDREGION}
+
+  // Tota la feina d'expedir el scan es delega a la funció compartida.
+  Result := FS_SGA_ExpedirUnScan (
+    Conn, CodigoEmpresa, EmpresaOrigen, CodigoUsuario, MACAddress, sRemoteAddr,
+    IdPreparacion, ScanId, PaletId, CajaId, Matricula, PaletPackagingId, CajaPackagingId,
+    bOK );
+
+  contentfields.Free;
+
+end;
+
+
+// Expedeix UN scan concret. Extret d'expedirScanAction per poder-lo reutilitzar des de
+// expedirScansPreparacion. Fa la lectura del scan, resol la línia, numera la caixa si cal,
+// crida expedirLinea, i marca Expedido=1 + PackingListId. Retorna el JSON resultat.
+function FS_SGA_ExpedirUnScan ( Conn: TADOConnection; CodigoEmpresa: TOrigenCodigoEmpresa; EmpresaOrigen, CodigoUsuario: Integer; MACAddress, sRemoteAddr: String; IdPreparacion, ScanId, PaletId: Integer; var CajaId: Integer; Matricula: String; PaletPackagingId, CajaPackagingId: Integer; var bOK: Boolean ): String;
+
+{$REGION 'Declaració de variables'}
+var
+  sSQL: String;
+  Q: TADOQuery;
+  // Camps del scan
+  PickingId: Integer;
+  CodigoArticulo: String;
+  Partida: String;
+  CodigoTalla: String;
+  CodigoColor: String;
+  UnidadMedida: String;
+  UnidadMedidaBase: String;
+  Cantidad: Double;
+  CantidadBase: Double;
+  bExpedido: Boolean;
+  // Camps resolts de la línia
+  IdentificadorExpedicion: Integer;
+  LineasPosicion: String;
+  FactorConversion: Double;
+  CodigoAgrupacion: Integer;
+  UnidadesAgrupacion: Double;
+  GrupoTalla: Integer;
+  LineaPedidoTalla: String;
+  OrdenDetalleTalla: Integer;
+  // Crida interna a expedirLinea
+  sInnerParams: String;
+  sInnerResult: String;
+  iSC: Integer;
+  sST: String;
+  iPackingId: Int64;
+  // Numeració automàtica de caixa
+  bIncrementarCaja: Boolean;
+  iMaxCaja: Integer;
+{$ENDREGION}
+
+begin
+
+  bOK := False;
+
+  {$REGION 'Lectura del scan'}
+
+  sSQL :=
+    'SELECT * ' +
+    'FROM FS_SGA_Picking_Pedido_Scans WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  Id = ' + IntToStr(ScanId) + ' ' +
+    '  AND PreparacionId = ' + IntToStr(IdPreparacion);
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if Q.EOF then
+  begin
+    SQL_CloseFree(Q);
+    Result := '{"Result":"ERROR","Message":"El scan especificado no existe","Data":[]}';
+    Exit;
+  end;
+
+  bExpedido := Q.FieldByName('Expedido').AsBoolean;
+  if bExpedido then
+  begin
+    SQL_CloseFree(Q);
+    Result := '{"Result":"ERROR","Message":"El scan ya ha sido expedido","Data":[]}';
+    Exit;
+  end;
+
+  PickingId        := Q.FieldByName('PickingId').AsInteger;
+  CodigoArticulo   := Q.FieldByName('CodigoArticulo').AsString;
+  Partida          := Q.FieldByName('Partida').AsString;
+  CodigoTalla      := Q.FieldByName('CodigoTalla01_').AsString;
+  CodigoColor      := Q.FieldByName('CodigoColor_').AsString;
+  UnidadMedida     := AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString);
+  UnidadMedidaBase := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
+  Cantidad         := Q.FieldByName('Cantidad').AsFloat;
+  CantidadBase     := Q.FieldByName('CantidadBase').AsFloat;
+
+  SQL_CloseFree(Q);
+
+  if UnidadMedidaBase='' then
+    UnidadMedidaBase := UnidadMedida;
+
+  {$ENDREGION}
+
+  {$REGION 'Resolució de la línia de preparació'}
+
+  sSQL :=
+    'SELECT ' +
+    '  fsppl.PickingId, fsppl.IdentificadorExpedicion, fsppl.LineasPosicion, ' +
+    '  fsppl.FactorConversion, fsppl.CodigoAgrupacion, fsppl.UnidadesAgrupacion, ' +
+    '  fsppl.LineaPedidoTalla, fsppl.OrdenDetalleTalla, ISNULL(art.GrupoTalla_,0) AS GrupoTalla_ ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
+    'LEFT JOIN FS_COMMON_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
+    '  ON fsppl.codigoarticulo = art.codigoarticulo ' +
+    'WHERE ' +
+    '  fsppl.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND fsppl.PickingId = ' + IntToStr(PickingId) + ' ' +
+    '  AND fsppl.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '  AND fsppl.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+    '  AND fsppl.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if Q.EOF then
+  begin
+    SQL_CloseFree(Q);
+    Result := '{"Result":"ERROR","Message":"No se ha encontrado la línea de preparación del scan","Data":[]}';
+    Exit;
+  end;
+
+  IdentificadorExpedicion := Q.FieldByName('IdentificadorExpedicion').AsInteger;
+  LineasPosicion          := SQL_GUID_ToStr(Q.FieldByName('LineasPosicion').AsString);
+  FactorConversion        := FS_SGA_FactorConversion ( CodigoEmpresa, Q.FieldByName('FactorConversion').AsFloat );
+  CodigoAgrupacion        := Q.FieldByName('CodigoAgrupacion').AsInteger;
+  UnidadesAgrupacion      := Q.FieldByName('UnidadesAgrupacion').AsFloat;
+  if UnidadesAgrupacion=0 then UnidadesAgrupacion := 1;
+  GrupoTalla              := Q.FieldByName('GrupoTalla_').AsInteger;
+  LineaPedidoTalla        := SQL_GUID_ToStr(Q.FieldByName('LineaPedidoTalla').AsString);
+  OrdenDetalleTalla       := Q.FieldByName('OrdenDetalleTalla').AsInteger;
+
+  SQL_CloseFree(Q);
+
+  {$ENDREGION}
+
+  {$REGION 'Numeració automàtica de caixa'}
+
+  // Comprovem si cal numerar la caixa de forma automàtica per aquest article/línia.
+  bIncrementarCaja := False;
+  sSQL :=
+    'SELECT dbo.FS_SGA_NumeracionPaletCaja ( ' +
+    IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+    IntToStr(IdPreparacion) + ', ' +
+    IntToStr(IdentificadorExpedicion) + ', ' +
+    IntToStr(PickingId) + ', ' +
+    '''' + SQL_Str(CodigoArticulo) + ''', ' +
+    '''' + SQL_Str(CodigoTalla) + ''', ' +
+    '''' + SQL_Str(CodigoColor) + ''', ' +
+    '''' + SQL_Str(Partida) + ''', ' +
+    IntToStr(CodigoAgrupacion) + ', ' +
+    SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
+    '''' + SQL_Str(UnidadMedida) + ''', ' +
+    '''' + SQL_Str(UnidadMedidaBase) + ''', ' +
+    SQL_FloatToStr(FactorConversion) + ', ' +
+    IntToStr(PaletId) + ', ' +
+    IntToStr(CajaId) + ' ) AS Res';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.EOF then
+      bIncrementarCaja := Q.FieldByName('Res').AsBoolean;
+  except
+  end;
+  SQL_CloseFree(Q);
+
+  // Si la numeració automàtica està activa, la caixa d'aquest scan es deriva del
+  // packing list del palet: caixa en curs = MAX(CajaId) del palet (o 1 si buit).
+  // Si la funció diu que aquest article obre caixa nova, incrementem +1 (sense
+  // deixar mai forats ni repetir números dins del palet).
+  if bIncrementarCaja then
+  begin
+    iMaxCaja := 0;
+    sSQL :=
+      'SELECT ISNULL(MAX(CajaId),0) AS MaxCaja ' +
+      'FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+      'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PaletId = ' + IntToStr(PaletId);
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    Q.Open;
+    if not Q.EOF then
+      iMaxCaja := Q.FieldByName('MaxCaja').AsInteger;
+    SQL_CloseFree(Q);
+
+    if iMaxCaja <= 0 then
+      CajaId := 1
+    else
+      CajaId := iMaxCaja + 1;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Expedició (reutilitza expedirLinea)'}
+
+  // Construïm els paràmetres tal com els espera expedirLineaAction.
+  sInnerParams :=
+    'CodigoEmpresa=' + IntToStr(EmpresaOrigen) +
+    '&CodigoUsuario=' + IntToStr(CodigoUsuario) +
+    '&UUID=' + MACAddress +
+    '&IdPreparacion=' + IntToStr(IdPreparacion) +
+    '&PickingId=' + IntToStr(PickingId) +
+    '&IdExpedicion=' + IntToStr(IdentificadorExpedicion) +
+    '&IsNew=true' +
+    '&LineasPosicion=' + LineasPosicion +
+    '&CodigoArticulo=' + CodigoArticulo +
+    '&Partida=' + Partida +
+    '&OldCantidad=0' +
+    '&Cantidad=' + SQL_FloatToStr(Cantidad) +
+    '&UnidadMedida=' + UnidadMedida +
+    '&FactorConversion=' + SQL_FloatToStr(FactorConversion) +
+    '&OldCantidadBase=0' +
+    '&CantidadBase=' + SQL_FloatToStr(CantidadBase) +
+    '&UnidadMedidaBase=' + UnidadMedidaBase +
+    '&CodigoAgrupacion=' + IntToStr(CodigoAgrupacion) +
+    '&UnidadesAgrupacion=' + SQL_FloatToStr(UnidadesAgrupacion) +
+    '&GrupoTalla=' + IntToStr(GrupoTalla) +
+    '&CodigoTalla=' + CodigoTalla +
+    '&CodigoColor=' + CodigoColor +
+    '&PaletIdAnterior=0' +
+    '&MatriculaAnterior=' +
+    '&CajaIdAnterior=0' +
+    '&PaletId=' + IntToStr(PaletId) +
+    '&Matricula=' + Matricula +
+    '&CajaId=' + IntToStr(CajaId) +
+    '&PaletPackagingId=' + IntToStr(PaletPackagingId) +
+    '&CajaPackagingId=' + IntToStr(CajaPackagingId) +
+    '&LineaPedidoTalla=' + LineaPedidoTalla +
+    '&OrdenDetalleTalla=' + IntToStr(OrdenDetalleTalla) +
+    '&Scans={"Desglose":[{"DT":"' + FormatDateTime('dd/mm/yyyy hh:nn:ss', Now()) +
+      '","CodigoArticulo":"' + CodigoArticulo +
+      '","Cantidad":' + SQL_FloatToStr(Cantidad) +
+      ',"CantidadBase":' + SQL_FloatToStr(CantidadBase) + ',"Saved":0}]}';
+
+  iSC := 200;
+  sST := '';
+  sInnerResult := '';
+
+  WebModule1expedirLineaAction ( Conn, sInnerParams, sRemoteAddr, iSC, sST, sInnerResult );
+
+  // Si l'expedició ha anat bé, marquem el scan com a expedit i guardem a PackingListId
+  // l'Id de la línia del packing list creada, per poder desfer l'expedició després.
+  if Pos('"Result":"OK"', sInnerResult) > 0 then
+  begin
+    // Recuperem l'Id de la línia del packing list acabada de crear/actualitzar.
+    iPackingId := 0;
+    sSQL :=
+      'SELECT MAX(Id) AS Id ' +
+      'FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+      'WHERE ' +
+      '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
+      '  AND PaletId = ' + IntToStr(PaletId) + ' ' +
+      '  AND CajaId = ' + IntToStr(CajaId) + ' ' +
+      '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+      '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+      '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+      '  AND Partida = ''' + SQL_Str(Partida) + '''';
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    Q.Open;
+    if not Q.EOF then
+      iPackingId := Q.FieldByName('Id').AsLargeInt;
+    SQL_CloseFree(Q);
+
+    sSQL :=
+      'UPDATE FS_SGA_Picking_Pedido_Scans ' +
+      'SET Expedido = 1, PackingListId = ' + IntToStr(iPackingId) + ' ' +
+      'WHERE Id = ' + IntToStr(ScanId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    // El càlcul de pes/volum del packing list (trigger + procedure) es fa en INSERTAR
+    // la línia, però en aquell moment l'scan encara no tenia PackingListId assignat.
+    // Ara que ja el té, re-disparem el trigger tocant UnidadesBase perquè el procedure
+    // (estàndard o _CUSTOM) recalculi pes/volum amb l'enllaç scan <-> línia ja establert.
+    if iPackingId <> 0 then
+    begin
+      sSQL :=
+        'UPDATE FS_SGA_PACKINGLIST ' +
+        'SET UnidadesBase = UnidadesBase ' +
+        'WHERE Id = ' + IntToStr(iPackingId);
+      SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+    // Si la numeració automàtica està activa, deixem la caixa actual de la preparació
+    // apuntant a la següent caixa (la que s'usarà al proper scan d'aquest palet), perquè
+    // el header de palet/caixa mostri directament el número correcte i no faci "flicker".
+    if bIncrementarCaja then
+    begin
+      sSQL :=
+        'UPDATE FS_SGA_Picking_Preparaciones ' +
+        'SET CajaActual = ' + IntToStr(CajaId + 1) + ' ' +
+        'WHERE PreparacionId = ' + IntToStr(IdPreparacion);
+      SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+    bOK := True;
+    Result := sInnerResult;
+  end
+  else
+  begin
+    // Propaguem l'error de l'expedició sense marcar el scan.
+    Result := sInnerResult;
+  end;
+
+  {$ENDREGION}
+
+end;
+
+
+// Expedeix TOTS els scans pendents (Expedido=0) d'una línia concreta (article/partida/talla/color)
+// en una sola crida. Resol els Id dels scans internament (saveScans no els retorna) i els expedeix
+// un a un reutilitzant FS_SGA_ExpedirUnScan. Usat per l'expedició directa durant la preparació.
+// Params: CodigoEmpresa, CodigoUsuario, UUID, IdPreparacion, PickingId, CodigoArticulo, Partida,
+//         CodigoTalla, CodigoColor, UnidadMedida, PaletId, CajaId, Matricula,
+//         PaletPackagingId, CajaPackagingId.
+procedure WebModule1expedirScansPreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  MACAddress: String;
+  IdPreparacion: Integer;
+  PickingId: Integer;
+  CodigoArticulo: String;
+  Partida: String;
+  CodigoTalla: String;
+  CodigoColor: String;
+  UnidadMedida: String;
+  PaletId: Integer;
+  CajaId: Integer;
+  Matricula: String;
+  PaletPackagingId: Integer;
+  CajaPackagingId: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  ScanIds: TStringList;
+  i: Integer;
+  ScanId: Integer;
+  bOK: Boolean;
+  iExpedidos: Integer;
+  iNumScans: Integer;
+  sInnerResult: String;
+  sLastError: String;
+  CajaActual: Integer;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  MACAddress    := contentfields.Values['UUID'];
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de preparación no es correcto","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  PickingId        := StrToIntDef(contentfields.values['PickingId'],0);
+  CodigoArticulo   := contentfields.values['CodigoArticulo'];
+  Partida          := contentfields.values['Partida'];
+  CodigoTalla      := contentfields.values['CodigoTalla'];
+  CodigoColor      := contentfields.values['CodigoColor'];
+  UnidadMedida     := contentfields.values['UnidadMedida'];
+  PaletId          := StrToIntDef(contentfields.values['PaletId'],0);
+  CajaId           := StrToIntDef(contentfields.values['CajaId'],0);
+  Matricula        := contentfields.values['Matricula'];
+  PaletPackagingId := StrToIntDef(contentfields.values['PaletPackagingId'],0);
+  CajaPackagingId  := StrToIntDef(contentfields.values['CajaPackagingId'],0);
+
+  if CajaId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado la caja de expedición","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació dels scans pendents de la línia'}
+
+  sSQL :=
+    'SELECT Id ' +
+    'FROM FS_SGA_Picking_Pedido_Scans WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
+    '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '  AND ISNULL(Partida,'''') = ''' + SQL_Str(Partida) + ''' ' +
+    '  AND ISNULL(CodigoTalla01_,'''') = ''' + SQL_Str(CodigoTalla) + ''' ' +
+    '  AND ISNULL(CodigoColor_,'''') = ''' + SQL_Str(CodigoColor) + ''' ' +
+    '  AND ISNULL(Expedido,0) = 0 ' +
+    'ORDER BY Id';
+
+  ScanIds := TStringList.Create;
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+  while not Q.EOF do
+  begin
+    ScanIds.Add ( Q.FieldByName('Id').AsString );
+    Q.Next;
+  end;
+  SQL_CloseFree(Q);
+
+  {$ENDREGION}
+
+  {$REGION 'Expedició scan a scan'}
+
+  iExpedidos := 0;
+  sLastError := '';
+  CajaActual := CajaId;
+  iNumScans := ScanIds.Count;
+
+  for i := 0 to ScanIds.Count - 1 do
+  begin
+    ScanId := StrToIntDef ( ScanIds[i], 0 );
+    if ScanId = 0 then Continue;
+
+    bOK := False;
+    // CajaActual pot canviar (numeració automàtica); es passa per referència.
+    sInnerResult := FS_SGA_ExpedirUnScan (
+      Conn, CodigoEmpresa, EmpresaOrigen, CodigoUsuario, MACAddress, sRemoteAddr,
+      IdPreparacion, ScanId, PaletId, CajaActual, Matricula, PaletPackagingId, CajaPackagingId,
+      bOK );
+
+    if bOK then
+      Inc ( iExpedidos )
+    else
+      sLastError := sInnerResult;
+  end;
+
+  ScanIds.Free;
+
+  {$ENDREGION}
+
+  {$REGION 'Resultat'}
+
+  if (iExpedidos > 0) or (iNumScans = 0) then
+  begin
+    Result :=
+      '{"Result":"OK","Message":"","Data":[{' +
+      '"PaletId":' + IntToStr(PaletId) + ',' +
+      '"CajaId":' + IntToStr(CajaActual) + ',' +
+      '"Expedidos":' + IntToStr(iExpedidos) + '}]}';
+  end
+  else
+  begin
+    // Cap scan expedit: propaguem el darrer error obtingut (o un genèric).
+    if sLastError <> '' then
+      Result := sLastError
+    else
+      Result := '{"Result":"ERROR","Message":"No hay escaneos pendientes de expedir para esta línea","Data":[]}';
+  end;
+
+  {$ENDREGION}
+
+  contentfields.Free;
+
+end;
+
+
+// Desfà l'expedició d'un scan: esborra la línia del packing list associada
+// (guardada a PackingListId en expedir) i torna a marcar el scan com a pendent (Expedido=0).
+// Params: CodigoEmpresa, CodigoUsuario, UUID, IdPreparacion, ScanId.
+procedure WebModule1desexpedirScanAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  MACAddress: String;
+  IdPreparacion: Integer;
+  ScanId: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  PickingId: Integer;
+  CodigoArticulo: String;
+  Partida: String;
+  CodigoTalla: String;
+  CodigoColor: String;
+  UnidadMedida: String;
+  UnidadMedidaBase: String;
+  Cantidad: Double;
+  CantidadBase: Double;
+  bExpedido: Boolean;
+  iPackingId: Int64;
+  // Camps de la línia del packing list a esborrar
+  plPaletId: Integer;
+  plCajaId: Integer;
+  plMatricula: String;
+  // Camps resolts de la línia de preparació
+  IdentificadorExpedicion: Integer;
+  LineasPosicion: String;
+  FactorConversion: Double;
+  CodigoAgrupacion: Integer;
+  UnidadesAgrupacion: Double;
+  GrupoTalla: Integer;
+  LineaPedidoTalla: String;
+  OrdenDetalleTalla: Integer;
+  sInnerParams: String;
+  sInnerResult: String;
+  iSC: Integer;
+  sST: String;
+  bIncrementarCaja: Boolean;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  MACAddress    := contentfields.Values['UUID'];
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de preparación no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  ScanId := StrToIntDef(contentfields.values['ScanId'],0);
+  if ScanId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado el scan a desexpedir","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Lectura del scan'}
+
+  sSQL :=
+    'SELECT * ' +
+    'FROM FS_SGA_Picking_Pedido_Scans WITH (NOLOCK) ' +
+    'WHERE Id = ' + IntToStr(ScanId) + ' AND PreparacionId = ' + IntToStr(IdPreparacion);
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if Q.EOF then begin
+    SQL_CloseFree(Q);
+    Result := '{"Result":"ERROR","Message":"El scan especificado no existe","Data":[]}';
+    Exit;
+  end;
+
+  bExpedido := Q.FieldByName('Expedido').AsBoolean;
+  if not bExpedido then begin
+    SQL_CloseFree(Q);
+    Result := '{"Result":"ERROR","Message":"El scan no está expedido","Data":[]}';
+    Exit;
+  end;
+
+  PickingId        := Q.FieldByName('PickingId').AsInteger;
+  CodigoArticulo   := Q.FieldByName('CodigoArticulo').AsString;
+  Partida          := Q.FieldByName('Partida').AsString;
+  CodigoTalla      := Q.FieldByName('CodigoTalla01_').AsString;
+  CodigoColor      := Q.FieldByName('CodigoColor_').AsString;
+  UnidadMedida     := AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString);
+  UnidadMedidaBase := AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString);
+  Cantidad         := Q.FieldByName('Cantidad').AsFloat;
+  CantidadBase     := Q.FieldByName('CantidadBase').AsFloat;
+  iPackingId       := Q.FieldByName('PackingListId').AsLargeInt;
+
+  SQL_CloseFree(Q);
+
+  if UnidadMedidaBase='' then
+    UnidadMedidaBase := UnidadMedida;
+
+  if iPackingId=0 then begin
+    Result := '{"Result":"ERROR","Message":"No se puede identificar la línea del packing list de este scan","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Lectura de la línia del packing list'}
+
+  sSQL :=
+    'SELECT PaletId, CajaId, ISNULL(Matricula,'''') AS Matricula, ' +
+    '  Unidades, UnidadesBase ' +
+    'FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+    'WHERE Id = ' + IntToStr(iPackingId);
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if Q.EOF then begin
+    // La línia ja no existeix: normalitzem l'estat del scan i sortim OK.
+    SQL_CloseFree(Q);
+    sSQL := 'UPDATE FS_SGA_Picking_Pedido_Scans SET Expedido = 0, PackingListId = NULL WHERE Id = ' + IntToStr(ScanId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+    Result := '{"Result":"OK","Error":"","Data":[{}]}';
+    Exit;
+  end;
+
+  plPaletId   := Q.FieldByName('PaletId').AsInteger;
+  plCajaId    := Q.FieldByName('CajaId').AsInteger;
+  plMatricula := Q.FieldByName('Matricula').AsString;
+  // IMPORTANT: fem servir les quantitats REALS de la línia del packing list (les que
+  // es van expedir), no les del scan, perquè AcumuladoPendiente/UdExpedidasBase
+  // sumin i restin exactament el mateix valor (article de pes variable → base variable).
+  Cantidad     := Q.FieldByName('Unidades').AsFloat;
+  CantidadBase := Q.FieldByName('UnidadesBase').AsFloat;
+
+  SQL_CloseFree(Q);
+
+  {$ENDREGION}
+
+  {$REGION 'Resolució de la línia de preparació'}
+
+  sSQL :=
+    'SELECT ' +
+    '  fsppl.IdentificadorExpedicion, fsppl.LineasPosicion, fsppl.FactorConversion, ' +
+    '  fsppl.CodigoAgrupacion, fsppl.UnidadesAgrupacion, fsppl.LineaPedidoTalla, ' +
+    '  fsppl.OrdenDetalleTalla, ISNULL(art.GrupoTalla_,0) AS GrupoTalla_ ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
+    'LEFT JOIN FS_COMMON_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) art ' +
+    '  ON fsppl.codigoarticulo = art.codigoarticulo ' +
+    'WHERE ' +
+    '  fsppl.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND fsppl.PickingId = ' + IntToStr(PickingId) + ' ' +
+    '  AND fsppl.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '  AND fsppl.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+    '  AND fsppl.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if Q.EOF then begin
+    SQL_CloseFree(Q);
+    Result := '{"Result":"ERROR","Message":"No se ha encontrado la línea de preparación del scan","Data":[]}';
+    Exit;
+  end;
+
+  IdentificadorExpedicion := Q.FieldByName('IdentificadorExpedicion').AsInteger;
+  LineasPosicion          := SQL_GUID_ToStr(Q.FieldByName('LineasPosicion').AsString);
+  FactorConversion        := FS_SGA_FactorConversion ( CodigoEmpresa, Q.FieldByName('FactorConversion').AsFloat );
+  CodigoAgrupacion        := Q.FieldByName('CodigoAgrupacion').AsInteger;
+  UnidadesAgrupacion      := Q.FieldByName('UnidadesAgrupacion').AsFloat;
+  if UnidadesAgrupacion=0 then UnidadesAgrupacion := 1;
+  GrupoTalla              := Q.FieldByName('GrupoTalla_').AsInteger;
+  LineaPedidoTalla        := SQL_GUID_ToStr(Q.FieldByName('LineaPedidoTalla').AsString);
+  OrdenDetalleTalla       := Q.FieldByName('OrdenDetalleTalla').AsInteger;
+
+  SQL_CloseFree(Q);
+
+  {$ENDREGION}
+
+  {$REGION 'Esborrat (reutilitza borrarLineaExpedicion)'}
+
+  sInnerParams :=
+    'CodigoEmpresa=' + IntToStr(EmpresaOrigen) +
+    '&CodigoUsuario=' + IntToStr(CodigoUsuario) +
+    '&UUID=' + MACAddress +
+    '&IdPreparacion=' + IntToStr(IdPreparacion) +
+    '&PickingId=' + IntToStr(PickingId) +
+    '&PackingListId=' + IntToStr(iPackingId) +
+    '&LineaPedidoTalla=' + LineaPedidoTalla +
+    '&OrdenDetalleTalla=' + IntToStr(OrdenDetalleTalla) +
+    '&IdExpedicion=' + IntToStr(IdentificadorExpedicion) +
+    '&LineasPosicion=' + LineasPosicion +
+    '&CodigoArticulo=' + CodigoArticulo +
+    '&Matricula=' + plMatricula +
+    '&Partida=' + Partida +
+    '&Cantidad=' + SQL_FloatToStr(Cantidad) +
+    '&UnidadMedida=' + UnidadMedida +
+    '&FactorConversion=' + SQL_FloatToStr(FactorConversion) +
+    '&CantidadBase=' + SQL_FloatToStr(CantidadBase) +
+    '&UnidadMedidaBase=' + UnidadMedidaBase +
+    '&CodigoAgrupacion=' + IntToStr(CodigoAgrupacion) +
+    '&UnidadesAgrupacion=' + SQL_FloatToStr(UnidadesAgrupacion) +
+    '&GrupoTalla=' + IntToStr(GrupoTalla) +
+    '&CodigoTalla=' + CodigoTalla +
+    '&CodigoColor=' + CodigoColor +
+    '&CajaId=' + IntToStr(plCajaId) +
+    '&PaletId=' + IntToStr(plPaletId);
+
+  iSC := 200;
+  sST := '';
+  sInnerResult := '';
+
+  WebModule1borrarLineaExpedicionAction ( Conn, sInnerParams, sRemoteAddr, iSC, sST, sInnerResult );
+
+  if Pos('"Result":"OK"', sInnerResult) > 0 then
+  begin
+    sSQL :=
+      'UPDATE FS_SGA_Picking_Pedido_Scans ' +
+      'SET Expedido = 0, PackingListId = NULL ' +
+      'WHERE Id = ' + IntToStr(ScanId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    // Si la numeració automàtica de caixa està activa per aquest article, compactem
+    // les caixes del palet per no deixar cap forat: totes les caixes amb número
+    // superior al de la caixa eliminada baixen una posició.
+    bIncrementarCaja := False;
+    sSQL :=
+      'SELECT dbo.FS_SGA_NumeracionPaletCaja ( ' +
+      IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+      IntToStr(IdPreparacion) + ', ' +
+      IntToStr(IdentificadorExpedicion) + ', ' +
+      IntToStr(PickingId) + ', ' +
+      '''' + SQL_Str(CodigoArticulo) + ''', ' +
+      '''' + SQL_Str(CodigoTalla) + ''', ' +
+      '''' + SQL_Str(CodigoColor) + ''', ' +
+      '''' + SQL_Str(Partida) + ''', ' +
+      IntToStr(CodigoAgrupacion) + ', ' +
+      SQL_FloatToStr(UnidadesAgrupacion) + ', ' +
+      '''' + SQL_Str(UnidadMedida) + ''', ' +
+      '''' + SQL_Str(UnidadMedidaBase) + ''', ' +
+      SQL_FloatToStr(FactorConversion) + ', ' +
+      IntToStr(plPaletId) + ', ' +
+      IntToStr(plCajaId) + ' ) AS Res';
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    try
+      Q.Open;
+      if not Q.EOF then
+        bIncrementarCaja := Q.FieldByName('Res').AsBoolean;
+    except
+    end;
+    SQL_CloseFree(Q);
+
+    if bIncrementarCaja then
+    begin
+      // Només compactem si ja no queda cap línia en aquesta caixa (s'ha buidat del tot).
+      sSQL :=
+        'SELECT COUNT(*) FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+        'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND PaletId = ' + IntToStr(plPaletId) + ' ' +
+        '  AND CajaId = ' + IntToStr(plCajaId);
+      if SQL_Execute ( Conn, sSQL ) = 0 then
+      begin
+        // 1) Esborrem la fila de packaging de la caixa que ha quedat buida,
+        //    perquè si no, en desplaçar les superiors provocaríem un duplicat de PK.
+        sSQL :=
+          'DELETE FROM FS_SGA_PackingList_PackagingCaja ' +
+          'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+          '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+          '  AND IdPalet = ' + IntToStr(plPaletId) + ' ' +
+          '  AND IdCaja = ' + IntToStr(plCajaId);
+        SQL_Execute_NoRes ( Conn, sSQL );
+
+        // 2) Desplacem les caixes superiors una posició avall (packing list).
+        sSQL :=
+          'UPDATE FS_SGA_PACKINGLIST ' +
+          'SET CajaId = CajaId - 1 ' +
+          'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+          '  AND PaletId = ' + IntToStr(plPaletId) + ' ' +
+          '  AND CajaId > ' + IntToStr(plCajaId);
+        SQL_Execute_NoRes ( Conn, sSQL );
+
+        // 3) Igual per als packagings de caixa (ara ja sense col·lisió de PK).
+        sSQL :=
+          'UPDATE FS_SGA_PackingList_PackagingCaja ' +
+          'SET IdCaja = IdCaja - 1, Caja = Caja - 1 ' +
+          'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+          '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+          '  AND IdPalet = ' + IntToStr(plPaletId) + ' ' +
+          '  AND IdCaja > ' + IntToStr(plCajaId);
+        SQL_Execute_NoRes ( Conn, sSQL );
+      end;
+    end;
+
+    // Si el palet ha quedat sense cap línia, esborrem també el seu packaging de palet.
+    sSQL :=
+      'SELECT COUNT(*) FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+      'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PaletId = ' + IntToStr(plPaletId);
+    if SQL_Execute ( Conn, sSQL ) = 0 then
+    begin
+      sSQL :=
+        'DELETE FROM FS_SGA_PackingList_PackagingPalet ' +
+        'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+        '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND IdPalet = ' + IntToStr(plPaletId);
+      SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+    // Amb numeració automàtica, deixem la caixa actual apuntant a la propera caixa lliure
+    // del palet (MAX+1, o 1 si el palet ha quedat buit) perquè el header quedi coherent.
+    if bIncrementarCaja then
+    begin
+      sSQL :=
+        'UPDATE FS_SGA_Picking_Preparaciones ' +
+        'SET CajaActual = ISNULL(( ' +
+        '  SELECT MAX(CajaId) FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+        '  WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' AND PaletId = ' + IntToStr(plPaletId) + ' ' +
+        '), 0) + 1 ' +
+        'WHERE PreparacionId = ' + IntToStr(IdPreparacion);
+      SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+    Result := sInnerResult;
+  end
+  else
+  begin
+    Result := sInnerResult;
+  end;
+
+  {$ENDREGION}
+
+end;
+
+
+// Buida completament una expedició: esborra tots els registres de packing list
+// (FS_SGA_PACKINGLIST + packagings de palet i caixa), torna els scans a pendents
+// i reseteja els comptadors de palet/caixa a 1.
+procedure WebModule1vaciarExpedicionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  IdPreparacion: Integer;
+  IdExpedicion: Integer;
+  sFiltroExpPack: String;
+  sFiltroExpPL: String;
+  sFiltroExpLin: String;
+  sSQL: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de preparación no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  IdExpedicion := StrToIntDef(contentfields.values['IdExpedicion'],0);
+
+  // Si no s'especifica expedició (0), buidem TOTA la preparació. Si s'especifica,
+  // limitem el buidat a aquesta expedició.
+  if IdExpedicion > 0 then begin
+    sFiltroExpPack := ' AND IdentificadorExpedicion = ' + IntToStr(IdExpedicion);
+    sFiltroExpPL   := ' AND IdentificadorExpedicion = ' + IntToStr(IdExpedicion);
+    sFiltroExpLin  := ' AND l.IdentificadorExpedicion = ' + IntToStr(IdExpedicion);
+  end else begin
+    sFiltroExpPack := '';
+    sFiltroExpPL   := '';
+    sFiltroExpLin  := '';
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Buidat de les taules de packing list'}
+
+  // 1) Packagings de caixa.
+  sSQL :=
+    'DELETE FROM FS_SGA_PackingList_PackagingCaja ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+    sFiltroExpPack;
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  // 2) Packagings de palet.
+  sSQL :=
+    'DELETE FROM FS_SGA_PackingList_PackagingPalet ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+    sFiltroExpPack;
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  // 3) Línies de packing list.
+  sSQL :=
+    'DELETE FROM FS_SGA_PACKINGLIST ' +
+    'WHERE PreparacionId = ' + IntToStr(IdPreparacion) +
+    sFiltroExpPL;
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  {$ENDREGION}
+
+  {$REGION 'Revertir FS_SGA_AcumuladoPendiente (assignat -> pendent GUID0)'}
+
+  // En expedir, les unitats es mouen de la fila pendent (LineaPedidoCliente=GUID0)
+  // a la fila assignada (LineaPedidoCliente=LineasPosicion). En buidar l'expedició
+  // hem de fer el moviment invers: retornar les unitats assignades a la fila GUID0
+  // i esborrar les files assignades. Sumem per clau (article/partida/talla/color/agrupació).
+
+  // a) Sumem les quantitats assignades de tornada a la fila pendent (GUID0/PickingId=0).
+  sSQL :=
+    'UPDATE dest ' +
+    'SET dest.Cantidad = dest.Cantidad + asig.SumCant, ' +
+    '    dest.CantidadBase = dest.CantidadBase + asig.SumBase ' +
+    'FROM FS_SGA_AcumuladoPendiente dest ' +
+    'INNER JOIN ( ' +
+    '  SELECT IdPreparacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, CodigoAgrupacion, ' +
+    '         SUM(Cantidad) AS SumCant, SUM(CantidadBase) AS SumBase ' +
+    '  FROM FS_SGA_AcumuladoPendiente ' +
+    '  WHERE IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+    '    AND LineaPedidoCliente <> ''' + SQL_Str(GUID0) + ''' ' +
+    '  GROUP BY IdPreparacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_, CodigoAgrupacion ' +
+    ') asig ' +
+    '  ON dest.IdPreparacion = asig.IdPreparacion ' +
+    '  AND dest.CodigoArticulo = asig.CodigoArticulo ' +
+    '  AND dest.Partida = asig.Partida ' +
+    '  AND dest.CodigoTalla01_ = asig.CodigoTalla01_ ' +
+    '  AND dest.CodigoColor_ = asig.CodigoColor_ ' +
+    '  AND dest.CodigoAgrupacion = asig.CodigoAgrupacion ' +
+    'WHERE dest.IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND dest.PickingId = 0 ' +
+    '  AND dest.LineaPedidoCliente = ''' + SQL_Str(GUID0) + '''';
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  // b) Esborrem les files assignades (les que s'havien creat en expedir).
+  sSQL :=
+    'DELETE FROM FS_SGA_AcumuladoPendiente ' +
+    'WHERE IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND LineaPedidoCliente <> ''' + SQL_Str(GUID0) + '''';
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  // c) Recalculem UnidadesAsignadas del detall (ara ja no hi ha res assignat -> 0).
+  sSQL :=
+    'UPDATE T1 ' +
+    'SET T1.UnidadesAsignadas = ISNULL(T2.UdExpedidas, 0), ' +
+    '    T1.UnidadesAsignadasBase = ISNULL(T2.UdExpedidasBase, 0) ' +
+    'FROM FS_SGA_Picking_Pedido_Lineas_Detalle T1 ' +
+    'LEFT JOIN ( ' +
+    '  SELECT IdPreparacion, CodigoArticulo, Partida, UnidadMedida, CodigoTalla01_, CodigoColor_, ' +
+    '         SUM(Cantidad) AS UdExpedidas, SUM(CantidadBase) AS UdExpedidasBase ' +
+    '  FROM FS_SGA_AcumuladoPendiente ' +
+    '  WHERE IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+    '    AND LineaPedidoCliente <> ''' + SQL_Str(GUID0) + ''' ' +
+    '  GROUP BY IdPreparacion, CodigoArticulo, Partida, UnidadMedida, CodigoTalla01_, CodigoColor_ ' +
+    ') T2 ' +
+    '  ON T1.PreparacionId = T2.IdPreparacion ' +
+    '  AND T1.CodigoArticulo = T2.CodigoArticulo ' +
+    '  AND T1.Partida = T2.Partida ' +
+    '  AND T1.UnidadMedida = T2.UnidadMedida ' +
+    '  AND T1.CodigoTalla01_ = T2.CodigoTalla01_ ' +
+    '  AND T1.CodigoColor_ = T2.CodigoColor_ ' +
+    'WHERE T1.PreparacionId = ' + IntToStr(IdPreparacion);
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  {$ENDREGION}
+
+  {$REGION 'Tornar els scans a pendents'}
+
+  sSQL :=
+    'UPDATE s ' +
+    'SET s.Expedido = 0, s.PackingListId = NULL ' +
+    'FROM FS_SGA_Picking_Pedido_Scans s ' +
+    'INNER JOIN FS_SGA_Picking_Pedido_Lineas l ' +
+    '  ON l.PreparacionId = s.PreparacionId AND l.PickingId = s.PickingId ' +
+    'WHERE s.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND s.Expedido = 1 ' +
+    sFiltroExpLin;
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  {$ENDREGION}
+
+  {$REGION 'Reset dels comptadors de palet/caixa a 1'}
+
+  sSQL :=
+    'UPDATE FS_SGA_Picking_Preparaciones ' +
+    'SET PaletActual = 1, CajaActual = 1, MatriculaActual = '''' ' +
+    'WHERE PreparacionId = ' + IntToStr(IdPreparacion);
+  SQL_Execute_NoRes ( Conn, sSQL );
+
+  {$ENDREGION}
+
+  Result :=
+    '{"Result":"OK","Error":"","Data":[{' +
+    '"PaletId":1,"CajaId":1,"MatriculaActual":""}]}';
+
+end;
+
+
+// Comprova si un ScanCode ja existeix dins la preparació (a qualsevol línia/partida).
+// Retorna Data amb {"Existe":1} si ja hi és, {"Existe":0} si no.
+procedure WebModule1checkScanCodePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  contentfields: TStringList;
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  IdPreparacion: Integer;
+  ScanCode: String;
+  sSQL: String;
+  Q: TADOQuery;
+  bExiste: Integer;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de preparación no especificado","Data":[]}';
+    Exit;
+  end;
+
+  ScanCode := contentfields.values['ScanCode'];
+  if Trim(ScanCode)='' then begin
+    Result := '{"Result":"OK","Error":"","Data":[{"Existe":0}]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Comprovació'}
+
+  bExiste := 0;
+
+  sSQL :=
+    'SELECT COUNT(*) AS Num ' +
+    'FROM FS_SGA_Picking_Pedido_Scans WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+    '  AND ScanCode = ''' + SQL_Str(ScanCode) + '''';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.EOF then
+    begin
+      if Q.FieldByName('Num').AsInteger > 0 then
+        bExiste := 1;
+    end;
+  except
+  end;
+
+  if Assigned(Q) then
+  begin
+    Q.Close;
+    FreeAndNil(Q);
+  end;
+
+  Result := '{"Result":"OK","Error":"","Data":[{"Existe":' + IntToStr(bExiste) + '}]}';
 
   {$ENDREGION}
 
@@ -6296,7 +7660,24 @@ begin
   Q.Open;
   if Q.EOF then
   begin
-    PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_PackagingCajaDefecto, defaultCajaId, CodigoEmpresa.EmpresaOrigen );
+    // La caixa actual encara no té fila a PackagingCaja (p.ex. acabem d'incrementar
+    // el nº de caixa). Mantenim l'últim tipus de caixa seleccionat al palet
+    // (l'IdPackaging de la caixa amb número més alt), i si no n'hi ha cap, el defecte.
+    defaultCajaId := 0;
+    sSQL :=
+      'SELECT TOP (1) IdPackaging ' +
+      'FROM FS_SGA_PackingList_PackagingCaja WITH (NOLOCK) ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND IdPalet = ' + IntToStr(PaletActual) + ' ' +
+      '  AND ISNULL(IdPackaging,0) <> 0 ' +
+      'ORDER BY IdCaja DESC';
+    defaultCajaId := SQL_Execute ( Conn, sSQL );
+
+    // Si no hi ha cap caixa prèvia al palet, fem servir el packaging per defecte.
+    if defaultCajaId = 0 then
+      PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_PackagingCajaDefecto, defaultCajaId, CodigoEmpresa.EmpresaOrigen );
+
     if defaultCajaId<>0 then
     begin
       CajaPackagingId := defaultCajaId;
@@ -7889,7 +9270,7 @@ begin
   // DETALL DE PARTIDES
   sSQL :=
     'SELECT * ' +
-    'FROM FS_SGA_PackingList WITH (NOLOCK) ' +
+    'FROM FS_SGA_Picking_Pedido_Scans WITH (NOLOCK) ' +
     'WHERE ' +
     '  PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
     '  AND PickingId = ' + IntToStr(PickingId) + ' ' +
@@ -23148,6 +24529,357 @@ begin
 end;
 
 
+// Reordena/renumera les caixes d'un palet segons l'ordre rebut.
+// Params: CodigoEmpresa, CodigoUsuario, UUID, IdPreparacion, PaletId, Orden.
+//   Orden = llista de CajaId ACTUALS separats per coma, en l'ordre desitjat.
+//           El nou CajaId de cada caixa = la seva posició (1..N) dins Orden.
+procedure WebModule1reordenarCajasPaletAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+const
+  OFFSET_TMP = 1000000; // desplaçament temporal per evitar col·lisions de PK
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  contentfields: TStringList;
+  IdPreparacion: Integer;
+  PaletId: Integer;
+  sOrden: String;
+  llista: TStringList;
+  i: Integer;
+  cajaVella: Integer;
+  cajaNova: Integer;
+  sSQL: String;
+  iMaxCaja: Integer;
+  iNumCajas: Integer;
+  Q: TADOQuery;
+  LP: TLogTrace;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  UUID          := contentfields.values['UUID'];
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  if IdPreparacion=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de preparación no es correcto","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  PaletId := StrToIntDef(contentfields.values['PaletId'],0);
+  if PaletId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado el palet","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  sOrden := contentfields.values['Orden'];
+  if Trim(sOrden)='' then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado el orden de cajas","Data":[]}';
+    contentfields.Free;
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Renumeració amb offset temporal'}
+
+  llista := TStringList.Create;
+  llista.Delimiter := ',';
+  llista.StrictDelimiter := True;
+  llista.DelimitedText := sOrden;
+
+  try
+    // 1) Desplacem TOTES les caixes del palet a un rang temporal (evita col·lisions de PK).
+    sSQL :=
+      'UPDATE FS_SGA_PackingList ' +
+      'SET CajaId = CajaId + ' + IntToStr(OFFSET_TMP) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PaletId = ' + IntToStr(PaletId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    sSQL :=
+      'UPDATE FS_SGA_PackingList_PackagingCaja ' +
+      'SET IdCaja = IdCaja + ' + IntToStr(OFFSET_TMP) + ', Caja = Caja + ' + IntToStr(OFFSET_TMP) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND IdPalet = ' + IntToStr(PaletId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    // 2) Assignem el nou CajaId (posició 1..N) a cada caixa segons l'ordre rebut.
+    for i := 0 to llista.Count - 1 do
+    begin
+      cajaVella := StrToIntDef ( Trim(llista[i]), 0 );
+      if cajaVella = 0 then Continue;
+      cajaNova := i + 1;
+
+      sSQL :=
+        'UPDATE FS_SGA_PackingList ' +
+        'SET CajaId = ' + IntToStr(cajaNova) + ' ' +
+        'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+        '  AND PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND PaletId = ' + IntToStr(PaletId) + ' ' +
+        '  AND CajaId = ' + IntToStr(cajaVella + OFFSET_TMP);
+      SQL_Execute_NoRes ( Conn, sSQL );
+
+      sSQL :=
+        'UPDATE FS_SGA_PackingList_PackagingCaja ' +
+        'SET IdCaja = ' + IntToStr(cajaNova) + ', Caja = ' + IntToStr(cajaNova) + ' ' +
+        'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+        '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND IdPalet = ' + IntToStr(PaletId) + ' ' +
+        '  AND IdCaja = ' + IntToStr(cajaVella + OFFSET_TMP);
+      SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+    // 3) Qualsevol caixa que hagués quedat al rang temporal (no inclosa a Orden) es
+    //    renumera darrere, mantenint-la vàlida (defensiu; no hauria de passar).
+    sSQL :=
+      'UPDATE FS_SGA_PackingList SET CajaId = CajaId - ' + IntToStr(OFFSET_TMP) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND PaletId = ' + IntToStr(PaletId) + ' AND CajaId > ' + IntToStr(OFFSET_TMP);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    sSQL :=
+      'UPDATE FS_SGA_PackingList_PackagingCaja ' +
+      'SET IdCaja = IdCaja - ' + IntToStr(OFFSET_TMP) + ', Caja = Caja - ' + IntToStr(OFFSET_TMP) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND IdPalet = ' + IntToStr(PaletId) + ' AND IdCaja > ' + IntToStr(OFFSET_TMP);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    // 4) Deixem CajaActual apuntant a la següent caixa lliure del palet.
+    iMaxCaja := 0;
+    sSQL :=
+      'SELECT ISNULL(MAX(CajaId),0) AS MaxCaja FROM FS_SGA_PackingList WITH (NOLOCK) ' +
+      'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' AND PaletId = ' + IntToStr(PaletId);
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    Q.Open;
+    if not Q.EOF then iMaxCaja := Q.FieldByName('MaxCaja').AsInteger;
+    SQL_CloseFree(Q);
+
+    sSQL :=
+      'UPDATE FS_SGA_Picking_Preparaciones SET CajaActual = ' + IntToStr(iMaxCaja + 1) + ' ' +
+      'WHERE PreparacionId = ' + IntToStr(IdPreparacion);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+  except
+    on E:Exception do begin
+      llista.Free;
+      Result := '{"Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+      contentfields.Free;
+      Exit;
+    end;
+  end;
+
+  iNumCajas := llista.Count;
+  llista.Free;
+
+  {$ENDREGION}
+
+  LP := LOG_Clear();
+  LP.IdPreparacion := IdPreparacion;
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'REORDER-BOXES', 'Reordenar cajas del palet ' + IntToStr(PaletId), @LP );
+
+  Result := '{"Result":"OK","Error":"","Data":[{"PaletId":' + IntToStr(PaletId) + ',"NumCajas":' + IntToStr(iNumCajas) + '}]}';
+
+  contentfields.Free;
+
+end;
+
+
+// Mou una caixa d'un palet a un altre i renumera els DOS palets afectats.
+// Params: CodigoEmpresa, CodigoUsuario, UUID, IdPreparacion,
+//   IdCajaMoguda  = CajaId actual de la caixa moguda (al palet ORIGEN),
+//   PaletOrigen, PaletDesti,
+//   OrdenDesti    = CajaId (en l'ordre desitjat) de TOTES les caixes del palet destí,
+//                   INCLOENT la moguda (amb el seu IdCaja del palet origen),
+//   OrdenOrigen   = CajaId (en l'ordre desitjat) de les caixes que queden al palet origen.
+procedure WebModule1moverCajaPaletAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+const
+  OFF_DEST = 1000000;   // offset temporal per les caixes del palet DESTÍ
+  OFF_ORIG = 2000000;   // offset temporal per les caixes del palet ORIGEN (distint!)
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen, CodigoUsuario: Integer;
+  UUID: String;
+  contentfields: TStringList;
+  IdPreparacion, IdCajaMoguda, PaletOrigen, PaletDesti, PosMogudaDesti: Integer;
+  sOrdenDesti, sOrdenOrigen: String;
+  sSQL: String;
+  CE: Integer; // CodigoEmpresa.EmpresaOrigen
+  LP: TLogTrace;
+
+  procedure OffsetPalet ( pPalet, iOff: Integer );
+  begin
+    sSQL :=
+      'UPDATE FS_SGA_PackingList SET CajaId = CajaId + ' + IntToStr(iOff) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) +
+      ' AND PaletId = ' + IntToStr(pPalet);
+    SQL_Execute_NoRes ( Conn, sSQL );
+    sSQL :=
+      'UPDATE FS_SGA_PackingList_PackagingCaja SET IdCaja = IdCaja + ' + IntToStr(iOff) +
+      ', Caja = Caja + ' + IntToStr(iOff) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+      ' AND IdPalet = ' + IntToStr(pPalet);
+    SQL_Execute_NoRes ( Conn, sSQL );
+  end;
+
+  // Renumera 1..N les caixes d'un palet segons l'ordre. Cada element de sOrden ve amb
+  // l'offset `iOffBase`, EXCEPTE la posició `posEspecial` (la caixa moguda, si n'hi ha),
+  // que ve amb `offEspecial`. Així es distingeixen dues caixes amb el mateix nº original.
+  procedure RenumeraPalet ( pPalet: Integer; sOrden: String; posEspecial, offEspecial, iOffBase: Integer );
+  var
+    llista: TStringList;
+    i, cajaVella, cajaNova, iOff: Integer;
+  begin
+    llista := TStringList.Create;
+    llista.Delimiter := ','; llista.StrictDelimiter := True; llista.DelimitedText := sOrden;
+    try
+      for i := 0 to llista.Count - 1 do
+      begin
+        cajaVella := StrToIntDef ( Trim(llista[i]), 0 );
+        if cajaVella = 0 then Continue;
+        cajaNova := i + 1;
+        if i = posEspecial then iOff := offEspecial else iOff := iOffBase;
+        sSQL :=
+          'UPDATE FS_SGA_PackingList SET CajaId = ' + IntToStr(cajaNova) + ' ' +
+          'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) +
+          ' AND PaletId = ' + IntToStr(pPalet) + ' AND CajaId = ' + IntToStr(cajaVella + iOff);
+        SQL_Execute_NoRes ( Conn, sSQL );
+        sSQL :=
+          'UPDATE FS_SGA_PackingList_PackagingCaja SET IdCaja = ' + IntToStr(cajaNova) +
+          ', Caja = ' + IntToStr(cajaNova) + ' ' +
+          'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+          ' AND IdPalet = ' + IntToStr(pPalet) + ' AND IdCaja = ' + IntToStr(cajaVella + iOff);
+        SQL_Execute_NoRes ( Conn, sSQL );
+      end;
+    finally
+      llista.Free;
+    end;
+  end;
+
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Paràmetres'}
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    contentfields.Free; Exit;
+  end;
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+  CE := CodigoEmpresa.EmpresaOrigen;
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  UUID          := contentfields.values['UUID'];
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  IdCajaMoguda  := StrToIntDef(contentfields.values['IdCajaMoguda'],0);
+  PaletOrigen   := StrToIntDef(contentfields.values['PaletOrigen'],0);
+  PaletDesti    := StrToIntDef(contentfields.values['PaletDesti'],0);
+  sOrdenDesti   := contentfields.values['OrdenDesti'];
+  sOrdenOrigen  := contentfields.values['OrdenOrigen'];
+  PosMogudaDesti := StrToIntDef(contentfields.values['PosMogudaDesti'], -1); // índex 0-based a OrdenDesti
+
+  if (IdPreparacion=0) or (IdCajaMoguda=0) or (PaletOrigen=0) or (PaletDesti=0) then begin
+    Result := '{"Result":"ERROR","Message":"Parámetros incompletos","Data":[]}';
+    contentfields.Free; Exit;
+  end;
+
+  if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then begin
+    Result := '{"Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
+    contentfields.Free; Exit;
+  end;
+  {$ENDREGION}
+
+  {$REGION 'Moviment + renumeració'}
+  try
+    // 1) Offset temporal DISTINT a cada palet (origen 2M, destí 1M) → la caixa moguda,
+    //    que ve de l'origen, no col·lisiona amb cap del destí quan hi entra.
+    OffsetPalet ( PaletOrigen, OFF_ORIG );
+    OffsetPalet ( PaletDesti, OFF_DEST );
+
+    // 2) Movem la caixa al palet destí (encara amb l'offset ORIGEN a CajaId/IdCaja).
+    sSQL :=
+      'UPDATE FS_SGA_PackingList SET PaletId = ' + IntToStr(PaletDesti) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) +
+      ' AND PaletId = ' + IntToStr(PaletOrigen) + ' AND CajaId = ' + IntToStr(IdCajaMoguda + OFF_ORIG);
+    SQL_Execute_NoRes ( Conn, sSQL );
+    sSQL :=
+      'UPDATE FS_SGA_PackingList_PackagingCaja SET IdPalet = ' + IntToStr(PaletDesti) + ' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+      ' AND IdPalet = ' + IntToStr(PaletOrigen) + ' AND IdCaja = ' + IntToStr(IdCajaMoguda + OFF_ORIG);
+    SQL_Execute_NoRes ( Conn, sSQL );
+
+    // 3) Renumerem 1..N els dos palets. Al destí, la posició PosMogudaDesti és la caixa
+    //    moguda (offset ORIGEN); la resta, offset DESTÍ. A l'origen, tot offset ORIGEN.
+    RenumeraPalet ( PaletDesti, sOrdenDesti, PosMogudaDesti, OFF_ORIG, OFF_DEST );
+    RenumeraPalet ( PaletOrigen, sOrdenOrigen, -1, 0, OFF_ORIG );
+
+    // 4) Netegem qualsevol resta als rangs temporals (defensiu): traiem l'offset que toqui.
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList ' +
+      'SET CajaId = CajaId - CASE WHEN CajaId >= ' + IntToStr(OFF_ORIG) + ' THEN ' + IntToStr(OFF_ORIG) + ' ELSE ' + IntToStr(OFF_DEST) + ' END ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) +
+      ' AND CajaId >= ' + IntToStr(OFF_DEST) );
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList_PackagingCaja ' +
+      'SET IdCaja = IdCaja - CASE WHEN IdCaja >= ' + IntToStr(OFF_ORIG) + ' THEN ' + IntToStr(OFF_ORIG) + ' ELSE ' + IntToStr(OFF_DEST) + ' END, ' +
+      '    Caja = Caja - CASE WHEN Caja >= ' + IntToStr(OFF_ORIG) + ' THEN ' + IntToStr(OFF_ORIG) + ' ELSE ' + IntToStr(OFF_DEST) + ' END ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+      ' AND IdCaja >= ' + IntToStr(OFF_DEST) );
+  except
+    on E:Exception do begin
+      Result := '{"Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+      contentfields.Free; Exit;
+    end;
+  end;
+  {$ENDREGION}
+
+  LP := LOG_Clear();
+  LP.IdPreparacion := IdPreparacion;
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'MOVE-BOX',
+    'Mover caja ' + IntToStr(IdCajaMoguda) + ' del palet ' + IntToStr(PaletOrigen) + ' al ' + IntToStr(PaletDesti), @LP );
+
+  Result := '{"Result":"OK","Error":"","Data":[{"PaletOrigen":' + IntToStr(PaletOrigen) +
+    ',"PaletDesti":' + IntToStr(PaletDesti) + '}]}';
+
+  contentfields.Free;
+
+end;
+
+
 procedure fOnTimer ( Sender: TObject );
 begin
 
@@ -25877,7 +27609,22 @@ begin
   begin
     // Prioritat 1: packaging de la caixa rebut com a paràmetre
     DefaultCajaPackaging := StrToIntDef(contentfields.values['CajaPackagingId'], 0);
-    // Prioritat 2: packaging per defecte dels paràmetres de l'empresa
+    // Prioritat 2: mantenim l'últim tipus de caixa seleccionat en aquest palet
+    // (l'IdPackaging de la caixa amb número més alt del palet), perquè en incrementar
+    // el nº de caixa la nova hereti el mateix tipus.
+    if DefaultCajaPackaging = 0 then
+    begin
+      sSQL :=
+        'SELECT TOP (1) IdPackaging ' +
+        'FROM FS_SGA_PackingList_PackagingCaja WITH (NOLOCK) ' +
+        'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+        '  AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+        '  AND IdPalet = ' + IntToStr(Abs(PaletId)) + ' ' +
+        '  AND ISNULL(IdPackaging,0) <> 0 ' +
+        'ORDER BY IdCaja DESC';
+      DefaultCajaPackaging := SQL_Execute ( Conn, sSQL );
+    end;
+    // Prioritat 3: packaging per defecte dels paràmetres de l'empresa
     if DefaultCajaPackaging = 0 then
       PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_PackagingCajaDefecto, DefaultCajaPackaging, CodigoEmpresa.EmpresaOrigen );
     sSQL :=
@@ -25948,8 +27695,12 @@ begin
     if not Saved then
     begin
 
-      Cantidad     := StrToFloatDef((_Get_JSonValue ( lJSonValue, 'Cantidad' )),0);
-      CantidadBase := StrToFloatDef((_Get_JSonValue ( lJSonValue, 'CantidadBase' )),0);
+      // IMPORTANT: fem servir FS_StrToFloatDef (independent de la configuració regional).
+      // Amb StrToFloatDef, un valor amb punt decimal ("25.93") en un servidor amb coma
+      // com a separador retornava 0 -> CantidadBase quedava a 0 i AcumuladoPendiente
+      // no restava/sumava bé la quantitat base dels articles de pes variable.
+      Cantidad     := FS_StrToFloatDef((_Get_JSonValue ( lJSonValue, 'Cantidad' )),0);
+      CantidadBase := FS_StrToFloatDef((_Get_JSonValue ( lJSonValue, 'CantidadBase' )),0);
 
       LineaPL.CodigoEmpresa           := CodigoEmpresa.EmpresaOrigen;
       LineaPL.Ejercicio               := YearOf(Now());
@@ -37632,6 +39383,7 @@ begin
     gaMov.CodigoProveedor        := CodigoProveedor;
     gaMov.Matricula	             := Matricula;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.Movtraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
 
     if PrecioOrigen=0 then
     begin
@@ -39889,7 +41641,7 @@ begin
   gaMov.CodigoUbicacion        := CodigoUbicacion;
   gaMov.CodigoArticulo         := CodigoArticulo;
   gaMov.Partida                := Partida;
-  gaMov.Partida2               := PartidaPedido;
+  gaMov.Partida2               := '';
   gaMov.TipoMovimiento         := 2;
   gaMov.OrigenMovimiento       := TipoSalida;
   gaMov.Unidades               := Unidades;
@@ -51660,6 +53412,8 @@ begin
     Result := Result +
       '{' +
       '"Tipo":1,' +
+      '"Cantidad":1,' +
+      '"CantidadBase":' + SQL_FloatToStr(UnidadesAgrupacion) + ',' +
       '"CodigoArticulo":"' + JSON_Str(Q.FieldByName('CodigoArticulo').AsString) + '",' +
       '"CodigoArticuloAlternativo":"' + JSON_Str(Q.FieldByName('CodigoAlternativo').AsString) + '",' +
       '"GrupoTalla":' + IntToStr(Q.FieldByName('GrupoTalla_').AsInteger) + ', ' +
@@ -53604,7 +55358,7 @@ begin
   gaMov.CodigoUbicacion        := CodigoUbicacion;
   gaMov.CodigoArticulo         := CodigoArticulo;
   gaMov.Partida                := Partida;
-  gaMov.Partida2               := PartidaPedido;
+  gaMov.Partida2               := '';
   gaMov.CodigoTalla            := CodigoTalla;
   gaMov.CodigoColor            := CodigoColor;
   gaMov.TipoMovimiento         := 2;
@@ -54759,7 +56513,7 @@ begin
       gaMov.CodigoUbicacion        := CodigoUbicacion;
       gaMov.CodigoArticulo         := CodigoArticulo;
       gaMov.Partida                := Partida;
-      gaMov.Partida2               := PartidaPedido;
+      gaMov.Partida2               := '';
       gaMov.CodigoTalla            := CodigoTalla;
       gaMov.CodigoColor            := CodigoColor;
       gaMov.TipoMovimiento         := 2;
@@ -54900,7 +56654,7 @@ begin
       gaMov.CodigoUbicacion        := CodigoUbicacion;
       gaMov.CodigoArticulo         := CodigoArticulo;
       gaMov.Partida                := Partida;
-      gaMov.Partida2               := PartidaPedido;
+      gaMov.Partida2               := '';
       gaMov.CodigoTalla            := CodigoTalla;
       gaMov.CodigoColor            := CodigoColor;
       gaMov.TipoMovimiento         := 2;
@@ -55004,7 +56758,7 @@ begin
     gaMov.CodigoUbicacion        := CodigoUbicacion;
     gaMov.CodigoArticulo         := CodigoArticulo;
     gaMov.Partida                := Partida;
-    gaMov.Partida2               := PartidaPedido;
+    gaMov.Partida2               := '';
     gaMov.CodigoTalla            := CodigoTalla;
     gaMov.CodigoColor            := CodigoColor;
     gaMov.TipoMovimiento         := 2;
@@ -57327,6 +59081,7 @@ begin
         '"Dt_Peso":' + SQL_FloatToStr(Q.FieldByName('Dt_Peso').AsFloat) + ',' +
         '"Dt_Volumen":' + SQL_FloatToStr(Q.FieldByName('Dt_Volumen').AsFloat) + ',' +
         '"Dt_Carga":' + SQL_FloatToStr(Q.FieldByName('Dt_Carga').AsFloat) + ',' +
+        '"Dt_AlturaMax":' + SQL_FloatToStr(Q.FieldByName('Dt_AlturaMax').AsFloat) + ',' +
         '"Dt_Longitud":' + SQL_FloatToStr(Q.FieldByName('Dt_Longitud').AsFloat) + ',' +
         '"Dt_Anchura":' + SQL_FloatToStr(Q.FieldByName('Dt_Anchura').AsFloat) + ',' +
         '"Dt_Altura":' + SQL_FloatToStr(Q.FieldByName('Dt_Altura').AsFloat) + ',' +
@@ -57351,6 +59106,7 @@ begin
         '"Dt_Peso":' + SQL_FloatToStr(Q.FieldByName('Dt_Peso').AsFloat) + ',' +
         '"Dt_Volumen":' + SQL_FloatToStr(Q.FieldByName('Dt_Volumen').AsFloat) + ',' +
         '"Dt_Carga":' + SQL_FloatToStr(Q.FieldByName('Dt_Carga').AsFloat) + ',' +
+        '"Dt_AlturaMax":' + SQL_FloatToStr(Q.FieldByName('Dt_AlturaMax').AsFloat) + ',' +
         '"Dt_Longitud":' + SQL_FloatToStr(Q.FieldByName('Dt_Longitud').AsFloat) + ',' +
         '"Dt_Anchura":' + SQL_FloatToStr(Q.FieldByName('Dt_Anchura').AsFloat) + ',' +
         '"Dt_Altura":' + SQL_FloatToStr(Q.FieldByName('Dt_Altura').AsFloat) + ',' +
