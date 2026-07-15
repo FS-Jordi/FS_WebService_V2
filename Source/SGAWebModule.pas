@@ -312,6 +312,9 @@ procedure WebModule1renumerarCajasAction ( Conn: TADOConnection; sParams, sRemot
 procedure WebModule1reordenarCajasPaletAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 // Mou una caixa d'un palet a un altre i renumera les caixes dels DOS palets afectats.
 procedure WebModule1moverCajaPaletAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+// Renumera (compacta) els palets d'una preparació segons l'ordre rebut → PaletId 1..N sense
+// forats, sincronitzant FS_SGA_PackingList (PaletId) + _PackagingPalet + _PackagingCaja (IdPalet).
+procedure WebModule1renumerarPaletsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1recibirLineaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1proximaUbicacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkUbicacionInventarioAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -24875,6 +24878,156 @@ begin
   Result := '{"Result":"OK","Error":"","Data":[{"PaletOrigen":' + IntToStr(PaletOrigen) +
     ',"PaletDesti":' + IntToStr(PaletDesti) + '}]}';
 
+  contentfields.Free;
+
+end;
+
+
+// Renumera (compacta) els palets d'una preparació 1..N sense forats.
+// Params: CodigoEmpresa, CodigoUsuario, UUID, IdPreparacion, Orden.
+//   Orden = llista de PaletId ACTUALS en l'ordre desitjat → nou PaletId = posició (1..N).
+procedure WebModule1renumerarPaletsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+const
+  OFFSET_TMP = 1000000;
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen, CodigoUsuario: Integer;
+  UUID: String;
+  contentfields: TStringList;
+  IdPreparacion: Integer;
+  sOrden: String;
+  llista: TStringList;
+  i, paletVell, paletNou: Integer;
+  sSQL: String;
+  CE: Integer;
+  LP: TLogTrace;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Paràmetres'}
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    contentfields.Free; Exit;
+  end;
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+  CE := CodigoEmpresa.EmpresaOrigen;
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  UUID          := contentfields.values['UUID'];
+
+  IdPreparacion := StrToIntDef(contentfields.values['IdPreparacion'],0);
+  sOrden        := contentfields.values['Orden'];
+  // Orden buit = no queda cap palet → només es fa el reset (pas 4): PaletActual/CajaActual a 1.
+  if IdPreparacion=0 then begin
+    Result := '{"Result":"ERROR","Message":"Parámetros incompletos","Data":[]}';
+    contentfields.Free; Exit;
+  end;
+
+  if FS_SGA_PreparacionServida ( Conn, IdPreparacion ) then begin
+    Result := '{"Result":"ERROR","Message":"La preparación ' + IntToStr(IdPreparacion) + ' ya está servida","Data":[]}';
+    contentfields.Free; Exit;
+  end;
+  {$ENDREGION}
+
+  {$REGION 'Renumeració amb offset temporal'}
+  llista := TStringList.Create;
+  llista.Delimiter := ','; llista.StrictDelimiter := True; llista.DelimitedText := sOrden;
+  try
+    // 0) NETEJA D'ÒRFENS: esborrem les files de _PackagingPalet i _PackagingCaja que ja no
+    //    tenen cap línia a FS_SGA_PackingList (acumulades per desexpedicions/renumeracions
+    //    prèvies). Evita IdPalet fantasma a les taules de packaging.
+    SQL_Execute_NoRes ( Conn,
+      'DELETE FROM FS_SGA_PackingList_PackagingCaja ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+      'AND NOT EXISTS ( SELECT 1 FROM FS_SGA_PackingList p WITH (NOLOCK) ' +
+      '  WHERE p.CodigoEmpresa = FS_SGA_PackingList_PackagingCaja.CodigoEmpresa ' +
+      '    AND p.PreparacionId = FS_SGA_PackingList_PackagingCaja.IdPreparacion ' +
+      '    AND p.PaletId = FS_SGA_PackingList_PackagingCaja.IdPalet ' +
+      '    AND p.CajaId = FS_SGA_PackingList_PackagingCaja.IdCaja )' );
+    SQL_Execute_NoRes ( Conn,
+      'DELETE FROM FS_SGA_PackingList_PackagingPalet ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+      'AND NOT EXISTS ( SELECT 1 FROM FS_SGA_PackingList p WITH (NOLOCK) ' +
+      '  WHERE p.CodigoEmpresa = FS_SGA_PackingList_PackagingPalet.CodigoEmpresa ' +
+      '    AND p.PreparacionId = FS_SGA_PackingList_PackagingPalet.IdPreparacion ' +
+      '    AND p.PaletId = FS_SGA_PackingList_PackagingPalet.IdPalet )' );
+
+    // 1) Offset temporal a TOTS els palets (FSPL + _PackagingPalet + _PackagingCaja).
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList SET PaletId = PaletId + ' + IntToStr(OFFSET_TMP) +
+      ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) );
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList_PackagingPalet SET IdPalet = IdPalet + ' + IntToStr(OFFSET_TMP) +
+      ', Palet = Palet + ' + IntToStr(OFFSET_TMP) +
+      ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) );
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList_PackagingCaja SET IdPalet = IdPalet + ' + IntToStr(OFFSET_TMP) +
+      ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) );
+
+    // 2) Assignem el nou PaletId (posició 1..N) a cada palet segons l'ordre.
+    for i := 0 to llista.Count - 1 do
+    begin
+      paletVell := StrToIntDef ( Trim(llista[i]), 0 );
+      if paletVell = 0 then Continue;
+      paletNou := i + 1;
+      SQL_Execute_NoRes ( Conn,
+        'UPDATE FS_SGA_PackingList SET PaletId = ' + IntToStr(paletNou) +
+        ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) +
+        ' AND PaletId = ' + IntToStr(paletVell + OFFSET_TMP) );
+      SQL_Execute_NoRes ( Conn,
+        'UPDATE FS_SGA_PackingList_PackagingPalet SET IdPalet = ' + IntToStr(paletNou) +
+        ', Palet = ' + IntToStr(paletNou) +
+        ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+        ' AND IdPalet = ' + IntToStr(paletVell + OFFSET_TMP) );
+      SQL_Execute_NoRes ( Conn,
+        'UPDATE FS_SGA_PackingList_PackagingCaja SET IdPalet = ' + IntToStr(paletNou) +
+        ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+        ' AND IdPalet = ' + IntToStr(paletVell + OFFSET_TMP) );
+    end;
+
+    // 3) Neteja defensiva de restes al rang temporal.
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList SET PaletId = PaletId - ' + IntToStr(OFFSET_TMP) +
+      ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND PreparacionId = ' + IntToStr(IdPreparacion) +
+      ' AND PaletId > ' + IntToStr(OFFSET_TMP) );
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList_PackagingPalet SET IdPalet = IdPalet - ' + IntToStr(OFFSET_TMP) +
+      ', Palet = Palet - ' + IntToStr(OFFSET_TMP) +
+      ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+      ' AND IdPalet > ' + IntToStr(OFFSET_TMP) );
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_PackingList_PackagingCaja SET IdPalet = IdPalet - ' + IntToStr(OFFSET_TMP) +
+      ' WHERE CodigoEmpresa = ' + IntToStr(CE) + ' AND IdPreparacion = ' + IntToStr(IdPreparacion) +
+      ' AND IdPalet > ' + IntToStr(OFFSET_TMP) );
+
+    // 4) PaletActual = MAX(PaletId)+1 (=1 si no en queda cap). Si no queda cap palet
+    //    expedit, CajaActual també torna a 1.
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_Picking_Preparaciones SET PaletActual = ' +
+      '(SELECT ISNULL(MAX(PaletId),0)+1 FROM FS_SGA_PackingList WITH (NOLOCK) WHERE PreparacionId = ' + IntToStr(IdPreparacion) + '), ' +
+      'CajaActual = CASE WHEN (SELECT COUNT(*) FROM FS_SGA_PackingList WITH (NOLOCK) WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ') = 0 THEN 1 ELSE CajaActual END ' +
+      'WHERE PreparacionId = ' + IntToStr(IdPreparacion) );
+  except
+    on E:Exception do begin
+      llista.Free;
+      Result := '{"Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+      contentfields.Free; Exit;
+    end;
+  end;
+  llista.Free;
+  {$ENDREGION}
+
+  LP := LOG_Clear();
+  LP.IdPreparacion := IdPreparacion;
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'RENUMBER-PALETS', 'Renumerar palets de la preparación', @LP );
+
+  Result := '{"Result":"OK","Error":"","Data":[]}';
   contentfields.Free;
 
 end;

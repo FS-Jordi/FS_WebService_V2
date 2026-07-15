@@ -4645,6 +4645,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/renumerarpalets') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1renumerarPaletsAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/getexpedicioncaja') then
     begin
       TAsyncWebModuleThread.Create(
