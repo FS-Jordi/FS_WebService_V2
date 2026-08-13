@@ -23,6 +23,7 @@ uses
   Functions_Updates in '..\..\..\COMMON\Functions_Updates.pas',
   Functions_Registry in '..\..\..\COMMON\Functions_Registry.pas',
   Functions_SGA in '..\..\..\COMMON\Functions_SGA.pas',
+  Functions_SGA_ReservaSage in '..\..\..\COMMON\Functions_SGA_ReservaSage.pas',
   Functions_LicenseDLL in '..\..\..\COMMON\Functions_LicenseDLL.pas',
   Functions_Types in '..\..\..\COMMON\Functions_Types.pas',
   PrintJobsWatchdog in '..\..\..\COMMON\PrintJobsWatchdog.pas';

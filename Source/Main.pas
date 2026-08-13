@@ -52,6 +52,7 @@ uses
   clHttpServer,
   clHttpRequest,
   clServerGuard,
+  clGZip,
   Functions_LogV2, IdBaseComponent, IdComponent, IdTCPConnection, IdTCPClient,
   IdHTTP, IdServerIOHandler, IdSSL, IdSSLOpenSSL, ppPrnabl, ppClass, ppCtrls,
   ppBarCod, ppBands, ppCache, ppDesignLayer, ppParameter, ppComm, ppRelatv,
@@ -285,6 +286,13 @@ var
   // Critical section específica para /generatepackinglistasis (secuencial)
   gPackingListAsisCS: TCriticalSection;
 
+  // Compresión gzip de respuestas JSON (activable/desactivable).
+  // Motivo: con el servidor en la nube, las PDA acceden por internet y el JSON
+  // sin comprimir es lento. El WebView de la PDA envía Accept-Encoding: gzip y
+  // descomprime de forma transparente.
+  gbGZipEnabled: Boolean = True;
+  giGZipMinBytes: Integer = 1024; // no comprimir cuerpos pequeños
+
 {$ENDREGION}
 
 
@@ -309,6 +317,62 @@ uses
   Functions_SAGE,
   Functions_Registry,
   Functions_EncryptDecrypt;
+
+{$ENDREGION}
+
+
+{$REGION '--- COMPRESSIÓ GZIP'}
+
+// Indica si cal comprimir aquesta resposta:
+//  - gzip global activat
+//  - cos prou gran
+//  - Content-Type JSON (no binaris com logos/prints)
+//  - el client accepta gzip (Accept-Encoding conté 'gzip')
+function ShouldGZip(const AContentType, AAcceptEncoding: string; ABodyLen: Integer): Boolean;
+begin
+  Result := gbGZipEnabled
+    and (ABodyLen >= giGZipMinBytes)
+    and (Pos('json', LowerCase(AContentType)) > 0)
+    and (Pos('gzip', LowerCase(AAcceptEncoding)) > 0);
+end;
+
+// Comprimeix un string de resposta (charset ISO-8859-1) a un TMemoryStream gzip.
+// El caller és propietari del stream retornat i l'ha d'alliberar.
+// Retorna nil si falla (el caller ha d'enviar el text sense comprimir).
+function GZipResponseToStream(const AResponse: string): TMemoryStream;
+var
+  gz: TclGZip;
+  src: TMemoryStream;
+  raw: RawByteString;
+begin
+  Result := nil;
+  src := nil;
+  gz := nil;
+  try
+    // El cos s'envia com ISO-8859-1: 1 byte per caràcter.
+    raw := RawByteString(AnsiString(AResponse));
+
+    src := TMemoryStream.Create;
+    if Length(raw) > 0 then
+      src.WriteBuffer(raw[1], Length(raw));
+    src.Position := 0;
+
+    Result := TMemoryStream.Create;
+    gz := TclGZip.Create(nil);
+    try
+      gz.Compress(src, Result);
+    finally
+      gz.Free;
+    end;
+    Result.Position := 0;
+  except
+    // Si la compressió falla, no bloquejar la resposta: retornar nil.
+    if Assigned(Result) then
+      FreeAndNil(Result);
+  end;
+  if Assigned(src) then
+    src.Free;
+end;
 
 {$ENDREGION}
 
@@ -382,6 +446,7 @@ var
   contentfields: TStringList;
   UUID: String;
   sParams2: String;
+  gzResp: TMemoryStream;
 begin
 
   bAsyncRequest := False;
@@ -459,7 +524,9 @@ begin
   SLHeader.Add('Access-Control-Allow-Origin:*');
   SLHeader.Add('Access-Control-Allow-Methods: PUT,POST,DELETE');
 
-  AConnection.ResponseHeader.ContentType := 'application/json; charset=ISO-8859-1';
+  // El charset l'afegeix la propietat CharSet; no el posem també al literal
+  // (sinó Clever el duplica: 'charset=ISO-8859-1; charset=ISO-8859-1').
+  AConnection.ResponseHeader.ContentType := 'application/json';
   AConnection.ResponseHeader.CharSet := 'ISO-8859-1';
   AConnection.ResponseHeader.ContentLanguage := 'es-ES';
   AConnection.ResponseHeader.ExtraFields.Assign(SLHeader);
@@ -3125,6 +3192,24 @@ begin
       );
       bAsyncRequest := True;
     end
+
+    else if (sCommand='/listarticulosubicaciontraspasos') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1listArticulosUbicacionTraspasosAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
 
     else if (sCommand='/listproveedores') then
     begin
@@ -5853,7 +5938,23 @@ begin
   else
   begin
     try
-      (Sender as TclHttpServer).SendResponse(AConnection, statusCode, statusText, sResponse);
+      gzResp := nil;
+      if ShouldGZip(AConnection.ResponseHeader.ContentType, AHeader.AcceptEncoding, Length(sResponse)) then
+        gzResp := GZipResponseToStream(sResponse);
+
+      if Assigned(gzResp) then
+      begin
+        try
+          // Content-Length el fixa l'overload de stream; només cal l'encoding.
+          AConnection.ResponseHeader.ContentEncoding := 'gzip';
+          AConnection.ResponseHeader.Update;
+          (Sender as TclHttpServer).SendResponse(AConnection, statusCode, statusText, gzResp);
+        finally
+          gzResp.Free;
+        end;
+      end
+      else
+        (Sender as TclHttpServer).SendResponse(AConnection, statusCode, statusText, sResponse);
     finally
       (Sender as TclHttpServer).EndWork;
     end;
@@ -6919,10 +7020,14 @@ var
   bConnectionValid: Boolean;
   sPeerIP: String;
   bShouldSendResponse: Boolean;
+  gzResp: TMemoryStream;
+  sAcceptEncoding: String;
 begin
   bConnectionValid := False;
   sPeerIP := '';
   bShouldSendResponse := True;
+  gzResp := nil;
+  sAcceptEncoding := '';
   
   try
     // Verificar que los objetos sigan válidos
@@ -6977,6 +7082,20 @@ begin
         FConnection.ResponseHeader.CharSet := FCharSet;
         FConnection.ResponseHeader.ContentLanguage := FContentLanguage;
         FConnection.ResponseHeader.ExtraFields.Assign(FExtraFields);
+
+        // gzip si el client ho accepta i el cos ho justifica.
+        try
+          sAcceptEncoding := FConnection.RequestHeader.AcceptEncoding;
+        except
+          sAcceptEncoding := '';
+        end;
+        if ShouldGZip(FContentType, sAcceptEncoding, Length(FResponse)) then
+        begin
+          gzResp := GZipResponseToStream(FResponse);
+          if Assigned(gzResp) then
+            FConnection.ResponseHeader.ContentEncoding := 'gzip';
+        end;
+
         FConnection.ResponseHeader.Update;
       except
         on E: Exception do
@@ -6993,7 +7112,10 @@ begin
         if Assigned(gHttpResponseCS) then
           gHttpResponseCS.Enter;
         try
-          FHttpServer.SendResponse(FConnection, FStatusCode, FStatusText, FResponse);
+          if Assigned(gzResp) then
+            FHttpServer.SendResponse(FConnection, FStatusCode, FStatusText, gzResp)
+          else
+            FHttpServer.SendResponse(FConnection, FStatusCode, FStatusText, FResponse);
         finally
           if Assigned(gHttpResponseCS) then
             gHttpResponseCS.Leave;
@@ -7025,7 +7147,10 @@ begin
                        CONST_LOGID_WEBSERVER, LOG_LEVEL_WARNING);
     end;
   end;
-    
+
+  if Assigned(gzResp) then
+    FreeAndNil(gzResp);
+
   // NOTA: Ya no llamamos a EndWork aquí porque lo llamamos en el hilo principal
   // para liberar el servidor inmediatamente.
   //if Assigned(gaLogFile) then

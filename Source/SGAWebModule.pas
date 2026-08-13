@@ -125,6 +125,7 @@ procedure WebModule1getComisionistasPreparacionesAction ( Conn: TADOConnection; 
 procedure WebModule1getRutasPreparacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getUbicacionesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listArticulosUbicacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1listArticulosUbicacionTraspasosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getZonasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listProveedoresAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listClientesAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -386,6 +387,7 @@ uses
   Functions_Network,
   Functions_DB,
   Functions_SGA,
+  Functions_SGA_ReservaSage,
   Functions_JSON,
   Functions_LicenseDll,
   Main;
@@ -15174,6 +15176,17 @@ begin
   RecepcionIdLinea := StrToIntDef(contentfields.Values['RecepcionIdLinea'], 0);
   sFotosJSON       := contentfields.Values['Fotos'];
 
+  if RecepcionId = 0 then
+  begin
+
+    sSQL :=
+      'SELECT RecepcionId ' +
+      'FROM FS_SGA_Recepciones_Lineas WITH (NOLOCK) ' +
+      'WHERE RecepcionIdLinea = ' + IntToStr(RecepcionIdLinea);
+    RecepcionId := SQL_Execute ( Conn, sSQL );
+
+  end;
+
   {$ENDREGION}
 
   {$REGION 'Actualització de dades'}
@@ -15595,6 +15608,8 @@ var
   iPages: Integer;
   EmpresaOrigen: Integer;
   Tipo: Integer;
+  AlbaranRequerido: Boolean;
+  sAlbaranRequerido: string;
   sWhere: String;
   contentfields: TStringList;
 {$ENDREGION}
@@ -15623,7 +15638,13 @@ begin
     CodigoEmpresa
   );
 
-  Tipo := StrToIntDef(contentfields.Values['Tipo'], 0);
+  Tipo             := StrToIntDef(contentfields.Values['Tipo'], 0);
+  AlbaranRequerido := StrToIntDef(contentfields.Values['AlbaranRequerido'],0)<>0;
+
+  if AlbaranRequerido then
+    sAlbaranRequerido := 'AND AlbaranRequerido = 0 '
+  else
+    sAlbaranRequerido := '';
 
   {$ENDREGION}
 
@@ -15633,10 +15654,10 @@ begin
           '  COUNT(*) ' +
           'FROM dbo.FS_SGA_InformesPredefinidos WITH (NOLOCK) ' +
           'WHERE ' +
-          '  (CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' OR ' +
-          '  CodigoEmpresa = 0 ) AND ' +
-          '  Tipo = ' + IntToStr(Tipo) + ' AND ' +
-          '  Activo <> 0';
+          '  (CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' OR CodigoEmpresa = 0 ) ' +
+          '  AND Tipo = ' + IntToStr(Tipo) + ' ' +
+          '  AND Activo <> 0 ' +
+          sAlbaranRequerido;
 
   try
     iTotalRegs := SQL_Execute ( Conn, sSQL );
@@ -15661,16 +15682,17 @@ begin
           '  * ' +
           'FROM dbo.FS_SGA_InformesPredefinidos WITH (NOLOCK) ' +
           'WHERE ' +
-          '  (CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' OR ' +
-          '  CodigoEmpresa = 0 ) AND ' +
-          '  Tipo = ' + IntToStr(Tipo) + ' AND ' +
-          '  Activo <> 0 ' +
+          '  (CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' OR CodigoEmpresa = 0 ) ' +
+          '  AND Tipo = ' + IntToStr(Tipo) + ' ' +
+          '  AND Activo <> 0 ' +
+          sAlbaranRequerido + ' ' +
           'ORDER BY ' +
           '  Id ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
+  gaLogFile.Write(sSQL);
 
   try
     Q.Open;
@@ -15731,6 +15753,8 @@ var
   EmpresaOrigen: Integer;
   Tipo: Integer;
   Subtipo: Integer;
+  AlbaranRequerido: Boolean;
+  sAlbaranRequerido: string;
   contentfields: TStringList;
   sSage, sSga: String;
   sPathInformes: String;
@@ -15758,6 +15782,12 @@ begin
 
   Tipo    := StrToIntDef(contentfields.Values['Tipo'], 0);
   Subtipo := StrToIntDef(contentfields.Values['Subtipo'], 0);
+  AlbaranRequerido := StrToIntDef(contentfields.Values['AlbaranRequerido'],0)<>0;
+
+  if AlbaranRequerido then
+    sAlbaranRequerido := 'AND AlbaranRequerido = 0 '
+  else
+    sAlbaranRequerido := '';
 
   {$ENDREGION}
 
@@ -15770,10 +15800,10 @@ begin
           '  * ' +
           'FROM dbo.FS_SGA_InformesPredefinidos WITH (NOLOCK) ' +
           'WHERE ' +
-          '  (CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' OR ' +
-          '  CodigoEmpresa = 0 ) AND ' +
-          '  Tipo = ' + IntToStr(Tipo) + ' AND ' +
-          '  Activo <> 0 ' +
+          '  (CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' OR CodigoEmpresa = 0 ) ' +
+          '  AND Tipo = ' + IntToStr(Tipo) + ' ' +
+          '  AND Activo <> 0 ' +
+          sAlbaranRequerido + ' ' +
           'ORDER BY ' +
           '  Id';
 
@@ -17039,9 +17069,7 @@ begin
 
   sSQL := sSQL +
     'ORDER BY ' +
-    '  FSTA.CodigoEmpresa, FSTA.CodigoAlmacen ' +
-    'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
-    'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+    '  FSTA.CodigoEmpresa, FSTA.CodigoAlmacen ';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   try
@@ -31062,6 +31090,329 @@ end;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ LLISTAT D'ARTICLES D'UNA UBICACIÓ DEL MAGATZEM                        │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+procedure WebModule1listArticulosUbicacionTraspasosAction
+ ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  CodigoAlmacen: String;
+  sSQL, sSQL2: String;
+  Q: TADOQuery;
+  iTotalRegs, iNumRegs: Integer;
+  iPageSize, iPage: Integer;
+  iPages: Integer;
+  CodigoUbicacion: string;
+  Ejercicio: Integer;
+  EmpresaOrigen: Integer;
+  OrdenarPor: String;
+  Desglosar: Boolean;
+  CodigoTalla: String;
+  CodigoColor: String;
+  Partida: String;
+  TipoOrden: String;
+  sOrderBy: String;
+  CodigoArticulo: string;
+  sFiltre: string;
+  JSonUnidadesMedida: String;
+  contentfields: TStringList;
+  UUID: String;
+  Matricula: String;
+  sFieldTratamientoSeries: string;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  iPage     := StrToIntDef(contentfields.values['Page'],0);
+  iPageSize := StrToIntDef(contentfields.values['PageSize'],DEFAULT_PAGE_SIZE);
+  if iPageSize=0 then iPageSize := DEFAULT_PAGE_SIZE;
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+  //CodigoEmpresa := SAGE_EMPRESA_EmpresaOrigen ( Conn, EmpresaOrigen, 'Almacenes' );
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  UUID := (contentfields.Values['UUID']);
+  gaLogFile.MAC := UUID;
+
+  Matricula := contentfields.values['Matricula'];
+  CodigoAlmacen := contentfields.values['CodigoAlmacen'];
+  if CodigoAlmacen='' then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de almacén no especificado","Data":[]}';
+    Exit;
+  end;
+
+  CodigoUbicacion := (contentfields.Values['CodigoUbicacion']);
+
+  // Conversió al codi d'article real
+  CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, CodigoUbicacion );
+  if CodigoUbicacion='' then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de ubicación no especificado","Data":[]}';
+    Exit;
+  end;
+
+  Desglosar := (AnsiUpperCase(trim(contentfields.values['Desglosar']))='TRUE');
+  CodigoArticulo := (contentfields.values['CodigoArticulo']);
+  CodigoTalla := (contentfields.values['CodigoTalla']);
+  CodigoColor := (contentfields.values['CodigoColor']);
+  Partida := (contentfields.values['Partida']);
+
+  // Conversió al codi d'article real
+  if CodigoArticulo<>'' then begin
+    CodigoArticulo := ARTICULO_CodigoFromAlternativo ( Conn, CodigoEmpresa, CodigoArticulo );
+    if CodigoArticulo='' then begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de artículo especificado incorrecto","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  Ejercicio := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
+
+  OrdenarPor := AnsiUpperCase((contentfields.values['OrdenarPor']));
+  TipoOrden  := AnsiUpperCase((contentfields.values['TipoOrden']));
+  sOrderBy   := '';
+
+  if OrdenarPor='FECHAENTRADA' then begin
+    if TipoOrden='DESC' then begin
+      sOrderBy := 'fsas.FechaUltimaEntrada DESC, fsas.CodigoArticulo DESC, fsas.Partida DESC ';
+    end else begin
+      sOrderBy := 'fsas.FechaUltimaEntrada, fsas.CodigoArticulo, fsas.Partida ';
+    end;
+  end else begin
+    if TipoOrden='DESC' then begin
+      sOrderBy := 'fsas.CodigoArticulo DESC, fsas.Partida DESC ';
+    end else begin
+      sOrderBy := 'fsas.CodigoArticulo, fsas.Partida ';
+    end;
+  end;
+
+  sFiltre := '';
+  if CodigoArticulo<>'' then
+  begin
+    sFiltre := sFiltre + 'AND fsas.CodigoArticulo=''' + SQL_Str(CodigoArticulo) + ''' ';
+  end;
+
+  if Partida<>'' then
+  begin
+    sFiltre := sFiltre + 'AND fsas.Partida=''' + SQL_Str(Partida) + ''' ';
+  end;
+
+  if CodigoTalla<>'' then
+  begin
+    sFiltre := sFiltre + 'AND fsas.CodigoTalla01_=''' + SQL_Str(CodigoTalla) + ''' ';
+  end;
+
+  if CodigoColor<>'' then
+  begin
+    sFiltre := sFiltre + 'AND fsas.CodigoColor_=''' + SQL_Str(CodigoColor) + ''' ';
+  end;
+
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de totals'}
+
+  sSQL := 'SELECT ' +
+          '  COUNT(*) ' +
+          'FROM dbo.FS_SGA_TABLE_AcumuladoStock ( ' + IntToStr(CodigoEmpresa.Stocks) + ' ) fsas ' +
+          'WHERE ' +
+          '  CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' ' +
+          '  AND CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ' +
+          '  AND Matricula = ''' + SQL_Str(Matricula) + ''' ' +
+          '  AND Ejercicio = ' + IntToStr(Ejercicio) + ' ' +
+          '  AND Periodo = 99 ' +
+          '  AND (UnidadesSaldo <> 0 OR UnidadesSaldo <> 0) ' +
+          sFiltre;
+
+  try
+    iTotalRegs := SQL_Execute ( Conn, sSQL );
+  except
+    on E:Exception do begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '"","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  if Frac(iTotalRegs / iPageSize)=0 then begin
+    iPages := iTotalRegs div iPageSize;
+  end else begin
+    iPages := Trunc(iTotalRegs div iPageSize)+1;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  // ALFRAN: Traspassos no necessiten números de sèrie
+  sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'a', '', TRUE );
+
+  sSQL :=
+    'SELECT ' +
+    '''' + SQL_Str(UUID) + ''' AS UUID, ' +
+    '  fsas.Partida, ' +
+    '  fsas.UnidadesSaldo,' +
+    '  fsas.UnidadesSaldoBase, ' +
+    '  fsas.UnidadesSaldoBase * a.PesoBrutoUnitario_ AS PesoBruto, ' +
+    '  fsas.UnidadesSaldoBase * a.PesoNetoUnitario_ AS PesoNeto, ' +
+    '  fsas.UnidadesSaldoBase * a.VolumenUnitario_ AS Volumen, ' +
+    '  fsas.CodigoColor_, ' +
+    '  fsas.CodigoTalla01_, ' +
+    '  fsas.CodigoArticulo, ' +
+    '  a.DescripcionArticulo, ' +
+    '  a.Descripcion2Articulo, ' +
+    '  a.CodigoAlternativo, ' +
+    '  a.CodigoAlternativo2, ' +
+    '  CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
+    '  a.TratamientoPartidas, ' +
+    sFieldTratamientoSeries + 'AS TrataNumerosSerieLc, ' +
+    '  a.Colores_, ' +
+    '  a.FactorConversion_, ' +
+    '  a.GrupoTalla_, ' +
+    '  fsas.FechaUltimaEntrada, ' +
+    '  fsas.UnidadMedida, ' +
+    '  fsas.UnidadMedidaBase, ' +
+    '  fsas.FechaCaduca, ' +
+    '  c.Color_ AS DescripcionColor, ' +
+    '  t.DescripcionTalla01_ AS DescripcionTalla ' +
+    'FROM dbo.FS_SGA_TABLE_AcumuladoStock ( ' + IntToStr(CodigoEmpresa.Stocks) + ' ) fsas ' +
+    'LEFT JOIN dbo.FS_SGA_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) a ' +
+    'ON ' +
+    '  fsas.CodigoArticulo = a.CodigoArticulo ' +
+    'LEFT JOIN Colores_ c WITH (NOLOCK) ' +
+    'ON ' +
+    '  c.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Colores) + ' ' +
+    '  AND c.CodigoColor_ = fsas.CodigoColor_ ' +
+    'LEFT JOIN Vis_VistaTallas t WITH (NOLOCK) ' +
+    'ON ' +
+    '  t.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.GrupoTallas) + ' ' +
+    '  AND t.GrupoTalla_= a.GrupoTalla_ ' +
+    '  AND t.CodigoTalla01_ = fsas.CodigoTalla01_ ' +
+    'LEFT JOIN CodigosTallaColor CTC WITH (NOLOCK) ' +
+    'ON ' +
+    '  CTC.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.CodigosTallaColor) + ' ' +
+    '  AND CTC.CodigoArticulo = fsas.CodigoArticulo ' +
+    '  AND CTC.CodigoTalla01_ = fsas.CodigoTalla01_ ' +
+    '  AND CTC.CodigoColor_ = fsas.CodigoColor_ ' +
+    'WHERE ' +
+    '  fsas.CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' ' +
+    '  AND fsas.CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ' +
+    '  AND fsas.Matricula = ''' + SQL_Str(Matricula) + ''' ' +
+    '  AND fsas.Ejercicio = ' + IntToStr(Ejercicio) + ' ' +
+    '  AND fsas.Periodo = 99 ' +
+    '  AND (fsas.UnidadesSaldo<>0 OR fsas.UnidadesSaldoBase<>0) ' +
+    sFiltre +
+    'ORDER BY ' +
+    sOrderBy +
+    'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
+    'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
+
+  if Desglosar then
+  begin
+
+    sSQL2 :=
+      'DELETE FROM FS_SGA_TraspasosTemp ' +
+      'WHERE ' +
+      '  UUID = ''' + SQL_Str(UUID) + '''';
+    SQL_Execute_NoRes ( Conn, sSQL2 );
+
+    sSQL2 :=
+      'INSERT INTO FS_SGA_TraspasosTemp ( UUID, Partida, UnidadesSaldo, UnidadesSaldoBase, PesoBruto, ' +
+      '  PesoNeto, Volumen, CodigoColor_, CodigoTalla01_, CodigoArticulo, DescripcionArticulo, ' +
+      '  Descripcion2Articulo, CodigoAlternativo, CodigoAlternativo2, CodigoAlternativoTC, TratamientoPartidas, ' +
+      '  TratamientoSeries, Colores_, FactorConversion_, GrupoTalla_, FechaUltimaEntrada, UnidadMedida, UnidadMedidaBase, ' +
+      '  FechaCaduca, DescripcionColor, DescripcionTalla ) ' +
+    sSQL;
+    SQL_Execute_NoRes ( Conn, sSQL2 );
+
+  end;
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+  except
+    on E:Exception do begin
+      Q.Close;
+      FreeAndNil(Q);
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '"","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  iNumRegs := Q.RecordCount;
+  Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumPages":' + IntToStr(iPages) + ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[';
+  iNumRegs := 0;
+
+  while not Q.Eof do begin
+
+    if iNumRegs<>0 then
+      Result := Result + ',';
+
+    CodigoArticulo := Q.FieldByName('CodigoArticulo').AsString;
+    Inc(iNumRegs);
+
+    JSonUnidadesMedida := SGA_FS_ARTICULO_Obtener_UnidadesMedida ( Conn, CodigoEmpresa, CodigoArticulo );
+
+    Result := Result + '{' +
+      '"CodigoArticulo":"' + JSON_Str(CodigoArticulo) + '",' +
+      '"DescripcionArticulo":"' + JSON_Str(Q.FieldByName('DescripcionArticulo').AsString) + '",' +
+      '"Descripcion2Articulo":"' + JSON_Str(Q.FieldByName('Descripcion2Articulo').AsString) + '",' +
+      '"CodigoArticuloAlternativo":"' + JSON_Str(Q.FieldByName('CodigoAlternativo').AsString) + '",' +
+      '"CodigoAlternativo":"' + JSON_Str(Q.FieldByName('CodigoAlternativo').AsString) + '",' +
+      '"CodigoAlternativo2":"' + JSON_Str(Q.FieldByName('CodigoAlternativo2').AsString) + '",' +
+      '"CodigoAlternativoTC":"' + JSON_Str(Q.FieldByName('CodigoAlternativoTC').AsString) + '",' +
+      '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedida').AsString)) + '",' +
+      '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
+      //'"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
+      '"FechaCaduca":"' + JSON_Str(Q.FieldByName('FechaCaduca').AsString) + '",' +
+      '"FechaUltimaEntrada":"' + JSON_Str(Q.FieldByName('FechaUltimaEntrada').AsString) + '",' +
+      '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '",' +
+      '"GrupoTalla":' + IntToStr(Q.FieldByName('GrupoTalla_').AsInteger) + ',' +
+      '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
+      '"DescripcionTalla":"' + JSON_Str(Q.FieldByName('DescripcionTalla').AsString) + '",' +
+      '"CodigoColor":"' + JSON_Str(Q.FieldByName('CodigoColor_').AsString) + '",' +
+      '"DescripcionColor":"' + JSON_Str(Q.FieldByName('DescripcionColor').AsString) + '",' +
+      '"UnidadesSaldo":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldo').AsFloat) + ',' +
+      '"UnidadesSaldoBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldoBase').AsFloat) + ',' +
+      '"TratamientoPartidas":' + IntToStr(Q.FieldByName('TratamientoPartidas').AsInteger) + ',' +
+      '"TratamientoSeries":' + SQL_BooleanToStr(Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0) + ',' +
+      '"TratamientoColores":' + SQL_BooleanToStr(Q.FieldByName('Colores_').AsInteger<>0) + ',' +
+      '"PesoNeto":' + SQL_FloatToStr(Q.FieldByName('PesoNeto').AsFloat) + ',' +
+      '"PesoBruto":' + SQL_FloatToStr(Q.FieldByName('PesoBruto').AsFloat) + ',' +
+      '"Volumen":' + SQL_FloatToStr(Q.FieldByName('Volumen').AsFloat) + ',' +
+      '"Selected":1,' +
+      JSonUnidadesMedida +
+      '}';
+
+    Q.Next;
+
+  end;
+
+  Result := Result + ']}';
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  {$ENDREGION}
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ LLISTAT DE PASSADISSOS D'UN MAGATZEM                                  │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
 procedure WebModule1getPasilloAction
@@ -32987,6 +33338,21 @@ var
   iDeltaNet: Integer;
   sNS_NumeroSerie, sNS_NumeroSerieFabricante: String;
   bTransOk: Boolean;
+  gaMovQuadre: TSGAMovimientoStock;
+  ClavesQuadre: array of record
+    Partida: String;
+    CodigoColor: String;
+    CodigoTalla: String;
+    UnidadMedida: String;
+    UnidadMedidaBase: String;
+    FactorConversion: Double;
+    FechaCaduca: TDate;
+    Descuadre: Double;
+    DescuadreBase: Double;
+  end;
+  iQuadre, iPasada: Integer;
+  bCuadrarStockSage: Boolean;
+  TipoMovSageMov: TTipoMovimientoSAGE;
 {$ENDREGION}
 
 begin
@@ -33134,6 +33500,21 @@ begin
       iSeriesEntrada   := JSonArrayEntrada.Count;
     end;
   end;
+
+  // Si el quadre d'stock amb SAGE està desactivat, els moviments de SAGE es fan
+  // directament des de cada moviment del SGA, tal com es feia sempre.
+  PARAM_Read_Default ( Conn,
+                       'FS_SGA_Parametros',
+                       FS_PARAMS_SGA_CuadrarStockSage,
+                       bCuadrarStockSage,
+                       FALSE,
+                       CodigoEmpresa.EmpresaOrigen
+  );
+
+  if bCuadrarStockSage then
+    TipoMovSageMov := []
+  else
+    TipoMovSageMov := [tmsageMovimientoStock];
 
   // Detectem si hi ha canvi d'atributs (partida, talla, color, UM, data caducitat)
   bCanviAtributs :=
@@ -33366,7 +33747,7 @@ begin
       gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
       gaMov.Precio                 := Precio;
       gaMov.TipoMovimientoSGA      := [];
-      gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+      gaMov.TipoMovimientoSAGE     := TipoMovSageMov;
 
       if (fOldCantidad>0) or (fOldCantidadBase>0) then
       begin
@@ -33397,7 +33778,7 @@ begin
       gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
       gaMov.Precio                 := Precio;
       gaMov.TipoMovimientoSGA      := [];
-      gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+      gaMov.TipoMovimientoSAGE     := TipoMovSageMov;
 
       if (fNewCantidad>0) or (fNewCantidadBase>0) then
       begin
@@ -33433,7 +33814,7 @@ begin
         gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
         gaMov.Precio                 := Precio;
         gaMov.TipoMovimientoSGA      := [];
-        gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+        gaMov.TipoMovimientoSAGE     := TipoMovSageMov;
 
         if Precio=0 then
           gaMov.Precio := ARTICULO_ConsultarPrecioStock ( Conn, CodigoEmpresa, gaMov.CodigoArticulo, gaMov.Partida, gaMov.CodigoColor, gaMov.CodigoTalla, gaMov.CodigoAlmacen, gaMov.GrupoTalla );
@@ -33463,7 +33844,7 @@ begin
         gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
         gaMov.Precio                 := Precio;
         gaMov.TipoMovimientoSGA      := [];
-        gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+        gaMov.TipoMovimientoSAGE     := TipoMovSageMov;
 
         if Precio=0 then
           gaMov.Precio := ARTICULO_ConsultarPrecioStock ( Conn, CodigoEmpresa, gaMov.CodigoArticulo, gaMov.Partida, gaMov.CodigoColor, gaMov.CodigoTalla, gaMov.CodigoAlmacen, gaMov.GrupoTalla );
@@ -33582,8 +33963,10 @@ begin
     gaMov.UnidadMedida           := AnsiUpperCase(sNewUnidadMedida);
     gaMov.UnidadMedidaBase       := AnsiUpperCase(sNewUnidadMedidaBase);
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    // Només movem el SGA: el moviment de SAGE es fa al final, un únic quadre per clau,
+    // quan el SGA ja té l'estat definitiu.
     gaMov.TipoMovimientoSGA      := [tmsgaMovimientoStock];
-    gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
+    gaMov.TipoMovimientoSAGE     := TipoMovSageMov;
 
     if Precio=0 then
       gaMov.Precio := ARTICULO_ConsultarPrecioStock ( Conn, CodigoEmpresa, gaMov.CodigoArticulo, gaMov.Partida, gaMov.CodigoColor, gaMov.CodigoTalla, gaMov.CodigoAlmacen, gaMov.GrupoTalla );
@@ -33684,6 +34067,8 @@ begin
     gaMov.Precio                 := Precio;
     gaMov.MovOrigen              := MovOrigen;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.TipoMovimientoSGA      := [tmsgaMovimientoStock];
+    gaMov.TipoMovimientoSAGE     := TipoMovSageMov;
 
     if Precio=0 then
       gaMov.Precio := ARTICULO_ConsultarPrecioStock ( Conn, CodigoEmpresa, gaMov.CodigoArticulo, gaMov.Partida, gaMov.CodigoColor, gaMov.CodigoTalla, gaMov.CodigoAlmacen, gaMov.GrupoTalla );
@@ -33768,6 +34153,129 @@ begin
     end;
 
   end;
+
+  {$REGION 'Quadre de l''stock de SAGE amb el del SGA'}
+
+  // Arribats aquí tots els moviments del SGA ja s'han realitzat i els acumuladors
+  // del SGA tenen l'estat definitiu. Ara fem un únic moviment de quadre per cada clau
+  // afectada perquè els acumuladors de SAGE coincideixin amb els del SGA.
+  //
+  // Important: a SAGE sempre fem primer l'entrada i després la sortida per no generar
+  // saldos negatius transitoris.
+  //
+  // Si el paràmetre de quadre està desactivat no fem res: els moviments de SAGE ja
+  // s'han generat des de cada moviment del SGA.
+  if bCuadrarStockSage then
+  begin
+
+  // Preparem un moviment net, sense reaprofitar l'estat dels moviments anteriors
+  SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMovQuadre );
+
+  gaMovQuadre.CodigoEmpresa      := CodigoEmpresa.Stocks;
+  gaMovQuadre.EmpresaOrigen      := CodigoEmpresa.EmpresaOrigen;
+  gaMovQuadre.CodigoUsuario      := CodigoUsuario;
+  gaMovQuadre.Ejercicio          := YY;
+  gaMovQuadre.Periodo            := MM;
+  gaMovQuadre.Fecha              := Date();
+  gaMovQuadre.FechaHora          := Now();
+  gaMovQuadre.CodigoAlmacen      := CodigoAlmacen;
+  gaMovQuadre.CodigoUbicacion    := CodigoUbicacion;
+  gaMovQuadre.CodigoArticulo     := CodigoArticulo;
+  gaMovQuadre.IdDocumento        := IdDocumento;
+  gaMovQuadre.Serie              := Serie;
+  gaMovQuadre.GrupoTalla         := GrupoTalla_;
+  gaMovQuadre.Matricula          := Matricula;
+  gaMovQuadre.CodigoProveedor    := CodigoProveedor;
+  gaMovQuadre.MovOrigen          := MovOrigen;
+  gaMovQuadre.Comentario         := 'PDA Cuadre regulariz.';
+  gaMovQuadre.TipoMovimientoSGA  := [];
+  gaMovQuadre.TipoMovimientoSAGE := [tmsageMovimientoQuadreStock];
+
+  // Construïm la llista de claus a quadrar. Si hi ha canvi d'atributs són dues claus
+  // diferents (la vella i la nova); si no, n'hi ha prou amb una.
+  SetLength ( ClavesQuadre, 0 );
+
+  SetLength ( ClavesQuadre, 1 );
+  ClavesQuadre[0].Partida          := sNewPartida;
+  ClavesQuadre[0].CodigoColor      := sNewColor;
+  ClavesQuadre[0].CodigoTalla      := sNewTalla;
+  ClavesQuadre[0].UnidadMedida     := AnsiUpperCase(sNewUnidadMedida);
+  ClavesQuadre[0].UnidadMedidaBase := AnsiUpperCase(sNewUnidadMedidaBase);
+  ClavesQuadre[0].FactorConversion := fNewFactorConversion;
+  ClavesQuadre[0].FechaCaduca      := dFechaCaduca;
+
+  if bCanviAtributs then
+  begin
+    SetLength ( ClavesQuadre, 2 );
+    ClavesQuadre[1].Partida          := sOldPartida;
+    ClavesQuadre[1].CodigoColor      := sOldColor;
+    ClavesQuadre[1].CodigoTalla      := sOldTalla;
+    ClavesQuadre[1].UnidadMedida     := AnsiUpperCase(sOldUnidadMedida);
+    ClavesQuadre[1].UnidadMedidaBase := AnsiUpperCase(sOldUnidadMedidaBase);
+    ClavesQuadre[1].FactorConversion := fOldFactorConversion;
+    ClavesQuadre[1].FechaCaduca      := 0;
+  end;
+
+  // Calculem el descuadre de cada clau abans de moure res, per poder ordenar
+  // les entrades abans que les sortides.
+  for iQuadre := 0 to High(ClavesQuadre) do
+  begin
+    ClavesQuadre[iQuadre].Descuadre :=
+      SGA_FS_ALMACEN_DescuadreStock (
+        Conn,
+        CodigoEmpresa,
+        YY,
+        CodigoAlmacen,
+        CodigoArticulo,
+        ClavesQuadre[iQuadre].Partida,
+        ClavesQuadre[iQuadre].CodigoColor,
+        ClavesQuadre[iQuadre].CodigoTalla,
+        ClavesQuadre[iQuadre].UnidadMedida,
+        ClavesQuadre[iQuadre].DescuadreBase
+      );
+  end;
+
+  // Primera passada: entrades (descuadre positiu). Segona passada: sortides.
+  for iPasada := 0 to 1 do
+  begin
+
+    for iQuadre := 0 to High(ClavesQuadre) do
+    begin
+
+      if bErr then Break;
+
+      // Passada 0 -> només entrades; passada 1 -> només sortides
+      if (iPasada=0) and (ClavesQuadre[iQuadre].Descuadre <= 0) then Continue;
+      if (iPasada=1) and (ClavesQuadre[iQuadre].Descuadre >= 0) then Continue;
+
+      gaMovQuadre.Partida          := ClavesQuadre[iQuadre].Partida;
+      gaMovQuadre.CodigoColor      := ClavesQuadre[iQuadre].CodigoColor;
+      gaMovQuadre.CodigoTalla      := ClavesQuadre[iQuadre].CodigoTalla;
+      gaMovQuadre.UnidadMedida     := ClavesQuadre[iQuadre].UnidadMedida;
+      gaMovQuadre.UnidadMedidaBase := ClavesQuadre[iQuadre].UnidadMedidaBase;
+      gaMovQuadre.FactorConversion := ClavesQuadre[iQuadre].FactorConversion;
+      gaMovQuadre.FechaCaduca      := ClavesQuadre[iQuadre].FechaCaduca;
+      gaMovQuadre.MovPosicion      := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      gaMovQuadre.Precio           := Precio;
+
+      if Precio=0 then
+        gaMovQuadre.Precio := ARTICULO_ConsultarPrecioStock ( Conn, CodigoEmpresa, gaMovQuadre.CodigoArticulo, gaMovQuadre.Partida, gaMovQuadre.CodigoColor, gaMovQuadre.CodigoTalla, gaMovQuadre.CodigoAlmacen, gaMovQuadre.GrupoTalla );
+
+      // SGA_FS_ALMACEN_MovimientoStock recalcula el descuadre i decideix el sentit
+      // i les unitats del moviment de SAGE.
+      if not bErr then try
+        bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMovQuadre, sMsg );
+      except
+        on E:Exception do begin bErr := TRUE; sMsg := E.Message + ' - ' + sMsg; end;
+      end;
+
+    end;
+
+  end;
+
+  end;
+
+  {$ENDREGION}
 
   (*sSQL := 'INSERT INTO ' +
           '  FS_Operations ( oper_product_code, oper_name, oper_datetime, oper_status, oper_params, oper_CodigoEmpresa ) ' +
@@ -33918,6 +34426,8 @@ var
   lJSonValue: TJSonValue;
   NumeroSerie: String;
   NumeroSerieFabricante: String;
+  bCuadrarStockSage: Boolean;
+  TipoMovSageMov: TTipoMovimientoSAGE;
 {$ENDREGION}
 
 begin
@@ -34207,6 +34717,21 @@ begin
   iLastID := 0;
   iStatus := 1;
 
+  // Si el quadre d'stock amb SAGE està activat, el moviment de SAGE no es fa des del
+  // moviment del SGA sinó al final, ajustant les unitats perquè els acumulats quadrin.
+  PARAM_Read_Default ( Conn,
+                       'FS_SGA_Parametros',
+                       FS_PARAMS_SGA_CuadrarStockSageEntradas,
+                       bCuadrarStockSage,
+                       FALSE,
+                       CodigoEmpresa.EmpresaOrigen
+  );
+
+  if bCuadrarStockSage then
+    TipoMovSageMov := []
+  else
+    TipoMovSageMov := [tmsageMovimientoStock];
+
   SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
@@ -34246,10 +34771,10 @@ begin
     gaMov.Unidades           := Unidades;
     gaMov.UnidadesBase       := UnidadesBase;
     gaMov.TipoMovimientoSGA  := [];
-    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+    gaMov.TipoMovimientoSAGE := TipoMovSageMov;
 
     // Fem el moviment a Sage de l'stock total del moviment
-    if not bErr then try
+    if (not bErr) and (gaMov.TipoMovimientoSAGE<>[]) then try
       bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
     except
       on E:Exception do begin
@@ -34286,7 +34811,7 @@ begin
     gaMov.Unidades           := Unidades;
     gaMov.UnidadesBase       := UnidadesBase;
     gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
-    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+    gaMov.TipoMovimientoSAGE := TipoMovSageMov;
 
     if not bErr then try
       bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
@@ -34298,6 +34823,36 @@ begin
     end;
 
   end;
+
+  {$REGION 'Quadre de l''stock de SAGE amb el del SGA'}
+
+  // Els moviments del SGA ja s'han realitzat i el trigger TRG_ACT_ACUMULADO_ALMACEN
+  // ja ha actualitzat els acumuladors, així que ara podem calcular quantes unitats
+  // cal moure a SAGE perquè els seus acumuladors coincideixin amb els del SGA.
+  if bCuadrarStockSage and (not bErr) then
+  begin
+
+    gaMov.MovPosicion        := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.NumeroSerie        := '';
+    gaMov.NumeroSerieFabricante := '';
+    gaMov.Unidades           := Unidades;
+    gaMov.UnidadesBase       := UnidadesBase;
+    gaMov.Comentario         := 'PDA Cuadre entrada';
+    gaMov.TipoMovimientoSGA  := [];
+    gaMov.TipoMovimientoSAGE := [tmsageMovimientoQuadreStock];
+
+    try
+      bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+      end;
+    end;
+
+  end;
+
+  {$ENDREGION}
 
   (*
   sSQL := 'INSERT INTO TmpIME_MovimientoStock ( ' +
@@ -35778,6 +36333,8 @@ var
   lJSonValue: TJSonValue;
   NumeroSerie: String;
   NumeroSerieFabricante: String;
+  bCuadrarStockSage: Boolean;
+  TipoMovSageMov: TTipoMovimientoSAGE;
 {$ENDREGION}
 
 begin
@@ -36099,6 +36656,21 @@ begin
 
   end;
 
+  // Si el quadre d'stock amb SAGE està activat, el moviment de SAGE no es fa des del
+  // moviment del SGA sinó al final, ajustant les unitats perquè els acumulats quadrin.
+  PARAM_Read_Default ( Conn,
+                       'FS_SGA_Parametros',
+                       FS_PARAMS_SGA_CuadrarStockSageSalidas,
+                       bCuadrarStockSage,
+                       FALSE,
+                       CodigoEmpresa.EmpresaOrigen
+  );
+
+  if bCuadrarStockSage then
+    TipoMovSageMov := []
+  else
+    TipoMovSageMov := [tmsageMovimientoStock];
+
   SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
   gaMov.EmpresaOrigen          := CodigoEmpresa.EmpresaOrigen;
@@ -36156,10 +36728,10 @@ begin
     gaMov.Unidades           := Unidades;
     gaMov.UnidadesBase       := UnidadesBase;
     gaMov.TipoMovimientoSGA  := [];
-    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+    gaMov.TipoMovimientoSAGE := TipoMovSageMov;
 
     // Fem el moviment a Sage de l'stock total del moviment
-    if not bErr then try
+    if (not bErr) and (gaMov.TipoMovimientoSAGE<>[]) then try
       bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
     except
       on E:Exception do begin
@@ -36199,7 +36771,7 @@ begin
 
     // Fem els moviments a les taules del SGA (sense sèries)
     gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
-    gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+    gaMov.TipoMovimientoSAGE := TipoMovSageMov;
 
     if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
@@ -36207,6 +36779,30 @@ begin
     end;
 
   end;
+
+  {$REGION 'Quadre de l''stock de SAGE amb el del SGA'}
+
+  // Els moviments del SGA ja s'han realitzat i el trigger TRG_ACT_ACUMULADO_ALMACEN
+  // ja ha actualitzat els acumuladors, així que ara podem calcular quantes unitats
+  // cal moure a SAGE perquè els seus acumuladors coincideixin amb els del SGA.
+  if bCuadrarStockSage then
+  begin
+
+    gaMov.MovPosicion           := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.NumeroSerie           := '';
+    gaMov.NumeroSerieFabricante := '';
+    gaMov.Comentario            := 'PDA Cuadre salida';
+    gaMov.TipoMovimientoSGA     := [];
+    gaMov.TipoMovimientoSAGE    := [tmsageMovimientoQuadreStock];
+
+    if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
+      Exit;
+    end;
+
+  end;
+
+  {$ENDREGION}
 
   (*
   sSQL := 'INSERT INTO TmpIME_MovimientoStock ( ' +
@@ -36833,6 +37429,7 @@ var
   iSQLidx: Integer;
   bClientDiferent: Boolean;
   bPedidoServido: Boolean;
+  sMsgReservaSage: String;
   informesAuto: String;
   lInformes: TStringList;
   informeAuto: Integer;
@@ -37189,7 +37786,20 @@ begin
 
   end;
 
-
+  // FASE EXPEDICIÓ: ABANS d'encuar l'albarà, migrem la reserva GENÈRICA
+  // (LineaPedidoCliente=GUID0) a NOMINAL per línia, segons el repartiment ja fet a
+  // FS_SGA_AcumuladoPendiente. Per cada línia: desreserva genèrica ('R') + reserva
+  // nominal ('C'). L'ordre importa: les ops de migració s'han d'encuar a FS_Operations
+  // ABANS del CREARALBARANCLIENTE perquè el worker les processi primer (la reserva ja
+  // ha de ser nominal quan l'albarà rebaixi l'estoc real). Una reserva genèrica pot
+  // repartir-se en múltiples línies.
+  if not bErr then
+  begin
+    sMsgReservaSage := SGA_ReservaSage_MigrarExpedicion (
+      Conn, CodigoEmpresa.EmpresaOrigen, CodigoUsuario, PreparacionId );
+    if sMsgReservaSage <> '' then
+      gaLogFile.Write ( 'SGA_ReservaSage_MigrarExpedicion: ' + sMsgReservaSage, '', LOG_LEVEL_ERROR );
+  end;
 
   if iSQLidx > 0 then try
     OperId := SQL_Insert_Identity ( Conn, lstSQL.Text, 'oper_id' );
@@ -39536,7 +40146,7 @@ begin
     gaMov.CodigoProveedor        := CodigoProveedor;
     gaMov.Matricula	             := Matricula;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
-    gaMov.Movtraspaso            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.MovTraspaso            := GUID0; //SQL_Execute ( Conn, 'SELECT NEWID()' );
 
     if PrecioOrigen=0 then
     begin
@@ -39576,9 +40186,13 @@ begin
         gaMov.OrigenDocumento       := OD_SALIDA_STOCK;
         gaMov.TipoMovimientoSGA     := [tmsgaMovimientoStock];
         if bCambioMagatzem then
-          gaMov.TipoMovimientoSAGE    := [tmsageMovimientoStockSeries]
-        else
-          gaMov.TipoMovimientoSAGE    := [];
+        begin
+          gaMov.TipoMovimientoSAGE  := [tmsageMovimientoStockSeries];
+          gaMov.MovTraspaso         := SQL_Execute ( Conn, 'SELECT NEWID()' );
+        end else begin
+          gaMov.TipoMovimientoSAGE  := [];
+          gaMov.MovTraspaso         := GUID0;
+        end;
 
         if not bErr then try
           bErr := not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, sMsg );
@@ -39603,11 +40217,14 @@ begin
     end else begin
 
       // SORTIDA sense sèries: SGA + (si canvi de magatzem) SAGE com un sol moviment T (RebajeStock fa la contrapartida).
-      gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
-      if bCambioMagatzem then
-        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock]
-      else
+      gaMov.TipoMovimientoSGA := [tmsgaMovimientoStock];
+      if bCambioMagatzem then begin
+        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+        gaMov.MovTraspaso        := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      end else begin
         gaMov.TipoMovimientoSAGE := [];
+        gaMov.MovTraspaso        := GUID0;
+      end;
 
       if not SGA_FS_ALMACEN_MovimientoStock ( Conn, CodigoEmpresa, gaMov, Mensaje ) then begin
         Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' +  Mensaje + '","Data":[]}';
@@ -41310,6 +41927,8 @@ var
   sSoloReservas: String;
   sIgnorarPartidaSolicitada: String;
   sIgnorarUbicacionSolicitada: String;
+  sMsgReservaSage: String;
+  sMovPosicionReservaSage: String;
 {$ENDREGION}
 
 begin
@@ -41871,6 +42490,26 @@ begin
       bErr := TRUE;
       sMsg := E.Message;
     end;
+  end;
+
+  // Reserva NATIVA a Sage en PREPARAR/DESPREPARAR: ajustem la reserva GENÈRICA de
+  // l'article perquè el total reservat genèric = (preparat de l'article) − (ja reservat
+  // NATIVAMENT a Sage a les línies del pedido amb ReservarStock_<>0). Idempotent:
+  // reserva o desreserva la diferència segons calgui. Gestiona el cas d'articles
+  // repetits on unes línies tenen reserva nativa i d'altres no.
+  // Toggle: FS_PARAMS_SGA_ReservaSageNativa (179).
+  if not bErr then
+  begin
+    gaLogFile.Write ( 'Before SGA_ReservaSage_AjustarGenerica', sIDCall, LOG_LEVEL_INFO );
+    sMsgReservaSage := SGA_ReservaSage_AjustarGenerica (
+      Conn, CodigoEmpresa.EmpresaOrigen, CodigoUsuario, Ejercicio,
+      CodigoArticulo, Partida, CodigoColor, CodigoTalla, gaMov.GrupoTalla,
+      CodigoAlmacenDefecto, UnidadMedida, UnidadMedidaBase, FactorConversion,
+      IdPreparacion, PickingId );
+    if sMsgReservaSage <> '' then
+      gaLogFile.Write ( 'SGA_ReservaSage_AjustarGenerica: ' + sMsgReservaSage, sIDCall, LOG_LEVEL_ERROR )
+    else
+      gaLogFile.Write ( 'After SGA_ReservaSage_AjustarGenerica: OK', sIDCall, LOG_LEVEL_INFO );
   end;
 
   // Fem els moviments a Sage si els magatzems són diferents
@@ -46233,7 +46872,7 @@ begin
     gaMov.MovOrigen              := sNewMovOrigen;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
     gaMov.TipoMovimientoSGA      := [tmsgaMovimientoStock];
-    gaMov.TipoMovimientoSAGE     := [];
+    gaMov.TipoMovimientoSAGE     := [tmsageMovimientoStock];
 
     gaMov.Precio :=
       ARTICULO_ConsultarPrecioStock (
@@ -56082,6 +56721,8 @@ var
   sSoloReservas: String;
   sIgnorarPartidaSolicitada: String;
   sIgnorarUbicacionSolicitada: String;
+  sMsgReservaSage: String;
+  sMovPosicionReservaSage: String;
   sNumerosSerie: String;
   lJSonNumSeries: TJSonValue;
   lJSonArrayNS: TJSonArray;
@@ -56774,6 +57415,7 @@ begin
     end;
 
   end else
+
   // Si hi ha números de sèrie (afegint), fem un moviment per a cada un
   // Si no n'hi ha, fem un sol moviment com fins ara
   if (lJSonArrayNS <> nil) and (lJSonArrayNS.Count > 0) then begin
@@ -56927,6 +57569,7 @@ begin
     gaMov.PreparacionId          := IdPreparacion;
     gaMov.MovOrigen              := sNewMovOrigen;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.TipoMovimientoSAGE     := [];
 
     gaMov.Precio :=
       ARTICULO_ConsultarPrecioStock (
@@ -56970,6 +57613,7 @@ begin
     gaMov.OrigenMovimiento       := TipoEntrada;
     gaMov.Comentario             := 'SGAMobile: ' + DescripcionEntrada;
     gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    gaMov.TipoMovimientoSAGE     := gaMov.TipoMovimientoSAGE + [tmsageMovimientoReservaPedido];
 
     gaMov.Precio :=
       ARTICULO_ConsultarPrecioStock (
@@ -56995,6 +57639,24 @@ begin
     end;
 
   end; // else sense sèries
+
+  // Reserva NATIVA a Sage en PREPARAR/DESPREPARAR (handler TC): ajustem la reserva
+  // GENÈRICA de l'article perquè el total reservat genèric = (preparat) − (ja reservat
+  // NATIVAMENT a Sage a les línies amb ReservarStock_<>0). Idempotent. Gestiona
+  // articles repetits amb reserva mixta. Toggle: FS_PARAMS_SGA_ReservaSageNativa (179).
+  if not bErr then
+  begin
+    gaLogFile.Write ( 'Before SGA_ReservaSage_AjustarGenerica (TC)', sIDCall, LOG_LEVEL_INFO );
+    sMsgReservaSage := SGA_ReservaSage_AjustarGenerica (
+      Conn, CodigoEmpresa.EmpresaOrigen, CodigoUsuario, Ejercicio,
+      CodigoArticulo, Partida, CodigoColor, CodigoTalla, gaMov.GrupoTalla,
+      CodigoAlmacenDefecto, UnidadMedida, UnidadMedidaBase, FactorConversion,
+      IdPreparacion, PickingId );
+    if sMsgReservaSage <> '' then
+      gaLogFile.Write ( 'SGA_ReservaSage_AjustarGenerica: ' + sMsgReservaSage, sIDCall, LOG_LEVEL_ERROR )
+    else
+      gaLogFile.Write ( 'After SGA_ReservaSage_AjustarGenerica: OK', sIDCall, LOG_LEVEL_INFO );
+  end;
 
   // Fem els moviments a Sage si els magatzems són diferents
   if (not bErr) and (aUbicacion.CodigoAlmacen <> aUbicacionExpedicion.CodigoAlmacen) then begin
@@ -57617,6 +58279,14 @@ var
   sParams2: string;
   endtime: Cardinal;
   starttime: Cardinal;
+  sProduct: string;
+  sLicense: string;
+  date_to: TDate;
+  sValidDate: string;
+  num_terminals: Word;
+  customer_id: AnsiString;
+  product_id: AnsiString;
+  sLicenseInfo: string;
 {$ENDREGION}
 
 begin
@@ -57660,33 +58330,80 @@ begin
 
   endtime := GetTickCount();
 
-  Result := '{"Result":"OK","Message":"","Data":[]}';
-
   case Res of
 
     CONST_LICERR_INVALID_LICENSE:
     begin
       Result := '{"Result":"ERROR","Message":"Licencia no válida. Contacte con el administrador del sistema.","Data":[]}';
+      Exit;
     end;
 
     CONST_LICERR_NOT_ENOUGHT_LICENSES:
     begin
       Result := '{"Result":"ERROR","Message":"No hay licencias suficientes disponibles. Contacte con el administrador del sistema.","Data":[]}';
+      Exit;
     end;
 
     CONST_LICERR_EXPIRED_LICENSE:
     begin
       Result := '{"Result":"ERROR","Message":"Licencia expirada. Contacte con el administrador del sistema.","Data":[]}';
+      Exit;
     end;
 
     CONST_LICENSE_DATABASE_ERROR:
     begin
       Result := '{"Result":"ERROR","Message":"Error de base de datos. Contacte con el administrador del sistema.","Data":[]}';
+      Exit;
     end;
 
   end;
 
   {$ENDREGION}
+
+  sSQL := 'select * from FS_License WITH (NOLOCK)';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+
+  Q.Open;
+
+  sLicenseInfo := '';
+
+  while not q.Eof do
+  begin
+
+    sProduct := q.FieldByName('license_product_code').AsString;
+    sLicense := q.FieldByName('license_code').AsString;
+
+    LICENSE_GetInfo ( sLicense, date_to, num_terminals, customer_id, product_id );
+
+    sValidDate := datetostr( date_to );
+
+    if num_terminals>0 then
+    begin
+
+      if sLicenseInfo<>'' then
+        sLicenseInfo := sLicenseInfo + ',';
+
+      sLicenseInfo := sLicenseInfo +
+        '{' +
+        '"license":"' + JSON_Str(sProduct) + '",' +
+        '"product_code":"' + JSON_Str(sProduct) + '",' +
+        '"num_terminals":' + IntToStr(num_terminals) + ',' +
+        '"valid_until":"' + FormatDateTime('dd/mm/yyyy', date_to + grace_period) + '"' +
+        '}';
+    end;
+
+
+    q.Next;
+
+  end;
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  Result := '{"Result":"OK","Message":"","Data":[{' +
+    '"Licenses":[' + sLicenseInfo + ']}' +
+    ']}';
+
 
 end;
 
