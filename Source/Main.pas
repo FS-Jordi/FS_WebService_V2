@@ -3568,6 +3568,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/getnumerosseriedevolucion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getNumerosSerieDevolucionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/getnumerosseriepreparacion') then
     begin
       TAsyncWebModuleThread.Create(
@@ -4618,6 +4635,23 @@ begin
       sParams,
       AConnection.PeerIP,
       @WebModule1checkNumeroSerieRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
+    else if (sCommand='/checknumeroseriedevolucion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1checkNumeroSerieDevolucionAction,
       HttpServer,
       AConnection,
       AConnection.ResponseHeader.ContentType,

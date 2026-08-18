@@ -145,6 +145,7 @@ procedure WebModule1listArticulosAction ( Conn: TADOConnection; sParams, sRemote
 procedure WebModule1refreshStockArticuloAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getNumerosSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getNumerosSerieRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getNumerosSerieDevolucionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1findArticulosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listFamiliasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1listSubfamiliasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -303,6 +304,7 @@ procedure WebModule1checkNumeroSerieEnStockAction ( Conn: TADOConnection; sParam
 procedure WebModule1getNumerosSerieSalidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkNumeroSeriePreparacionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1checkNumeroSerieRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1checkNumeroSerieDevolucionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1borrarLineaExpedicionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getLastCajaIdAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1renumerarCajasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -5577,11 +5579,23 @@ begin
   UnidadMedida   := AnsiUpperCase(contentfields.values['UnidadMedida']);
   Scans          := contentfields.values['Scans'];
 
+  // Els scans fets des de la pantalla d'expedicio arriben amb PickingId = 0:
+  // en aquest cas la unitat base es resol per article (i talla/color), perque
+  // altrament no es trobava cap linia i UnidadMedidaBase quedava en blanc.
   sSQL :=
-    'SELECT UnidadMedidaBase ' +
+    'SELECT TOP 1 UnidadMedidaBase ' +
     'FROM FS_SGA_Picking_Pedido_Lineas WITH (NOLOCK) ' +
-    'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-    'AND PickingId = ' + IntToStr(PickingId);
+    'WHERE PreparacionId = ' + IntToStr(IdPreparacion) + ' ';
+
+  if PickingId > 0 then
+    sSQL := sSQL + 'AND PickingId = ' + IntToStr(PickingId)
+  else
+    sSQL := sSQL +
+      'AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+      'AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+      'AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+      'ORDER BY PickingId';
+
   UnidadMedidaBase := SQL_Execute ( Conn, sSQL, bFound );
   if not bFound then
     UnidadMedidaBase := '';
@@ -6011,7 +6025,14 @@ begin
     '  ISNULL(CTC.CodigoAlternativo,'''') AS CodigoAlternativoTC, ' +
     '  ISNULL(T.DescripcionTalla01_,'''') AS DescripcionTalla, ' +
     '  ISNULL(C.Color_,'''') AS DescripcionColor, ' +
-    '  ACUM.FechaCaduca AS FechaCaduca ' +
+    '  ACUM.FechaCaduca AS FechaCaduca, ' +
+    // Mides de la caixa per al control de limits i la vista 3D: primer les del
+    // packaging de la caixa (si la caixa ja existeix i en te) i, si no, les de
+    // la fitxa de l'article via FS_SGA_TABLE_MedidasArticulo.
+    '  COALESCE(NULLIF(PKC.Ancho,0), MED.Ancho, 0) AS Ancho, ' +
+    '  COALESCE(NULLIF(PKC.Fondo,0), MED.Fondo, 0) AS Fondo, ' +
+    '  COALESCE(NULLIF(PKC.Alto,0),  MED.Alto,  0) AS Alto, ' +
+    '  ISNULL(PKC.PesoBruto,0) AS PesoBruto ' +
     'FROM FS_SGA_Picking_Pedido_Scans fsps WITH (NOLOCK) ' +
     'LEFT JOIN FS_SGA_PACKINGLIST pkl WITH (NOLOCK) ' +
     '  ON pkl.Id = fsps.PackingListId ' +
@@ -6031,6 +6052,13 @@ begin
     ' AND CTC.CodigoArticulo = fsps.CodigoArticulo ' +
     ' AND CTC.CodigoTalla01_ = fsps.CodigoTalla01_ ' +
     ' AND CTC.CodigoColor_ = fsps.CodigoColor_ ' +
+    'LEFT JOIN FS_SGA_PackingList_PackagingCaja PKC WITH (NOLOCK) ' +
+    '  ON  PKC.CodigoEmpresa  = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND PKC.IdPreparacion  = fsps.PreparacionId ' +
+    '  AND PKC.IdPalet        = ISNULL(pkl.PaletId,0) ' +
+    '  AND PKC.IdCaja         = ISNULL(pkl.CajaId,0) ' +
+    'LEFT JOIN dbo.FS_SGA_TABLE_MedidasArticulo ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) MED ' +
+    '  ON MED.CodigoArticulo = fsps.CodigoArticulo ' +
     'OUTER APPLY ( ' +
     '   SELECT TOP (1) ap.FechaCaduca ' +
     '   FROM FS_SGA_AcumuladoPendiente ap WITH (NOLOCK) ' +
@@ -6101,7 +6129,13 @@ begin
       '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '",' +
       '"PaletId":' + IntToStr(Q.FieldByName('PaletId').AsInteger) + ',' +
       '"CajaId":' + IntToStr(Q.FieldByName('CajaId').AsInteger) + ',' +
-      '"Expedido":' + IntToStr(Ord(Q.FieldByName('Expedido').AsBoolean)) +
+      '"Expedido":' + IntToStr(Ord(Q.FieldByName('Expedido').AsBoolean)) + ',' +
+      // Mides i pes de la caixa: permeten a l'app simular la disposicio del
+      // palet (control de limits, parametre 188) sense cap crida addicional.
+      '"Ancho":' + SQL_FloatToStr(Q.FieldByName('Ancho').AsFloat) + ',' +
+      '"Fondo":' + SQL_FloatToStr(Q.FieldByName('Fondo').AsFloat) + ',' +
+      '"Alto":' + SQL_FloatToStr(Q.FieldByName('Alto').AsFloat) + ',' +
+      '"PesoBruto":' + SQL_FloatToStr(Q.FieldByName('PesoBruto').AsFloat) +
       '}';
 
     Inc(i);
@@ -6285,6 +6319,13 @@ begin
 
   {$REGION 'Resolució de la línia de preparació'}
 
+  // Els scans fets des de la pantalla d'expedició no porten línia assignada
+  // (PickingId = 0): la línia es resol ARA, a partir de l'article/talla/color.
+  // Si el scan ja porta PickingId, es respecta.
+  //
+  // Amb PickingId = 0 s'agafa la primera línia pendent de servir (UdRetiradas <
+  // UdNecesarias) i, si no n'hi ha cap, la primera per PickingId: així el
+  // material va a la línia que encara espera unitats en comptes de fallar.
   sSQL :=
     'SELECT ' +
     '  fsppl.PickingId, fsppl.IdentificadorExpedicion, fsppl.LineasPosicion, ' +
@@ -6295,10 +6336,17 @@ begin
     '  ON fsppl.codigoarticulo = art.codigoarticulo ' +
     'WHERE ' +
     '  fsppl.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-    '  AND fsppl.PickingId = ' + IntToStr(PickingId) + ' ' +
     '  AND fsppl.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
     '  AND fsppl.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
     '  AND fsppl.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ';
+
+  if PickingId > 0 then
+    sSQL := sSQL + '  AND fsppl.PickingId = ' + IntToStr(PickingId) + ' '
+  else
+    sSQL := sSQL +
+      'ORDER BY ' +
+      '  CASE WHEN ISNULL(fsppl.UdRetiradas,0) < ISNULL(fsppl.UdNecesarias,0) THEN 0 ELSE 1 END, ' +
+      '  fsppl.PickingId ';
 
   Q := SQL_PrepareQuery ( Conn, sSQL );
   Q.Open;
@@ -6308,6 +6356,16 @@ begin
     SQL_CloseFree(Q);
     Result := '{"Result":"ERROR","Message":"No se ha encontrado la línea de preparación del scan","Data":[]}';
     Exit;
+  end;
+
+  // Amb PickingId = 0 la línia l'acabem de resoldre: la recollim i la desem al
+  // scan, perquè les consultes posteriors (llistats, desexpedir) ja la trobin.
+  if PickingId = 0 then
+  begin
+    PickingId := Q.FieldByName('PickingId').AsInteger;
+    SQL_Execute_NoRes ( Conn,
+      'UPDATE FS_SGA_Picking_Pedido_Scans SET PickingId = ' + IntToStr(PickingId) +
+      ' WHERE Id = ' + IntToStr(ScanId) );
   end;
 
   IdentificadorExpedicion := Q.FieldByName('IdentificadorExpedicion').AsInteger;
@@ -44444,6 +44502,15 @@ var
   UnidadesAgrupacionRechazo: Double;
   IsNew: Boolean;
   DevolucionIdLineaDetalle: Integer;
+  // Números de sèrie (tabac amb traçabilitat; veure el bloc de més avall)
+  JSonArrayS: TJSONArray;
+  JSonArraySR: TJSONArray;
+  JSonValueNS: TJSONValue;
+  lJSonValueNS: TJSonValue;
+  NumeroSerie: String;
+  NumeroSerieFabricante: String;
+  ScanCode: String;
+  CantidadSerie: Integer;
   CodigoTalla: String;
   CodigoColor: String;
   GrupoTalla: Integer;
@@ -44783,12 +44850,151 @@ begin
 
   if not bErr then try
     SQL_Execute_NoRes ( Conn, sSQL );
+
+    // Si acabem d'INSERIR la línia de detall, en recuperem l'identity: sense
+    // això no sabríem a quina línia lligar els números de sèrie. Fins ara no
+    // calia, perquè les devolucions no en desaven cap.
+    if (DevolucionIdLineaDetalle=-1) then
+    begin
+      DevolucionIdLineaDetalle := SQL_Execute ( Conn, 'SELECT SCOPE_IDENTITY()' );
+    end;
+
   except
     on E:Exception do begin
       bErr := TRUE;
       sMsg := E.Message;
     end;
   end;
+
+  {$REGION 'Números de sèrie'}
+
+  // A Alfran els articles de tabac porten el "tractament de sèries" actiu, però
+  // el flag és FICTICI: no genera moviments de sèries a Sage (ve del camp propi
+  // _TrazabilidadVStock, veure FS_SGA_TratamientoSeries). Serveix per capturar
+  // els codis escanejats i alimentar la traçabilitat de tabac (EPCIS/Movilizer)
+  // quan es genera l'albarà de devolució.
+  //
+  // El camp important és ScanCode: hi va el codi GS1 SENCER tal com l'ha llegit
+  // el lector, que és d'on surt després el TRZ_EPC. NumeroSerie només porta la
+  // part (21).
+  //
+  // Tipo: 0 = unitats correctes, 1 = unitats de rebuig.
+  if (not bErr) and (DevolucionIdLineaDetalle>0) then
+  begin
+
+    JSonArrayS  := nil;
+    JSonArraySR := nil;
+
+    if (JSonObject.Get('NumerosSerie')<>nil) then
+    begin
+      JSonValueNS := JSonObject.Get('NumerosSerie').JsonValue;
+      if (JSonValueNS<>nil) and (JSonValueNS is TJSONArray) then
+        JSonArrayS := TJSONArray(JSonValueNS);
+    end;
+
+    if (JSonObject.Get('NumerosSerieRechazos')<>nil) then
+    begin
+      JSonValueNS := JSonObject.Get('NumerosSerieRechazos').JsonValue;
+      if (JSonValueNS<>nil) and (JSonValueNS is TJSONArray) then
+        JSonArraySR := TJSONArray(JSonValueNS);
+    end;
+
+    // Només s'hi entra si l'app ha enviat alguna de les dues llistes: així els
+    // clients que no fan servir sèries es comporten exactament com abans.
+    if (JSonArrayS<>nil) or (JSonArraySR<>nil) then
+    begin
+
+      sSQL :=
+        'DELETE FROM FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie ' +
+        'WHERE ' +
+        '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+        '  AND DevolucionId = ' + IntToStr(DevolucionId) + ' ' +
+        '  AND DevolucionIdLinea = ' + IntToStr(DevolucionIdLinea) + ' ' +
+        '  AND DevolucionIdLineaDetalle = ' + IntToStr(DevolucionIdLineaDetalle);
+      try
+        SQL_Execute_NoRes ( Conn, sSQL );
+      except
+        on E:Exception do begin
+          bErr := TRUE;
+          sMsg := E.Message;
+        end;
+      end;
+
+      if (not bErr) and (JSonArrayS<>nil) then
+      begin
+        for lJSonValueNS in JSonArrayS do begin
+
+          NumeroSerie           := _Get_JSonValue ( lJSonValueNS, 'NumeroSerie' );
+          NumeroSerieFabricante := _Get_JSonValue ( lJSonValueNS, 'NumeroSerieFabricante' );
+          CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValueNS, 'Cantidad' ),1);
+          ScanCode              := _Get_JSonValue ( lJSonValueNS, 'ScanCode' );
+
+          sSQL :=
+            'INSERT INTO FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, DevolucionId, ' +
+            '  DevolucionIdLinea, DevolucionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
+            'VALUES ( ' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+            IntToStr(DevolucionId) + ', ' +
+            IntToStr(DevolucionIdLinea) + ', ' +
+            IntToStr(DevolucionIdLineaDetalle) + ', ' +
+            '0, ' +
+            '''' + SQL_Str(NumeroSerie) + ''', ' +
+            '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+            '''' + SQL_Str(ScanCode) + ''', ' +
+            IntToStr(CantidadSerie) + ' ' +
+            ')';
+          try
+            SQL_Execute_NoRes ( Conn, sSQL );
+          except
+            on E:Exception do begin
+              bErr := TRUE;
+              sMsg := E.Message;
+            end;
+          end;
+
+        end;
+      end;
+
+      if (not bErr) and (JSonArraySR<>nil) then
+      begin
+        for lJSonValueNS in JSonArraySR do begin
+
+          NumeroSerie           := _Get_JSonValue ( lJSonValueNS, 'NumeroSerie' );
+          NumeroSerieFabricante := _Get_JSonValue ( lJSonValueNS, 'NumeroSerieFabricante' );
+          CantidadSerie         := StrToIntDef(_Get_JSonValue ( lJSonValueNS, 'Cantidad' ),1);
+          ScanCode              := _Get_JSonValue ( lJSonValueNS, 'ScanCode' );
+
+          sSQL :=
+            'INSERT INTO FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie ( CodigoEmpresa, DevolucionId, ' +
+            '  DevolucionIdLinea, DevolucionIdLineaDetalle, Tipo, NumeroSerie, NumeroSerieFabricante, ScanCode, Cantidad ) ' +
+            'VALUES ( ' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+            IntToStr(DevolucionId) + ', ' +
+            IntToStr(DevolucionIdLinea) + ', ' +
+            IntToStr(DevolucionIdLineaDetalle) + ', ' +
+            '1, ' +
+            '''' + SQL_Str(NumeroSerie) + ''', ' +
+            '''' + SQL_Str(NumeroSerieFabricante) + ''', ' +
+            '''' + SQL_Str(ScanCode) + ''', ' +
+            IntToStr(CantidadSerie) + ' ' +
+            ')';
+          try
+            SQL_Execute_NoRes ( Conn, sSQL );
+          except
+            on E:Exception do begin
+              bErr := TRUE;
+              sMsg := E.Message;
+            end;
+          end;
+
+        end;
+      end;
+
+    end;
+
+  end;
+
+  {$ENDREGION}
 
   sSQL :=
     'UPDATE FS_SGA_Devoluciones_Lineas_Detalle ' +
@@ -59952,6 +60158,8 @@ begin
         '"Dt_Volumen":' + SQL_FloatToStr(Q.FieldByName('Dt_Volumen').AsFloat) + ',' +
         '"Dt_Carga":' + SQL_FloatToStr(Q.FieldByName('Dt_Carga').AsFloat) + ',' +
         '"Dt_AlturaMax":' + SQL_FloatToStr(Q.FieldByName('Dt_AlturaMax').AsFloat) + ',' +
+        // Cm que la carrega pot sobresortir del palet (sumant les dues bandes).
+        '"Dt_Tolerancia":' + SQL_FloatToStr(Q.FieldByName('Dt_Tolerancia').AsFloat) + ',' +
         '"Dt_Longitud":' + SQL_FloatToStr(Q.FieldByName('Dt_Longitud').AsFloat) + ',' +
         '"Dt_Anchura":' + SQL_FloatToStr(Q.FieldByName('Dt_Anchura').AsFloat) + ',' +
         '"Dt_Altura":' + SQL_FloatToStr(Q.FieldByName('Dt_Altura').AsFloat) + ',' +
@@ -59977,6 +60185,8 @@ begin
         '"Dt_Volumen":' + SQL_FloatToStr(Q.FieldByName('Dt_Volumen').AsFloat) + ',' +
         '"Dt_Carga":' + SQL_FloatToStr(Q.FieldByName('Dt_Carga').AsFloat) + ',' +
         '"Dt_AlturaMax":' + SQL_FloatToStr(Q.FieldByName('Dt_AlturaMax').AsFloat) + ',' +
+        // Cm que la carrega pot sobresortir del palet (sumant les dues bandes).
+        '"Dt_Tolerancia":' + SQL_FloatToStr(Q.FieldByName('Dt_Tolerancia').AsFloat) + ',' +
         '"Dt_Longitud":' + SQL_FloatToStr(Q.FieldByName('Dt_Longitud').AsFloat) + ',' +
         '"Dt_Anchura":' + SQL_FloatToStr(Q.FieldByName('Dt_Anchura').AsFloat) + ',' +
         '"Dt_Altura":' + SQL_FloatToStr(Q.FieldByName('Dt_Altura').AsFloat) + ',' +
@@ -60057,6 +60267,277 @@ begin
   finally
     Q.Free;
   end;
+end;
+
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ NÚMEROS DE SÈRIE D'UNA DEVOLUCIÓ DE CLIENT                            │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// A Alfran els articles de tabac porten el "tractament de sèries" actiu, però
+// aquest flag és FICTICI: no genera moviments de sèries a Sage (ve del camp
+// propi _TrazabilidadVStock, veure FS_SGA_TratamientoSeries). Serveix per
+// capturar els codis escanejats i alimentar la traçabilitat de tabac (EPCIS).
+//
+// Per això aquest endpoint és el bessó de getnumerosserierecepcion però NO
+// consulta l'estoc de sèries: a devolucions no hi ha res a comparar-hi.
+procedure WebModule1getNumerosSerieDevolucionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  sSQL: String;
+  Q: TADOQuery;
+  iTotalRegs, iNumRegsS, iNumRegsSR: Integer;
+  iPageSize, iPage: Integer;
+  iPages: Integer;
+  DevolucionId: Integer;
+  DevolucionIdLinea: Integer;
+  DevolucionIdLineaDetalle: Integer;
+  EmpresaOrigen: Integer;
+  contentfields: TStringList;
+  NSR: String;
+  NS: String;
+  Tipo: Integer;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  iPage     := StrToIntDef(contentfields.values['Page'],0);
+  iPageSize := StrToIntDef(contentfields.values['PageSize'],DEFAULT_PAGE_SIZE);
+  if iPageSize=0 then iPageSize := DEFAULT_PAGE_SIZE;
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  DevolucionId := StrToIntDef(contentfields.values['DevolucionId'],0);
+  if DevolucionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de devolución no especificado","Data":[]}';
+    Exit;
+  end;
+
+  DevolucionIdLinea := StrToIntDef(contentfields.values['DevolucionIdLinea'],0);
+  if DevolucionIdLinea=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Línea de devolución no especificada","Data":[]}';
+    Exit;
+  end;
+
+  DevolucionIdLineaDetalle := StrToIntDef(contentfields.values['DevolucionIdLineaDetalle'],0);
+  if DevolucionIdLineaDetalle=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Detalle de línea de devolución no especificado","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperació de dades'}
+
+  sSQL :=
+    'SELECT * ' +
+    'FROM FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND DevolucionId = ' + IntToStr(DevolucionId) + ' ' +
+    '  AND DevolucionIdLinea = ' + IntToStr(DevolucionIdLinea) + ' ' +
+    '  AND DevolucionIdLineaDetalle = ' + IntToStr(DevolucionIdLineaDetalle) + ' ' +
+    'ORDER BY Tipo, IdNumeroSerie';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+  except
+    on E:Exception do begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '"","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  iTotalRegs := Q.RecordCount;
+
+  if Frac(iTotalRegs / iPageSize)=0 then begin
+    iPages := iTotalRegs div iPageSize;
+  end else begin
+    iPages := Trunc(iTotalRegs div iPageSize)+1;
+  end;
+
+  Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iTotalRegs) + ',"NumPages":' + IntToStr(iPages) + ',"NumRecords":' + IntToStr(iTotalRegs) + ',"Data":[';
+  iNumRegsS := 0;
+  iNumRegsSR := 0;
+
+  NS := '';
+  NSR := '';
+
+  while not Q.Eof do begin
+
+    Tipo := Q.FieldByName('Tipo').AsInteger;
+
+    if (Tipo=0) then
+    begin
+
+      if iNumRegsS<>0 then
+        NS := NS + ',';
+
+      Inc(iNumRegsS);
+
+      NS := NS +
+        '{' +
+        '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
+        '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
+        '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '",' +
+        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) +
+        '}';
+
+    end else begin
+
+      if iNumRegsSR<>0 then
+        NSR := NSR + ',';
+
+      Inc(iNumRegsSR);
+
+      NSR := NSR +
+        '{' +
+        '"NumeroSerie":"' + JSON_Str(Q.FieldByName('NumeroSerie').AsString) + '",' +
+        '"NumeroSerieFabricante":"' + JSON_Str(Q.FieldByName('NumeroSerieFabricante').AsString) + '",' +
+        '"ScanCode":"' + JSON_Str(Q.FieldByName('ScanCode').AsString) + '",' +
+        '"Cantidad":' + IntToStr(Q.FieldByName('Cantidad').AsInteger) +
+        '}';
+
+    end;
+
+    Q.Next;
+
+  end;
+
+  Result := Result +
+    '{' +
+    '"NumerosSerie":[' + NS + '],' +
+    '"NumerosSerieRechazos":[' + NSR + ']' +
+    '}' +
+  ']}';
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  {$ENDREGION}
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ COMPROVACIÓ D'UN NÚMERO DE SÈRIE EN UNA DEVOLUCIÓ DE CLIENT           │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// Només comprova si el número ja s'ha escanejat en una ALTRA línia de detall
+// d'aquesta mateixa devolució.
+//
+// A diferència de la recepció, aquí NO es consulta FS_SGA_AcumuladoStock_Series:
+// el tractament de sèries d'Alfran és fictici i no hi ha acumulat de sèries a
+// comparar. Buscar-hi donaria sempre 0 i faria creure que s'ha validat res.
+procedure WebModule1checkNumeroSerieDevolucionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  sSQL: String;
+  contentfields: TStringList;
+  DevolucionId: Integer;
+  DevolucionIdLinea: Integer;
+  DevolucionIdLineaDetalle: Integer;
+  NumeroSerie: String;
+  iDupsDevolucion: Integer;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  DevolucionId := StrToIntDef(contentfields.values['DevolucionId'],0);
+  if DevolucionId=0 then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de devolución no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  DevolucionIdLinea := StrToIntDef(contentfields.values['DevolucionIdLinea'],0);
+  if DevolucionIdLinea=0 then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El código de línea de devolución no es correcto","Data":[]}';
+    Exit;
+  end;
+
+  DevolucionIdLineaDetalle := StrToIntDef(contentfields.values['DevolucionIdLineaDetalle'],0);
+
+  NumeroSerie := contentfields.values['NumeroSerie'];
+  if NumeroSerie='' then
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"El número de serie está en blanco","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Duplicat dins la mateixa devolució'}
+
+  sSQL :=
+    'SELECT COUNT(*) ' +
+    'FROM FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND DevolucionId = ' + IntToStr(DevolucionId) + ' ' +
+    '  AND DevolucionIdLinea = ' + IntToStr(DevolucionIdLinea) + ' ' +
+    '  AND DevolucionIdLineaDetalle <> ' + IntToStr(DevolucionIdLineaDetalle) + ' ' +
+    '  AND NumeroSerie = ''' + SQL_Str(NumeroSerie) + ''' ';
+  iDupsDevolucion := SQL_Execute ( Conn, sSQL );
+
+  {$ENDREGION}
+
+  // Mateixa forma de resposta que la recepció, perquè l'app la pugui tractar
+  // igual: EnStock sempre 0 (aquí no s'hi mira).
+  if iDupsDevolucion > 0 then
+  begin
+    Result := '{"Result":"OK","Message":"Este número de serie ya está incluído en esta devolución","Data":[{' +
+      '"Duplicado":true,"EnDevolucion":' + IntToStr(iDupsDevolucion) + ',"EnStock":0,' +
+      '"Message":"Este número de serie ya está incluído en esta devolución"' +
+      '}]}';
+  end
+  else
+  begin
+    Result := '{"Result":"OK","Message":"","Data":[{' +
+      '"Duplicado":false,"EnDevolucion":0,"EnStock":0,"Message":""' +
+      '}]}';
+  end;
+
 end;
 
 
