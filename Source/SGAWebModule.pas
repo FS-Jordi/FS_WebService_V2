@@ -283,6 +283,7 @@ procedure WebModule1updateObservacionesRecepcionAction ( Conn: TADOConnection; s
 procedure WebModule1updateExtraInfoLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1uploadFotosLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getExtraInfoLineaRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getAlbaranesRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1generatePackingListAuto ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1generatePackingListAsis ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1getexpedicioncajaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -2795,6 +2796,7 @@ var
 
   contentfields: TStringList;
   sWhereLineas: String;
+  sFieldTratamientoSeries: String;
 {$ENDREGION}
 
 begin
@@ -2907,16 +2909,29 @@ begin
   // Si hi ha filtre de comanda, restringim els detalls als que pertanyen a aquesta
   // comanda. Els camps EjercicioPedido/SeriePedido/NumeroPedido al detall els
   // omple updaterecepcion quan rep el filtre.
+  //
+  // Un detall amb NumeroPedido = 0 no esta assignat a cap comanda concreta:
+  // pertany a la seva linia, que si que en te una. Els detalls anteriors a
+  // aquest repartiment (la major part de l'historic) estan tots aixi, i
+  // exigir-los la comanda els deixava fora, de manera que la fitxa sortia buida
+  // amb un "no s'ha realitzat cap recepcio d'aquest article".
   if bUsarFiltroComanda then
     sWhereLineas := sWhereLineas +
-      ' AND ISNULL(fsrld.EjercicioPedido,0) = ' + IntToStr(FiltroEjercicioPedido) +
-      ' AND ISNULL(fsrld.SeriePedido,'''') = ''' + SQL_Str(FiltroSeriePedido) + '''' +
-      ' AND ISNULL(fsrld.NumeroPedido,0) = ' + IntToStr(FiltroNumeroPedido);
+      ' AND ( ISNULL(fsrld.NumeroPedido,0) = 0 ' +
+      '       OR ( ISNULL(fsrld.EjercicioPedido,0) = ' + IntToStr(FiltroEjercicioPedido) +
+      '            AND ISNULL(fsrld.SeriePedido,'''') = ''' + SQL_Str(FiltroSeriePedido) + '''' +
+      '            AND ISNULL(fsrld.NumeroPedido,0) = ' + IntToStr(FiltroNumeroPedido) + ' ) )';
+
+  // El tractament de series no es sempre TrataNumerosSerieLc: hi ha clients
+  // (45D9) on la marca real es _TrazabilidadVStock. Llegir el camp cru deixava
+  // TratamientoSeries a 0 i el client no arribava a demanar els numeros de serie
+  // desats, tot i tenir-los gravats.
+  sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'art', 'TrataNumerosSerieLc' );
 
   sSQL :=
     'SELECT ' +
     '  fsrld.*, agrup.Agrupacion, agrupR.Agrupacion AS AgrupacionRechazos, stu.CodigoAlternativo AS CodigoUbicacionAlternativo, stur.CodigoAlternativo AS CodigoUbicacionRechazosAlternativo, ' +
-    '  fsi.NombreIncidencia, fsrld.Unidades * art.PesoBrutoUnitario_ as PesoBruto, art.TratamientoPartidas, art.TrataNumerosSerieLc, ' +
+    '  fsi.NombreIncidencia, fsrld.Unidades * art.PesoBrutoUnitario_ as PesoBruto, art.TratamientoPartidas, ' + sFieldTratamientoSeries + ', ' +
     '  fsrld.Unidades * art.PesoNetoUnitario_ as PesoNeto, fsrld.Unidades * art.VolumenUnitario_ as Volumen ' +
     'FROM FS_SGA_Recepciones_Lineas_Detalle fsrld WITH (NOLOCK) ' +
     'INNER JOIN FS_SGA_Recepciones_Lineas fsrl WITH (NOLOCK) ' +
@@ -17895,6 +17910,15 @@ begin
   FactorConversion := FS_SGA_FactorConversion(CodigoEmpresa,StrToFloatDef(contentfields.values['FactorConversion'],0));
   IdPreparacion    := StrToIntDef(contentfields.Values['IdPreparacion'],0);
 
+  // La PDA construeix els paràmetres per interpolació i un camp que no li arriba
+  // (p.ex. UnidadMedidaBase, que /readbarcode no retorna) viatja com la cadena
+  // 'undefined'. Filtrar per aquest valor no retorna mai res.
+  if AnsiUpperCase(CodigoTalla)='UNDEFINED'      then CodigoTalla := '';
+  if AnsiUpperCase(CodigoColor)='UNDEFINED'      then CodigoColor := '';
+  if AnsiUpperCase(Partida)='UNDEFINED'          then Partida := '';
+  if UnidadMedida='UNDEFINED'                    then UnidadMedida := '';
+  if UnidadMedidaBase='UNDEFINED'                then UnidadMedidaBase := '';
+
   if FactorConversion<>0 then
     FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, CodigoArticulo, UnidadMedida, UnidadMedidaBase );
 
@@ -17937,23 +17961,35 @@ begin
 
   if (UnidadMedida<>'') then
   begin
-    if gbTratamientoSimplificado then
+    if gbTratamientoSimplificado and (UnidadMedida=UnidadMedidaBase) then
     begin
-      if (UnidadMedida<>UnidadMedidaBase) then
-      begin
-        sAndWhere := sAndWhere +
-          'AND ubi.UnidadMedida = ''' + SQL_Str(AnsiUpperCase(UnidadMedida)) + ''' ';
-      end;
-    end else begin
+      // Unitat i base coincideixen: no identifica cap stock concret
+    end
+    else
+    begin
+      // La funcio de barres, quan l'article no te unitat alternativa, retorna
+      // com a UnidadMedida la unitat BASE (UnidadMedida2_), mentre que el SGA
+      // guarda l'stock en la unitat de venda. Filtrar-hi deixava fora l'stock i
+      // l'article sortia com a inexistent a la ubicacio, de manera que quan la
+      // unitat rebuda es la base de l'article s'accepta qualsevol unitat.
       sAndWhere := sAndWhere +
-        'AND ubi.UnidadMedida = ''' + SQL_Str(AnsiUpperCase(UnidadMedida)) + ''' ';
+        'AND ( ubi.UnidadMedida = ''' + SQL_Str(AnsiUpperCase(UnidadMedida)) + ''' ' +
+        '   OR ''' + SQL_Str(AnsiUpperCase(UnidadMedida)) + ''' = ' +
+        '      ( SELECT TOP 1 UPPER(ISNULL(a2.UnidadMedida2_,'''')) ' +
+        '        FROM FS_COMMON_TABLE_Articulos ( ' + IntToStr(CodigoEmpresa.Articulos) + ' ) a2 ' +
+        '        WHERE a2.CodigoArticulo = ubi.CodigoArticulo ) ) ';
     end;
   end;
 
+  // Amb la unitat base sense informar no s'hi filtra: buit vol dir "qualsevol",
+  // no "igual a buit". L'stock d'un article sense unitat alternativa la té
+  // informada (p.ex. 'M') mentre que un codi d'agrupació arriba sense, i
+  // l'article sortia com a inexistent a la ubicació tot i tenir-hi saldo.
+  // A refreshStockArticulo aquest filtre ja estava desactivat.
   if (UnidadMedidaBase<>'') then
   begin
     sAndWhere := sAndWhere +
-      'AND ubi.UnidadMedidaBase = ''' + SQL_Str(AnsiUpperCase(UnidadMedidaBase)) + ''' ';
+      'AND ISNULL(ubi.UnidadMedidaBase,'''') IN ( ''' + SQL_Str(AnsiUpperCase(UnidadMedidaBase)) + ''', '''' ) ';
   end;
 
   if (Partida<>'') then
@@ -18217,10 +18253,16 @@ begin
     sUnidadMedida      := AnsiUpperCase(Q.FieldByName('UnidadMedida2_').AsString);
     sUnidadMedidaBase  := AnsiUpperCase(Q.FieldByName('UnidadMedidaAlternativa_').AsString);
 
+    // L'stock guarda la unitat en que esta la fila (p.ex. U) pero sovint deixa
+    // UnidadMedidaBase buit. La base real es la de la fitxa de l'article
+    // (Articulos.UnidadMedida2_), i cal recuperar-la d'alla: igualar-la a la de
+    // l'stock deixaria UnidadMedida = UnidadMedidaBase i el client amagaria la
+    // conversio, tot i haver-hi factor (3000 U = 3 M).
     if sUnidadMedidaBase='' then
     begin
-      sUnidadMedidaBase := sUnidadMedida;
-      //sUnidadMedida     := '';
+      sUnidadMedidaBase := AnsiUpperCase(FS_SGA_ARTICULO_UnidadBase ( Conn, CodigoEmpresa, Q.FieldByName('CodigoArticulo').AsString ));
+      if sUnidadMedidaBase='' then
+        sUnidadMedidaBase := sUnidadMedida;
     end;
 
     Result := Result + '{' +
@@ -18247,14 +18289,17 @@ begin
       '"Agrupacion":"' + JSON_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
       '"UnidadesSaldo":' + SQL_FloatToStr(fUnidadesSaldo) + ', ' +
       '"UnidadesSaldoBase":' + SQL_FloatToStr(fUnidadesSaldoBase) + ', ' +
-      '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(sUnidadMedida)) + '",' +
-      '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedidaBase)) + '",' +
       '"FactorConversion":' + SQL_FloatToStr(FS_SGA_FactorConversion(CodigoEmpresa,Q.FieldByName('FactorConversion_').AsFloat)) + ',' +
       '"PesoNeto":' + SQL_FloatToStr(Q.FieldByName('PesoNeto').AsFloat) + ',' +
       '"PesoBruto":' + SQL_FloatToStr(Q.FieldByName('PesoBruto').AsFloat) + ',' +
       '"Volumen":' + SQL_FloatToStr(Q.FieldByName('Volumen').AsFloat) + ',' +
       '"FechaCaduca":"' + sFechaCaduca + '",' +
-      JSonUnidadesMedida +
+      // Va davant dels camps d'stock a proposit: aquesta funcio torna a emetre
+      // "UnidadMedidaBase" (el de la fitxa de l'article) i, si anes al final,
+      // trepitjaria el de la fila d'stock, que es el que val per regularitzar.
+      JSonUnidadesMedida + ',' +
+      '"UnidadMedida":"' + JSON_Str(AnsiUpperCase(sUnidadMedida)) + '",' +
+      '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(sUnidadMedidaBase)) + '"' +
       '}';
 
     PBT := PBT + Q.FieldByName('PesoBruto').AsFloat;
@@ -26237,6 +26282,7 @@ var
   JSonValue: TJSONValue;
   OldCodigoArticulo: String;
   sFechaCaduca: string;
+  sAuxFecha: string;
   OldId: Integer;
   bVerificada: Boolean;
   sFechaVerificacion: string;
@@ -26303,10 +26349,11 @@ begin
 
   {$REGION 'Actualitzem les ubicacions'}
 
-  if JSonObjectNew.Get('FechaCaduca').JsonValue.ToString='""' then
+  sAuxFecha := Trim(_Get_JSonValue ( JSonObjectNew, 'FechaCaduca' ));
+  if (sAuxFecha='') or (StrToDateDef(sAuxFecha,0)=0) then
     sFechaCaduca := 'NULL'
   else
-    sFechaCaduca := SQL_DateToStr(StrToDate(JSonObjectNew.Get('FechaCaduca').JsonValue.ToString));
+    sFechaCaduca := SQL_DateToStr(StrToDateDef(sAuxFecha,0));
 
   if JSonObjectNew.Get('Verificada').JsonValue.ToString='true' then
   begin
@@ -26642,6 +26689,9 @@ var
   Verificada: Boolean;
   iNumUbicaciones: Integer;
   iUbicacionActual: Integer;
+  iHayAnterior: Integer;
+  iHaySiguiente: Integer;
+  sSQLNav: String;
   YY: Integer;
 {$ENDREGION}
 
@@ -26701,13 +26751,25 @@ begin
     '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
     '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ';
 
-  if not IncluirVerificadas then
+  // El filtre de pendents no s'aplica al posicionament exacte (Direccio = 0):
+  // si l'operari ha escanejat aquella ubicacio, se li ha de mostrar encara que
+  // ja estigui verificada.
+  if (not IncluirVerificadas) and (Direccion<>0) then
   begin
     sSQL := sSQL +
       '  AND Verificada = 0 ';
   end;
 
-  if CodigoUbicacion<>'' then
+  // Direccio = 0: posicionar-se EN la ubicacio indicada, sense saltar a la
+  // seguent. Ho fa servir la PDA quan l'operari escaneja una ubicacio concreta:
+  // necessita el seu contingut i, sobretot, saber si te anterior i seguent per
+  // mostrar o amagar les fletxes de navegacio.
+  if (CodigoUbicacion<>'') and (Direccion=0) then
+  begin
+    sSQL := sSQL +
+      'AND CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ';
+  end
+  else if CodigoUbicacion<>'' then
   begin
     if Direccion<0 then
     begin
@@ -26756,6 +26818,23 @@ begin
     '  AND CodigoUbicacion<''' + SQL_Str(CodigoUbicacion) + '''';
   iUbicacionActual := SQL_Execute ( Conn, sSQL ) + 1;
 
+  // Queden ubicacions abans/despres de l'actual? Es fa servir el mateix criteri
+  // que la cerca de la ubicacio (respectant IncluirVerificadas) perque la PDA
+  // pugui amagar els botons de navegacio quan no hi ha on anar.
+  sSQLNav :=
+    'SELECT COUNT(DISTINCT CodigoUbicacion) ' +
+    'FROM FS_SGA_Inventario_Detalle WITH (NOLOCK) ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ';
+  if not IncluirVerificadas then
+    sSQLNav := sSQLNav + '  AND Verificada = 0 ';
+
+  iHayAnterior := SQL_Execute ( Conn, sSQLNav +
+    '  AND CodigoUbicacion < ''' + SQL_Str(CodigoUbicacion) + '''' );
+  iHaySiguiente := SQL_Execute ( Conn, sSQLNav +
+    '  AND CodigoUbicacion > ''' + SQL_Str(CodigoUbicacion) + '''' );
+
   FS_SGA_UBICACION_Desglosar ( Conn, CodigoEmpresa, CodigoUbicacion, CodigoAlmacen, CodigoPasillo, CodigoEstanteria, Altura, Fondo, CodigoAlternativo );
 
   YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
@@ -26768,6 +26847,8 @@ begin
     '{' +
     '"UbicacionActual":' + IntToStr(iUbicacionActual) + ',' +
     '"TotalUbicaciones":' + IntToStr(iNumUbicaciones) + ',' +
+    '"HayAnterior":' + SQL_BooleanToStr(iHayAnterior>0) + ',' +
+    '"HaySiguiente":' + SQL_BooleanToStr(iHaySiguiente>0) + ',' +
     '"Ubicacion":{' +
       '"CodigoUbicacion":"' + JSON_Str(CodigoUbicacion) + '",' +
       '"CodigoAlternativo":"' + JSON_Str(CodigoAlternativo) + '",' +
@@ -30972,7 +31053,7 @@ begin
           '  AND Matricula = ''' + SQL_Str(Matricula) + ''' ' +
           '  AND Ejercicio = ' + IntToStr(Ejercicio) + ' ' +
           '  AND Periodo = 99 ' +
-          '  AND (UnidadesSaldo <> 0 OR UnidadesSaldo <> 0) ' +
+          '  AND (UnidadesSaldo <> 0 OR UnidadesSaldoBase <> 0) ' +
           sFiltre;
 
   try
@@ -31294,7 +31375,7 @@ begin
           '  AND Matricula = ''' + SQL_Str(Matricula) + ''' ' +
           '  AND Ejercicio = ' + IntToStr(Ejercicio) + ' ' +
           '  AND Periodo = 99 ' +
-          '  AND (UnidadesSaldo <> 0 OR UnidadesSaldo <> 0) ' +
+          '  AND (UnidadesSaldo <> 0 OR UnidadesSaldoBase <> 0) ' +
           sFiltre;
 
   try
@@ -33497,6 +33578,11 @@ begin
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"No se ha especificado la partida para este artículo","Data":[]}';
       Exit;
     end;
+  end else begin
+    // L'article pot haver perdut el tractament de partides tenint encara estoc
+    // partit. La partida antiga segueix fent falta per localitzar aquest estoc,
+    // però la nova ha d'anar en blanc: l'estoc resultant ja no en porta.
+    sNewPartida := '';
   end;
 
   // Lectura de les sèries si l'article té tractament de sèries
@@ -33569,11 +33655,6 @@ begin
                        CodigoEmpresa.EmpresaOrigen
   );
 
-  if bCuadrarStockSage then
-    TipoMovSageMov := []
-  else
-    TipoMovSageMov := [tmsageMovimientoStock];
-
   // Detectem si hi ha canvi d'atributs (partida, talla, color, UM, data caducitat)
   bCanviAtributs :=
     (sOldPartida <> sNewPartida) or
@@ -33582,6 +33663,16 @@ begin
     (sOldUnidadMedida <> sNewUnidadMedida) or
     (sOldUnidadMedidaBase <> sNewUnidadMedidaBase) or
     (sOldFechaCaduca <> sNewFechaCaduca);
+
+  // Amb el quadre activat cada moviment SÍ que va a SAGE, però ajustat al descuadre
+  // de la seva clau: tmsageMovimientoQuadreStock fa que SGA_FS_ALMACEN_MovimientoStock
+  // recalculi unitats i sentit contra l'acumulat de SAGE just després d'haver mogut el
+  // SGA. És el que cal quan la regularització canvia d'atributs, perquè l'stock surt
+  // d'una clau i entra en una altra i cadascuna té el seu propi descuadre.
+  if bCuadrarStockSage then
+    TipoMovSageMov := [tmsageMovimientoQuadreStock]
+  else
+    TipoMovSageMov := [tmsageMovimientoStock];
 
   aUbicacion := SGA_ALMACEN_GetUbicacion ( Conn, CodigoEmpresa, CodigoUbicacion );
   if aUbicacion.CodigoUbicacion='' then begin
@@ -34221,8 +34312,10 @@ begin
   // Important: a SAGE sempre fem primer l'entrada i després la sortida per no generar
   // saldos negatius transitoris.
   //
-  // Si el paràmetre de quadre està desactivat no fem res: els moviments de SAGE ja
-  // s'han generat des de cada moviment del SGA.
+  // Cada moviment ja ha quadrat la seva clau en fer-se (porta tmsageMovimientoQuadreStock).
+  // Aquesta passada final actua de xarxa de seguretat: recull les claus que hagin quedat
+  // descuadrades perquè el seu moviment no s'ha arribat a fer (p.ex. quantitat 0). Si una
+  // clau ja quadra, DescuadreStock retorna 0 i no s'hi insereix res.
   if bCuadrarStockSage then
   begin
 
@@ -39068,6 +39161,16 @@ var
   sGUIDOperacion: string;
   bIsCustomReport: Boolean;
   bMantenerAbierta: Boolean;
+  // Albarà per comanda (veure el bloc de generació)
+  QPed: TADOQuery;
+  bAlbaranPorPedido: Boolean;
+  iNumPedidos: Integer;
+  iPedidoActual: Integer;
+  iUltimoPedido: Integer;
+  EjercicioPedidoAlb: Integer;
+  SeriePedidoAlb: String;
+  NumeroPedidoAlb: Integer;
+  sPedidoParams: String;
   RecepcionIdVinculada: Integer;
   IdAlbaranPro: String;
   NumeroSerie: string;
@@ -39486,13 +39589,121 @@ begin
 
   end;
 
-  if (informesAuto<>'') then
-    sGUIDOperacion   := SQL_GUID_ToStr(TGUID.NewGuid.ToString)
-  else
-    sGUIDOperacion   := '';
-
   if IdAlbaranPro=GUID0 then IdAlbaranPro := 'NULL'
   else IdAlbaranPro := '''' + IDAlbaranPro + '''';
+
+  {$REGION 'Comandes que generaran albarà'}
+
+  // Una recepció pot cobrir vàries comandes del mateix proveïdor. Segons el que
+  // hagi triat l'operari a la pantalla d'informació, es genera:
+  //
+  //   · UN SOL albarà per a tota la recepció (comportament de sempre), o
+  //   · UN albarà per comanda.
+  //
+  // El mode es dedueix de FS_SGA_Recepciones_Albaranes: si hi ha un registre amb
+  // EsAlbaranSage<>0, vol dir albarà únic i és aquell el que aporta les dades a
+  // Sage. Si no n'hi ha cap marcat, és un albarà per comanda.
+  //
+  // NOMÉS es generen albarans de les comandes que tinguin quantitats rebudes:
+  // una comanda sense res rebut no ha de crear cap document.
+  QPed := nil;
+  bAlbaranPorPedido := FALSE;
+  iNumPedidos := 1;
+
+  sSQL :=
+    'SELECT COUNT(1) FROM FS_SGA_Recepciones_Albaranes WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+    '  AND EsAlbaranSage <> 0';
+  try
+    bAlbaranPorPedido := ( SQL_Execute ( Conn, sSQL ) = 0 );
+  except
+    // Si la taula encara no existeix en aquesta BD, es manté el comportament
+    // de sempre: un sol albarà.
+    bAlbaranPorPedido := FALSE;
+  end;
+
+  if bAlbaranPorPedido then
+  begin
+
+    sSQL :=
+      'SELECT l.EjercicioPedido, l.SeriePedido, l.NumeroPedido ' +
+      'FROM FS_SGA_Recepciones_Lineas l WITH (NOLOCK) ' +
+      'LEFT JOIN FS_SGA_Recepciones_Lineas_Detalle d WITH (NOLOCK) ' +
+      '  ON d.RecepcionId = l.RecepcionId AND d.RecepcionIdLinea = l.RecepcionIdLinea ' +
+      'WHERE l.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+      '  AND l.RecepcionId = ' + IntToStr(RecepcionId) + ' ' +
+      'GROUP BY l.EjercicioPedido, l.SeriePedido, l.NumeroPedido ' +
+      'HAVING SUM(ISNULL(d.UnidadesEntradaBase,0) + ISNULL(d.UnidadesErrorBase,0)) > 0 ' +
+      'ORDER BY l.EjercicioPedido, l.SeriePedido, l.NumeroPedido';
+
+    QPed := SQL_PrepareQuery ( Conn, sSQL );
+    try
+      QPed.Open;
+      iNumPedidos := QPed.RecordCount;
+    except
+      on E:Exception do begin
+        bErr := TRUE;
+        sMsg := E.Message;
+        iNumPedidos := 0;
+      end;
+    end;
+
+    // Sense cap comanda amb rebut, es cau al comportament de sempre: un sol
+    // albarà per a la recepció. Bloquejar aquí impediria servir recepcions que
+    // avui es serveixen sense problema (per exemple, les que només porten
+    // articles que no mouen estoc).
+    if (not bErr) and (iNumPedidos=0) then
+    begin
+      bAlbaranPorPedido := FALSE;
+      iNumPedidos := 1;
+      if QPed<>nil then
+      begin
+        QPed.Close;
+        FreeAndNil(QPed);
+      end;
+    end;
+
+  end;
+
+  {$ENDREGION}
+
+  iPedidoActual := 0;
+
+  // Amb albarà únic el bucle fa una sola volta; amb albarà per comanda, una per
+  // comanda amb rebut.
+  while (not bErr) and (iPedidoActual < iNumPedidos) do
+  begin
+
+    Inc(iPedidoActual);
+
+    // UltimoPedido marca el final de la sèrie: és quan el servei pot tancar la
+    // recepció, aplicar MantenerAbierta (crear la recepció de restes) i cridar
+    // el postprocés. Amb albarà únic sempre val 1.
+    if (iPedidoActual = iNumPedidos) then
+      iUltimoPedido := 1
+    else
+      iUltimoPedido := 0;
+
+    sPedidoParams := '';
+    if bAlbaranPorPedido and (QPed<>nil) and (not QPed.EOF) then
+    begin
+      EjercicioPedidoAlb := QPed.FieldByName('EjercicioPedido').AsInteger;
+      SeriePedidoAlb     := QPed.FieldByName('SeriePedido').AsString;
+      NumeroPedidoAlb    := QPed.FieldByName('NumeroPedido').AsInteger;
+
+      sPedidoParams :=
+        '"EjercicioPedido":' + IntToStr(EjercicioPedidoAlb) + ',' +
+        '"SeriePedido":"' + JSON_Str(SeriePedidoAlb) + '",' +
+        '"NumeroPedido":' + IntToStr(NumeroPedidoAlb) + ',';
+    end;
+
+    // Un GUID d'operació per albarà: si no, els informes de tots els albarans
+    // quedarien lligats al mateix document.
+    if (informesAuto<>'') then
+      sGUIDOperacion   := SQL_GUID_ToStr(TGUID.NewGuid.ToString)
+    else
+      sGUIDOperacion   := '';
 
   // Enviem la instrucció al servei per generar l'albarà
   sOperparams :=
@@ -39510,6 +39721,8 @@ begin
     '"FechaAlbaran":"' + FechaAlbaran + '",' +
     '"AlbaranValorado":"' + SQL_BooleanToStr(AlbaranValorado) + '",' +
     '"IDOperacion":"' + SQL_GUID_ToStr(sGUIDOperacion) + '",' +
+    sPedidoParams +
+    '"UltimoPedido":' + IntToStr(iUltimoPedido) + ',' +
     '"MantenerAbierta":"' + SQL_BooleanToStr(bMantenerAbierta) + '"' +
     '}';
 
@@ -39632,6 +39845,18 @@ begin
     FreeAndNil(lInformes);
     FreeAndNil(lInformeImpresora);
 
+  end;
+
+    // Següent comanda (només en mode albarà per comanda).
+    if bAlbaranPorPedido and (QPed<>nil) and (not QPed.EOF) then
+      QPed.Next;
+
+  end;   // while comandes
+
+  if QPed<>nil then
+  begin
+    QPed.Close;
+    FreeAndNil(QPed);
   end;
 
   Q.Close;
@@ -41161,6 +41386,20 @@ var
   FechaAlbaran: TDate;
   contentfields: TStringList;
   Observaciones: String;
+  // Albarans per comanda (veure el bloc del final)
+  sAlbaranes: String;
+  JSonValueAlb: TJSONValue;
+  JSonArrayAlb: TJSONArray;
+  lJSonValueAlb: TJSonValue;
+  EjercicioPedidoAlb: Integer;
+  SeriePedidoAlb: String;
+  NumeroPedidoAlb: Integer;
+  RefAlbaranAlb: String;
+  FechaAlbaranAlb: String;
+  ObservacionesAlb: String;
+  BultosAlb, CajasAlb, PaletsAlb: Integer;
+  EsAlbaranSageAlb: Boolean;
+  sFechaSQL: String;
   UUID: string;
 
 {$ENDREGION}
@@ -41207,6 +41446,10 @@ begin
 
   Observaciones := Trim(contentfields.values['Observaciones']);
 
+  // Llista d'albarans per comanda, en JSON. Opcional: si no ve, l'endpoint es
+  // comporta exactament com abans i només toca la capçalera.
+  sAlbaranes := contentfields.values['AlbaranesPedido'];
+
   {$ENDREGION}
 
   {$REGION 'Guardar les dades'}
@@ -41242,6 +41485,113 @@ begin
       sMsg := E.Message;
     end;
   end;
+
+  {$REGION 'Albarans per comanda'}
+
+  // Una recepció pot cobrir vàries comandes del mateix proveïdor, i cadascuna
+  // pot venir amb el seu albarà. Aquestes dades van a
+  // FS_SGA_Recepciones_Albaranes, una fila per comanda.
+  //
+  // La capçalera NO es deixa de tocar: qui envia un sol albarà per a tota la
+  // recepció la segueix fent servir igual, i el bloc de dalt ja l'ha
+  // actualitzada. Aquí només s'hi afegeix el desglossament.
+  //
+  // EsAlbaranSage marca quina comanda aporta les dades quan es genera un sol
+  // albarà. Que només n'hi hagi una de marcada ho garanteix un índex únic
+  // filtrat a la base de dades; per això s'esborren primer totes les files de
+  // la recepció i es tornen a inserir, en comptes de fer UPDATE camp a camp.
+  if (not bErr) and (sAlbaranes<>'') then
+  begin
+
+    JSonValueAlb := TJSONObject.ParseJSONValue(sAlbaranes);
+    try
+
+      if (JSonValueAlb<>nil) and (JSonValueAlb is TJSONArray) then
+      begin
+
+        JSonArrayAlb := TJSONArray(JSonValueAlb);
+
+        // L'índex únic filtrat de la taula (UX_FS_SGA_Rec_Alb_Sage) obliga a
+        // treballar amb QUOTED_IDENTIFIER ON: sense això SQL Server rebutja
+        // qualsevol escriptura amb l'error 1934. No es pot confiar que el
+        // driver ja el porti activat, així que s'hi posa explícitament.
+        sSQL :=
+          'SET QUOTED_IDENTIFIER ON; ' +
+          'DELETE FROM FS_SGA_Recepciones_Albaranes ' +
+          'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+          '  AND RecepcionId = ' + IntToStr(IdRecepcion);
+        try
+          SQL_Execute_NoRes ( Conn, sSQL );
+        except
+          on E:Exception do begin
+            bErr := TRUE;
+            sMsg := E.Message;
+          end;
+        end;
+
+        for lJSonValueAlb in JSonArrayAlb do begin
+
+          if bErr then Break;
+
+          EjercicioPedidoAlb := StrToIntDef(_Get_JSonValue ( lJSonValueAlb, 'EjercicioPedido' ),0);
+          SeriePedidoAlb     := _Get_JSonValue ( lJSonValueAlb, 'SeriePedido' );
+          NumeroPedidoAlb    := StrToIntDef(_Get_JSonValue ( lJSonValueAlb, 'NumeroPedido' ),0);
+          RefAlbaranAlb      := _Get_JSonValue ( lJSonValueAlb, 'RefAlbaran' );
+          FechaAlbaranAlb    := _Get_JSonValue ( lJSonValueAlb, 'RefFechaAlbaran' );
+          ObservacionesAlb   := _Get_JSonValue ( lJSonValueAlb, 'Observaciones' );
+          BultosAlb          := StrToIntDef(_Get_JSonValue ( lJSonValueAlb, 'Bultos' ),0);
+          CajasAlb           := StrToIntDef(_Get_JSonValue ( lJSonValueAlb, 'Cajas' ),0);
+          PaletsAlb          := StrToIntDef(_Get_JSonValue ( lJSonValueAlb, 'Palets' ),0);
+          EsAlbaranSageAlb   := StrToIntDef(_Get_JSonValue ( lJSonValueAlb, 'EsAlbaranSage' ),0)<>0;
+
+          // Sense comanda no hi ha clau: la fila no té sentit.
+          if NumeroPedidoAlb=0 then Continue;
+
+          // Data buida = encara no s'ha anotat l'albarà d'aquesta comanda.
+          if Trim(FechaAlbaranAlb)='' then
+            sFechaSQL := 'NULL'
+          else
+            sFechaSQL := SQL_DateToStr(StrToDateDef(FechaAlbaranAlb, Date()));
+
+          sSQL :=
+            'SET QUOTED_IDENTIFIER ON; ' +
+            'INSERT INTO FS_SGA_Recepciones_Albaranes ( CodigoEmpresa, RecepcionId, ' +
+            '  EjercicioPedido, SeriePedido, NumeroPedido, RefNumeroAlbaran, RefFechaAlbaran, ' +
+            '  Observaciones, Bultos, Cajas, Palets, EsAlbaranSage ) ' +
+            'VALUES ( ' +
+            IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+            IntToStr(IdRecepcion) + ', ' +
+            IntToStr(EjercicioPedidoAlb) + ', ' +
+            '''' + SQL_Str(SeriePedidoAlb) + ''', ' +
+            IntToStr(NumeroPedidoAlb) + ', ' +
+            '''' + SQL_Str(RefAlbaranAlb) + ''', ' +
+            sFechaSQL + ', ' +
+            '''' + SQL_Str(ObservacionesAlb) + ''', ' +
+            IntToStr(BultosAlb) + ', ' +
+            IntToStr(CajasAlb) + ', ' +
+            IntToStr(PaletsAlb) + ', ' +
+            SQL_BooleanToStr(EsAlbaranSageAlb) + ' ' +
+            ')';
+          try
+            SQL_Execute_NoRes ( Conn, sSQL );
+          except
+            on E:Exception do begin
+              bErr := TRUE;
+              sMsg := E.Message;
+            end;
+          end;
+
+        end;
+
+      end;
+
+    finally
+      if JSonValueAlb<>nil then JSonValueAlb.Free;
+    end;
+
+  end;
+
+  {$ENDREGION}
 
   if not bErr then try
     // Conn.CommitTrans;
@@ -44745,6 +45095,7 @@ begin
     UnidadesRechazo           := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesRechazo' ),0);
     UnidadesRechazoBase       := -FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'UnidadesRechazoBase' ),0);
     FactorConversionRechazo   := FS_SGA_FactorConversion(CodigoEmpresa,FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'FactorConversionRechazo' ),1));
+    if UnidadesAgrupacion=0 then UnidadesAgrupacion := 1;
     CodigoAgrupacionRechazo   := CodigoAgrupacion;
     UnidadesAgrupacionRechazo := UnidadesAgrupacion;
     Precio                    := FS_StrToFloatDef(_Get_JSonValue ( JSonArray, 'Precio' ),0);
@@ -51356,7 +51707,7 @@ begin
   sSQL :=
     'SELECT' +
     '  x.NumLineasTotales, x.NumLineasPendientes, r.*, x.FechaRecepcionMin AS FechaRecepcion, ' +
-    '  x.NumPedidos, x.Nombre ' +
+    '  x.NumPedidos, x.Nombre, x.RazonSocialProveedor, x.CodigoProveedorPedido ' +
     'FROM FS_SGA_Recepciones r WITH (NOLOCK) ' +
     'OUTER APPLY ' +
     '( ' +
@@ -51374,16 +51725,11 @@ begin
     '            lpp.SeriePedido, ''|'', ' +
     '            lpp.NumeroPedido ' +
     '        )) AS NumPedidos, ' +
-    '        CASE ' +
-    '            WHEN COUNT(DISTINCT CONCAT( ' +
-    '                    lpp.CodigoEmpresa, ''|'', ' +
-    '                    lpp.EjercicioPedido, ''|'',' +
-    '                    lpp.SeriePedido, ''|'', ' +
-    '                    lpp.NumeroPedido ' +
-    '                 )) = 1 ' +
-    '            THEN MAX(cpp.Nombre) ' +
-    '            ELSE NULL ' +
-    '        END AS Nombre ' +
+    // Totes les comandes d'una recepció són del mateix proveïdor, així que el
+    // proveïdor es pot mostrar igualment quan la recepció en cobreix vàries.
+    '        MAX(cpp.Nombre) AS Nombre, ' +
+    '        MAX(cpp.RazonSocial) AS RazonSocialProveedor, ' +
+    '        MAX(cpp.CodigoProveedor) AS CodigoProveedorPedido ' +
     '    FROM FS_SGA_Recepciones_Lineas rl WITH (NOLOCK) ' +
     '    INNER JOIN LineasPedidoProveedor lpp WITH (NOLOCK) ' +
     '        ON rl.CodigoEmpresa     = lpp.CodigoEmpresa ' +
@@ -60537,6 +60883,189 @@ begin
       '"Duplicado":false,"EnDevolucion":0,"EnStock":0,"Message":""' +
       '}]}';
   end;
+
+end;
+
+
+
+// +-----------------------------------------------------------------------+ \\
+// | ALBARANS D'UNA RECEPCIO, UN PER COMANDA                               | \\
+// +-----------------------------------------------------------------------+ \\
+//
+// Una recepcio pot cobrir varies comandes del mateix proveidor, i cadascuna pot
+// venir amb el seu albara (referencia, data, bultos...). Fins ara aquestes dades
+// nomes vivien a la capcalera de la recepcio, o sigui un sol joc de valors.
+//
+// La feina la fa la TVF FS_SGA_TABLE_Recepcion_Albaranes, que retorna SEMPRE una
+// fila per comanda encara que encara no s'hi hagi anotat res: les comandes sense
+// dades propies hereten les de la capcalera. Aixi la pantalla pinta directament
+// el resultat i no ha de crear files a ma.
+//
+// EsAlbaranSage marca quina comanda aporta les dades quan es genera UN SOL albara
+// per a tota la recepcio. Nomes n'hi pot haver una de marcada, i aixo ho garanteix
+// un index unic filtrat a la base de dades, no el codi.
+procedure WebModule1getAlbaranesRecepcionAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaracio de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  RecepcionId: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+  iNumRegs: Integer;
+  sData: String;
+  sFechaAlbaran: String;
+  sFechaPedido: String;
+  sFechaNecesaria: String;
+  sFechaRecepcion: String;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperacio de parametres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks (
+    Conn,
+    EmpresaOrigen,
+    '',
+    CodigoEmpresa
+  );
+
+  RecepcionId := StrToIntDef(contentfields.values['RecepcionId'],0);
+  if RecepcionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de recepción no especificado","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Recuperacio de dades'}
+
+  // A la TVF (albarà per comanda) s'hi afegeixen les dades de la COMANDA DE SAGE:
+  // el segment PEDIDOS de la pantalla ensenya la comanda tal com és a l'ERP, no
+  // l'albarà que s'hi anota des de la PDA.
+  sSQL :=
+    'SELECT a.*, ' +
+    '  ISNULL(CPP.CodigoProveedor, '''') AS CodigoProveedor, ' +
+    '  CPP.FechaPedido, ' +
+    '  CPP.FechaNecesaria, ' +
+    '  ISNULL(CPP.SuPedido, '''') AS SuPedido, ' +
+    '  ISNULL(CPP.NumeroLineas, 0) AS LineasPedido, ' +
+    '  CPP.FechaRecepcion, ' +
+    // Totals de la RECEPCIÓ sencera. Es repeteixen a cada fila perquè la
+    // capçalera del segment PEDIDOS els ensenya un sol cop, al costat del
+    // proveïdor, i així no cal un segon viatge a la base de dades.
+    '  tot.LineasRecepcion, ' +
+    '  tot.ArticulosRecepcion ' +
+    'FROM dbo.FS_SGA_TABLE_Recepcion_Albaranes ( ' +
+    IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' + IntToStr(RecepcionId) + ' ) a ' +
+    'LEFT JOIN CabeceraPedidoProveedor CPP WITH (NOLOCK) ' +
+    '  ON  CPP.CodigoEmpresa   = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND CPP.EjercicioPedido = a.EjercicioPedido ' +
+    '  AND CPP.SeriePedido     = a.SeriePedido ' +
+    '  AND CPP.NumeroPedido    = a.NumeroPedido ' +
+    'CROSS JOIN ( ' +
+    '  SELECT ' +
+    '    COUNT(*) AS LineasRecepcion, ' +
+    '    COUNT(DISTINCT rl.CodigoArticulo) AS ArticulosRecepcion ' +
+    '  FROM FS_SGA_Recepciones_Lineas rl WITH (NOLOCK) ' +
+    '  WHERE rl.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '    AND rl.RecepcionId  = ' + IntToStr(RecepcionId) + ' ' +
+    ') tot ' +
+    'ORDER BY a.EjercicioPedido, a.SeriePedido, a.NumeroPedido';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+  except
+    on E:Exception do begin
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(E.Message) + '","Data":[]}';
+      Exit;
+    end;
+  end;
+
+  sData := '';
+  iNumRegs := 0;
+
+  while not Q.Eof do begin
+
+    if iNumRegs<>0 then
+      sData := sData + ',';
+
+    Inc(iNumRegs);
+
+    // La data pot venir NULL (comanda sense albara anotat encara): en aquest cas
+    // s'envia buida i que la pantalla decideixi, en comptes de posar-hi la d'avui
+    // i fer creure que ja s'havia informat.
+    if (Q.FieldByName('RefFechaAlbaran').IsNull) or (Q.FieldByName('RefFechaAlbaran').AsDateTime=0) then
+      sFechaAlbaran := ''
+    else
+      sFechaAlbaran := FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('RefFechaAlbaran').AsDateTime );
+
+    if (Q.FieldByName('FechaPedido').IsNull) or (Q.FieldByName('FechaPedido').AsDateTime=0) then
+      sFechaPedido := ''
+    else
+      sFechaPedido := FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('FechaPedido').AsDateTime );
+
+    if (Q.FieldByName('FechaNecesaria').IsNull) or (Q.FieldByName('FechaNecesaria').AsDateTime=0) then
+      sFechaNecesaria := ''
+    else
+      sFechaNecesaria := FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('FechaNecesaria').AsDateTime );
+
+    if (Q.FieldByName('FechaRecepcion').IsNull) or (Q.FieldByName('FechaRecepcion').AsDateTime=0) then
+      sFechaRecepcion := ''
+    else
+      sFechaRecepcion := FormatDateTime ( 'dd/mm/yyyy', Q.FieldByName('FechaRecepcion').AsDateTime );
+
+    sData := sData +
+      '{' +
+      '"EjercicioPedido":' + IntToStr(Q.FieldByName('EjercicioPedido').AsInteger) + ',' +
+      '"SeriePedido":"' + JSON_Str(Q.FieldByName('SeriePedido').AsString) + '",' +
+      '"NumeroPedido":' + IntToStr(Q.FieldByName('NumeroPedido').AsInteger) + ',' +
+      '"Pedido":"' + JSON_Str(Q.FieldByName('Pedido_').AsString) + '",' +
+      '"Nombre":"' + JSON_Str(Q.FieldByName('Nombre').AsString) + '",' +
+      '"RefAlbaran":"' + JSON_Str(Q.FieldByName('RefNumeroAlbaran').AsString) + '",' +
+      '"RefFechaAlbaran":"' + JSON_Str(sFechaAlbaran) + '",' +
+      '"Observaciones":"' + JSON_Str(Q.FieldByName('Observaciones').AsString) + '",' +
+      '"Bultos":' + IntToStr(Q.FieldByName('Bultos').AsInteger) + ',' +
+      '"Cajas":' + IntToStr(Q.FieldByName('Cajas').AsInteger) + ',' +
+      '"Palets":' + IntToStr(Q.FieldByName('Palets').AsInteger) + ',' +
+      '"TieneAlbaranPropio":' + IntToStr(Q.FieldByName('TieneAlbaranPropio').AsInteger) + ',' +
+      '"EsAlbaranSage":' + SQL_BooleanToStr(Q.FieldByName('EsAlbaranSage').AsBoolean) + ',' +
+      '"TotalLineas":' + IntToStr(Q.FieldByName('TotalLineas').AsInteger) + ',' +
+      // Dades de la comanda a Sage
+      '"CodigoProveedor":"' + JSON_Str(Q.FieldByName('CodigoProveedor').AsString) + '",' +
+      '"FechaPedido":"' + JSON_Str(sFechaPedido) + '",' +
+      '"FechaNecesaria":"' + JSON_Str(sFechaNecesaria) + '",' +
+      '"SuPedido":"' + JSON_Str(Q.FieldByName('SuPedido').AsString) + '",' +
+      '"LineasPedido":' + IntToStr(Q.FieldByName('LineasPedido').AsInteger) + ',' +
+      '"FechaRecepcion":"' + JSON_Str(sFechaRecepcion) + '",' +
+      // Totals de la recepció sencera
+      '"LineasRecepcion":' + IntToStr(Q.FieldByName('LineasRecepcion').AsInteger) + ',' +
+      '"ArticulosRecepcion":' + IntToStr(Q.FieldByName('ArticulosRecepcion').AsInteger) +
+      '}';
+
+    Q.Next;
+
+  end;
+
+  Q.Close;
+  FreeAndNil(Q);
+
+  Result := '{"Result":"OK","Error":"","TotalRecords":' + IntToStr(iNumRegs) +
+            ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[' + sData + ']}';
+
+  {$ENDREGION}
 
 end;
 

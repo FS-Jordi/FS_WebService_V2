@@ -2496,6 +2496,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/getalbaranesrecepcion') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1getAlbaranesRecepcionAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/getpedidos') then
     begin
       TAsyncWebModuleThread.Create(

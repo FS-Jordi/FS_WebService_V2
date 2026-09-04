@@ -16,6 +16,9 @@ uses
 
 {$REGION '--- DECLARACIÓ DE VARIABLES GLOBALS'}
 
+const
+  CONST_CUSTOMER_ALFRAN = '45D9';
+
 type
   TParametrosConfig = record
     ActivarDesconnexio: Boolean;          // Desconnexió automàtica ON/OFF
@@ -112,6 +115,7 @@ var
   gbTiposUnidadesSimplificado: Boolean;
 
   gbCalculatingRoute: Boolean;
+  gbAvisoStockMinimo: Boolean;
 
 {$ENDREGION}
 
