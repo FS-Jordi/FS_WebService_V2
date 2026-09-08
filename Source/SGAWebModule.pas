@@ -376,6 +376,17 @@ function FS_SGA_ObtenerUbicaciones ( Conn: TADOConnection; IdPreparacion: Intege
 
 function BARCODE_Tipo ( Conn: TADOConnection; CodigoEmpresa: TOrigenCodigoEmpresa; CodigoAlmacen: String; var Barcode: String ): Integer;
 
+// CHECKLISTS (mòdul llicenciat EE77) - implementació al final de la unit.
+procedure WebModule1listChecklistsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1openChecklistAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1getChecklistAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1saveChecklistRespuestaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1listMotivosNCAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1validarChecklistAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1uploadChecklistFotoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1listChecklistFotosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1deleteChecklistFotoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
 
 implementation
 
@@ -5135,14 +5146,23 @@ begin
 
   Estado := SGA_GetEstadoPreparacion ( Conn, IdPreparacion );
 
+  // El nom de l'agrupació (p.ex. 'CAJA 24 UNIDS.') es fa servir com a unitat de
+  // mesura al llistat quan la línia porta agrupació.
   sSQL := 'SELECT DISTINCT ' +
-          '  * ' +
-          'FROM FS_SGA_PACKINGLIST WITH (NOLOCK) ' +
+          '  pl.*, ' +
+          '  ISNULL(agrup.Agrupacion,'''') AS Agrupacion ' +
+          'FROM FS_SGA_PACKINGLIST pl WITH (NOLOCK) ' +
+          'LEFT JOIN Agrupaciones agrup WITH (NOLOCK) ' +
+          'ON ' +
+          '  agrup.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Agrupaciones) + ' ' +
+          '  AND agrup.CodigoArticulo = pl.CodigoArticulo ' +
+          '  AND agrup.UnidadMedida1_ = pl.UnidadMedida ' +
+          '  AND agrup.CodigoAgrupacion = pl.CodigoAgrupacion ' +
           'WHERE ' +
-          '  preparacionId = ' + IntToStr(IdPreparacion) + ' ' +
-          '  AND pickingId = ' + IntToStr(PickingId) + ' ' +
+          '  pl.preparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+          '  AND pl.pickingId = ' + IntToStr(PickingId) + ' ' +
           'ORDER BY ' +
-          '  paletId, cajaId, Partida ';// +
+          '  pl.paletId, pl.cajaId, pl.Partida ';// +
           //'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +
           //'FETCH NEXT ' + IntToStr(iPageSize) + ' ROWS ONLY';
 
@@ -5193,6 +5213,7 @@ begin
                        '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '",' +
                        '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
                        '"UnidadesAgrupacion":' + SQL_FloatToStr(Q.FieldByName('UnidadesAgrupacion').AsFloat) + ',' +
+                       '"Agrupacion":"' + JSON_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
                        '"CantidadExpedida":' + SQL_FloatToStr(Q.FieldByName('unidades').AsFloat) + ',' +
                        '"CantidadExpedidaBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesBase').AsFloat) + ',' +
                        '"UnidadMedida":"' + JSON_Str(UnidadMedida) + '",' +
@@ -11514,7 +11535,8 @@ begin
 
   sSQL :=
     'SELECT DISTINCT ' +
-    '   Partida, FechaCaduca ' +
+    '  Partida, FechaCaduca, ISNULL(FechaCaduca, DATEADD(y, 100, GETDATE())), UnidadesSaldo, UnidadesSaldoBase, ' +
+    '  UnidadMedida, UnidadMedidaBase ' +
     'FROM FS_SGA_TABLE_AcumuladoStockActual ( ' + IntToStr(CodigoEmpresa.Stocks) + ', ' + IntToStr(YY) + ' )' +
     'WHERE ' +
     '  CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
@@ -11523,9 +11545,8 @@ begin
     '    UnidadesSaldo <> 0 ' +
     '    OR UnidadesSaldoBase <> 0 ' +
     '  ) ' +
-    sWhere;
-    //'  AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
-    //'  AND CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + '''';
+    sWhere + ' ' +
+    'ORDER BY ISNULL(FechaCaduca, DATEADD(y, 100, GETDATE())), Partida';
   Q := SQL_PrepareQuery ( Conn, sSQL );
   Q.Open;
 
@@ -11553,7 +11574,11 @@ begin
     sData := sData +
       '{' +
       '"Partida":"' + JSON_Str(Q.FieldByName('Partida').AsString) + '",' +
-      '"FechaCaduca":"' + JSON_Str(sFechaCaduca) + '"' +
+      '"FechaCaduca":"' + JSON_Str(sFechaCaduca) + '",' +
+      '"UnidadesSaldo":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldo').AsFloat) + ',' +
+      '"UnidadesSaldoBase":' + SQL_FloatToStr(Q.FieldByName('UnidadesSaldoBase').AsFloat) + ',' +
+      '"UnidadMedida":"' + JSON_Str(Q.FieldByName('UnidadMedida').AsString) + '",' +
+      '"UnidadMedidaBase":"' + JSON_Str(Q.FieldByName('UnidadMedidaBase').AsString) + '"' +
       '}';
 
     Q.Next;
@@ -21157,6 +21182,7 @@ end;
 
 // Forward: helper implementat més avall
 procedure _RecalcPaletFromCajas(Conn: TADOConnection; CodigoEmpresaOrigen: Integer; IdPreparacion, IdPalet: Integer; out PesoBruto, PesoNeto, Volumen: Double); forward;
+procedure _RecalcPesosPackaging(Conn: TADOConnection; CodigoEmpresaOrigen: Integer; IdPreparacion: Integer); forward;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
@@ -21274,6 +21300,47 @@ end;
 // │ volum). Actualitza FS_SGA_PackingList_PackagingPalet i retorna els    │ \\
 // │ nous valors.                                                          │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ RECALCULA PESOS I VOLUM DE CAIXES I PALETS D'UNA PREPARACIO           │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// El trigger FS_SGA_TRIGGER_PackingListCUD ja crida aquest mateix procediment,
+// pero ho fa fila a fila en el moment de l'INSERT a FS_SGA_PackingList, i
+// llavors els pesos encara valen 0: addArticuloACaja insereix la linia amb
+// 'peso, pesoneto, volumen' a 0 i els omple despres. El trigger, per tant,
+// suma zeros i les taules PackagingCaja/PackagingPalet es queden a 0 per
+// sempre, perque ningu les torna a recalcular.
+//
+// Aquesta crida al final de l'operacio ho arregla: quan totes les linies ja
+// tenen els pesos definitius, es recalcula el conjunt de la preparacio.
+//
+// El procediment a la BD nomes sobreescriu quan el calcul dona > 0, aixi que
+// respecta els pesos introduits a ma. Si el client te la versio _CUSTOM, es
+// crida aquella, igual que fa el trigger.
+procedure _RecalcPesosPackaging(Conn: TADOConnection; CodigoEmpresaOrigen: Integer; IdPreparacion: Integer);
+var
+  sSQL: String;
+begin
+  if IdPreparacion = 0 then Exit;
+
+  sSQL :=
+    'IF OBJECT_ID(''dbo.FS_SGA_PROC_CalcularPesoVolumenPackingList_CUSTOM'',''P'') IS NOT NULL ' +
+    '  EXEC dbo.FS_SGA_PROC_CalcularPesoVolumenPackingList_CUSTOM ' +
+         IntToStr(CodigoEmpresaOrigen) + ', ' + IntToStr(IdPreparacion) + ', NULL, NULL, NULL ' +
+    'ELSE IF OBJECT_ID(''dbo.FS_SGA_PROC_CalcularPesoVolumenPackingList'',''P'') IS NOT NULL ' +
+    '  EXEC dbo.FS_SGA_PROC_CalcularPesoVolumenPackingList ' +
+         IntToStr(CodigoEmpresaOrigen) + ', ' + IntToStr(IdPreparacion) + ', NULL, NULL, NULL';
+
+  // Si el procediment no existeix a la BD del client, no es un error fatal:
+  // l'expedicio ja s'ha desat i nomes queden els pesos sense recalcular.
+  try
+    SQL_Execute_NoRes ( Conn, sSQL );
+  except
+    // silenciat expressament
+  end;
+end;
+
+
 procedure _RecalcPaletFromCajas(Conn: TADOConnection; CodigoEmpresaOrigen: Integer; IdPreparacion, IdPalet: Integer; out PesoBruto, PesoNeto, Volumen: Double);
 var
   sSQL: String;
@@ -22299,6 +22366,10 @@ begin
 
   {$REGION 'Recalcular totals del palet'}
 
+  // Primer les caixes des de les linies del packing list: el trigger no ho ha
+  // pogut fer perque quan salta els pesos de la linia encara son 0.
+  _RecalcPesosPackaging(Conn, CodigoEmpresa.EmpresaOrigen, IdPreparacion);
+
   _RecalcPaletFromCajas(Conn, CodigoEmpresa.EmpresaOrigen, IdPreparacion, IdPalet, PaletPesoBruto, PaletPesoNeto, PaletVolumen);
 
   Result := '{"Result":"OK","Error":"","Data":[{' +
@@ -22382,6 +22453,7 @@ begin
   end;
 
   // Recalcula els totals del palet amb les caixes actualitzades
+  _RecalcPesosPackaging(Conn, CodigoEmpresa.EmpresaOrigen, IdPreparacion);
   _RecalcPaletFromCajas(Conn, CodigoEmpresa.EmpresaOrigen, IdPreparacion, IdPalet, PaletPesoBruto, PaletPesoNeto, PaletVolumen);
 
   Result := '{"Result":"OK","Error":"","Data":[{' +
@@ -61066,6 +61138,1895 @@ begin
             ',"NumRecords":' + IntToStr(iNumRegs) + ',"Data":[' + sData + ']}';
 
   {$ENDREGION}
+
+end;
+
+
+
+// ╔═══════════════════════════════════════════════════════════════════════╗ \\
+// ║ CHECKLISTS                                                            ║ \\
+// ╚═══════════════════════════════════════════════════════════════════════╝ \\
+//
+// Set endpoints que exposen a la PDA el mòdul de checklists creat pel script
+// 00139. No hi ha cap taula nova: el model ja es va fer genèric i aquí es cobra
+// la inversió.
+//
+// LES TRES IDEES QUE CAL NO PERDRE DE VISTA:
+//
+//   1. La CONFORMITAT és un eix separat de la RESPOSTA. A "porta el precinte
+//      trencat?" la resposta conforme és "No". Confondre-ho és l'error del
+//      model vell.
+//
+//   2. La lògica de conformitat viu AQUÍ, al servidor, encara que la PDA la
+//      pugui proposar per pintar el color a l'instant. Duplicar-la en
+//      TypeScript garanteix que un dia divergiran.
+//
+//   3. Tot canvi d'una resposta queda al LOG, escrit ABANS de sobreescriure.
+//
+// DocTipo i DocId són camps OPACS: no es validen contra la taula del document
+// ni s'hi fa cap JOIN. Així, afegir un cinquè o sisè procés no toca el
+// webservice — només cal donar d'alta la tasca a FS_SGA_Chk_Tareas i cridar
+// l'endpoint amb el DocTipo nou.
+//
+// LLICÈNCIA: tots set endpoints exigeixen la llicència EE77
+// (CONST_SGA_CHECKLISTS). Amagar els botons a la PDA no impedeix que algú cridi
+// l'endpoint directament, i un checklist és un registre d'auditoria.
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ Comprovació de llicència compartida pels set endpoints                │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// Retorna TRUE si el client té llicència vàlida del mòdul de checklists.
+// Si no en té, deixa a sError el missatge funcional que s'ha de retornar.
+function FS_SGA_CHK_TieneLicencia ( Conn: TADOConnection; UUID, IP, Usuario: String; Port: Integer; var sError: String ): Boolean;
+var
+  Res: Integer;
+  // AnsiString i no String: LICENSE_Check els rep per var i és una DLL externa.
+  license_code: AnsiString;
+  grace_period: Integer;
+begin
+
+  Result := TRUE;
+  sError := '';
+
+  Res := LICENSE_Check ( Conn, 'PDA', UUID, IP, Usuario, Port, gsCustomerCode, CONST_SGA_CHECKLISTS, license_code, grace_period);
+
+  case Res of
+
+    CONST_LICERR_INVALID_LICENSE,
+    CONST_LICERR_NOT_ENOUGHT_LICENSES,
+    CONST_LICERR_EXPIRED_LICENSE,
+    CONST_LICENSE_DATABASE_ERROR:
+    begin
+      Result := FALSE;
+      sError := 'El módulo de checklists no está incluido en su licencia. Contacte con el administrador del sistema.';
+    end;
+
+  end;
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ Conformitat calculada al servidor                                     │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// Mateix criteri que EvaluarConformidad d'uChecklist_Data.pas. Retorna:
+//   'C' conforme   'N' no conforme   'X' no aplica   '' no avaluada
+//
+// Els tipus T/F/H/M/U/A no s'avaluen sols: qui diu si allò està bé és
+// l'operari, i per això retornen ''. Els numèrics (N/D/E) manen pel rang.
+function FS_SGA_CHK_EvaluarConformidad ( TipoRespuesta, Respuesta, Valor, ValorConforme, ListaValores: String;
+                                         EvaluaConformidad: Boolean; ValorMin, ValorMax: Variant ): String;
+var
+  fValor: Double;
+  i: Integer;
+  slOpciones: TStringList;
+  sOpcion, sTxt, sConf: String;
+  iPos: Integer;
+begin
+
+  Result := '';
+
+  // Pregunta informativa: recull la dada però no genera mai NC.
+  if not EvaluaConformidad then
+    Exit;
+
+  // "No aplica" guanya sempre, sigui quin sigui el tipus.
+  if Respuesta = '-' then
+  begin
+    Result := 'X';
+    Exit;
+  end;
+
+  if TipoRespuesta = 'B' then
+  begin
+    if Respuesta = '' then Exit;
+    if ValorConforme = '' then Exit;
+    if SameText(Respuesta, ValorConforme) then Result := 'C'
+    else Result := 'N';
+    Exit;
+  end;
+
+  if (TipoRespuesta = 'N') or (TipoRespuesta = 'D') or (TipoRespuesta = 'E') then
+  begin
+    if Trim(Valor) = '' then Exit;
+    fValor := StrToFloatDef ( StringReplace(Valor, '.', FormatSettings.DecimalSeparator, [rfReplaceAll]), 0 );
+
+    Result := 'C';
+    if not VarIsNull(ValorMin) then
+      if fValor < Double(ValorMin) then Result := 'N';
+    if not VarIsNull(ValorMax) then
+      if fValor > Double(ValorMax) then Result := 'N';
+    Exit;
+  end;
+
+  if (TipoRespuesta = 'L') or (TipoRespuesta = 'R') then
+  begin
+    if Trim(Valor) = '' then Exit;
+
+    // Format de ListaValores:  Texto  |  Texto=C   on C = C/N/X
+    // Si l'opció triada porta sufix, mana el sufix; si no, es compara amb
+    // ValorConforme.
+    slOpciones := TStringList.Create;
+    try
+      slOpciones.Delimiter := '|';
+      slOpciones.StrictDelimiter := TRUE;
+      slOpciones.DelimitedText := ListaValores;
+
+      for i := 0 to slOpciones.Count - 1 do
+      begin
+        sOpcion := slOpciones[i];
+        iPos := Pos('=', sOpcion);
+        if iPos > 0 then
+        begin
+          sTxt  := Copy(sOpcion, 1, iPos - 1);
+          sConf := Copy(sOpcion, iPos + 1, Length(sOpcion));
+        end
+        else
+        begin
+          sTxt  := sOpcion;
+          sConf := '';
+        end;
+
+        if SameText(Trim(sTxt), Trim(Valor)) then
+        begin
+          if sConf <> '' then
+          begin
+            Result := UpperCase(Trim(sConf));
+            Exit;
+          end;
+          Break;
+        end;
+      end;
+    finally
+      slOpciones.Free;
+    end;
+
+    if ValorConforme = '' then Exit;
+    if SameText(Trim(Valor), Trim(ValorConforme)) then Result := 'C'
+    else Result := 'N';
+    Exit;
+  end;
+
+  // T / F / H / M / U / A: no s'avaluen soles.
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ Resum d'una execució, en JSON                                         │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// Embolcall de FS_SGA_TABLE_Chk_Resumen. S'afegeix a diverses respostes perquè
+// la PDA repinti els comptadors sense una segona crida.
+function FS_SGA_CHK_ResumenJSON ( Conn: TADOConnection; CodigoEmpresa, EjecucionId: Integer ): String;
+var
+  Q: TADOQuery;
+  sSQL: String;
+begin
+
+  Result := '{"Total":0,"Respondidas":0,"NoConformes":0,"CriticasNOK":0,"Pendientes":0,"CriticasPend":0}';
+
+  sSQL := 'SELECT * FROM FS_SGA_TABLE_Chk_Resumen ( ' + IntToStr(CodigoEmpresa) + ', ' + IntToStr(EjecucionId) + ' )';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.Eof then
+      Result :=
+        '{' +
+        '"Total":'        + IntToStr(Q.FieldByName('Total').AsInteger)        + ',' +
+        '"Respondidas":'  + IntToStr(Q.FieldByName('Respondidas').AsInteger)  + ',' +
+        '"NoConformes":'  + IntToStr(Q.FieldByName('NoConformes').AsInteger)  + ',' +
+        '"CriticasNOK":'  + IntToStr(Q.FieldByName('CriticasNOK').AsInteger)  + ',' +
+        '"Pendientes":'   + IntToStr(Q.FieldByName('Pendientes').AsInteger)   + ',' +
+        '"CriticasPend":' + IntToStr(Q.FieldByName('CriticasPend').AsInteger) +
+        '}';
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 1. LLISTA DE CHECKLISTS                                               │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /listchecklists
+//      &Mode=DOCUMENT &TareaId=REC &DocTipo=REC &DocId=626
+//      &Mode=PENDING   (execucions obertes de l'usuari, de qualsevol tasca)
+//      &Mode=FREE      (plantilles de tasca LIB, sense document)
+//
+// Retorna les plantilles ACTIVES d'aquella tasca amb l'estat de la seva
+// execució si ja existeix. L'estat ve aquí i no en una segona crida perquè la
+// PDA ha de pintar la llista d'un cop: una crida per plantilla amb WiFi de
+// moll és el que fa que la pantalla trigui tres segons a aparèixer.
+//
+// Els filtres del document van al ON del LEFT JOIN i no al WHERE: si anessin
+// al WHERE, les plantilles sense execució desapareixerien de la llista i no es
+// podria començar cap checklist.
+procedure WebModule1listChecklistsAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  sMode: String;
+  sTareaId: String;
+  sDocTipo: String;
+  iDocId: Integer;
+  sSQL: String;
+  sData: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  sMode    := UpperCase(Trim(contentfields.Values['Mode']));
+  if sMode = '' then sMode := 'DOCUMENT';
+  sTareaId := Trim(contentfields.Values['TareaId']);
+  sDocTipo := Trim(contentfields.Values['DocTipo']);
+  iDocId   := StrToIntDef(contentfields.Values['DocId'], 0);
+
+  {$ENDREGION}
+
+  {$REGION 'Consulta'}
+
+  sData := '';
+
+  if sMode = 'PENDING' then
+  begin
+
+    // Execucions obertes d'aquest usuari, de qualsevol tasca. Resol el forat
+    // d'una execució començada i deixada a mitges, que d'altra manera no té
+    // cap manera de retrobar-se si no recordes de quin document era.
+    sSQL :=
+      'SELECT ' +
+      '  e.EjecucionId, e.PlantillaId, e.TareaId, e.Estado, e.Flags, ' +
+      '  DocTipo = ISNULL(e.DocTipo,''''), DocId = ISNULL(e.DocId,0), ' +
+      '  e.FechaInicio, ' +
+      '  p.Codigo, p.Descripcion, ' +
+      '  t.Descripcion AS TareaTxt, ' +
+      '  x.Total, x.Respondidas, x.NoConformes, x.CriticasNOK, x.Pendientes ' +
+      'FROM FS_SGA_Chk_Ejecuciones e WITH (NOLOCK) ' +
+      'INNER JOIN FS_SGA_Chk_Plantillas p WITH (NOLOCK) ' +
+      '        ON p.CodigoEmpresa = e.CodigoEmpresa ' +
+      '       AND p.PlantillaId   = e.PlantillaId ' +
+      'LEFT JOIN FS_SGA_Chk_Tareas t WITH (NOLOCK) ' +
+      '       ON t.CodigoEmpresa = e.CodigoEmpresa ' +
+      '      AND t.TareaId       = e.TareaId ' +
+      'CROSS APPLY FS_SGA_TABLE_Chk_Resumen ( e.CodigoEmpresa, e.EjecucionId ) x ' +
+      'WHERE e.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+      '  AND e.Estado = 0 ' +
+      '  AND e.UsuarioInicio = ' + IntToStr(CodigoUsuario) + ' ' +
+      'ORDER BY e.FechaInicio DESC';
+
+  end
+  else
+  begin
+
+    // DOCUMENT i FREE són la mateixa consulta: canvia només la clau del
+    // document. A FREE la clau ha de ser explícitament lliure (DocTipo NULL),
+    // per no barrejar execucions de documents diferents.
+    if sMode = 'FREE' then
+    begin
+      if sTareaId = '' then sTareaId := 'LIB';
+      sDocTipo := '';
+      iDocId   := 0;
+    end;
+
+    sSQL :=
+      'SELECT ' +
+      '  p.PlantillaId, p.Codigo, p.Descripcion, ' +
+      '  EjecucionId = ISNULL(e.EjecucionId,0), ' +
+      '  Estado      = ISNULL(e.Estado,0), ' +
+      '  Flags       = ISNULL(e.Flags,''''), ' +
+      '  e.FechaInicio, e.FechaValidacion, ' +
+      '  Total        = ISNULL(x.Total,0), ' +
+      '  Respondidas  = ISNULL(x.Respondidas,0), ' +
+      '  NoConformes  = ISNULL(x.NoConformes,0), ' +
+      '  CriticasNOK  = ISNULL(x.CriticasNOK,0), ' +
+      '  Pendientes   = ISNULL(x.Pendientes,0), ' +
+      '  NumPreguntas = ( SELECT COUNT(*) FROM FS_SGA_Chk_Preguntas pr WITH (NOLOCK) ' +
+      '                    WHERE pr.CodigoEmpresa = p.CodigoEmpresa ' +
+      '                      AND pr.PlantillaId   = p.PlantillaId ' +
+      '                      AND pr.Activa        = 1 ) ' +
+      'FROM FS_SGA_Chk_Plantillas p WITH (NOLOCK) ' +
+      'INNER JOIN FS_SGA_Chk_Plantillas_Tareas pt WITH (NOLOCK) ' +
+      '        ON pt.CodigoEmpresa = p.CodigoEmpresa ' +
+      '       AND pt.PlantillaId   = p.PlantillaId ' +
+      // Els filtres del document van AQUÍ, al ON, no al WHERE.
+      'LEFT JOIN FS_SGA_Chk_Ejecuciones e WITH (NOLOCK) ' +
+      '       ON e.CodigoEmpresa = p.CodigoEmpresa ' +
+      '      AND e.PlantillaId   = p.PlantillaId ' +
+      '      AND e.TareaId       = pt.TareaId ' +
+      '      AND e.Estado       <> 3 ';
+
+    if sDocTipo = '' then
+      sSQL := sSQL +
+      '      AND e.DocTipo IS NULL ' +
+      '      AND e.DocId   IS NULL '
+    else
+      sSQL := sSQL +
+      '      AND e.DocTipo = ''' + SQL_Str(sDocTipo) + ''' ' +
+      '      AND e.DocId   = ' + IntToStr(iDocId) + ' ';
+
+    sSQL := sSQL +
+      'OUTER APPLY FS_SGA_TABLE_Chk_Resumen ( p.CodigoEmpresa, e.EjecucionId ) x ' +
+      'WHERE p.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+      '  AND p.Activa = 1 ' +
+      '  AND pt.TareaId = ''' + SQL_Str(sTareaId) + ''' ' +
+      'ORDER BY p.Codigo';
+
+  end;
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+
+    Q.Open;
+
+    while not Q.Eof do
+    begin
+
+      if sData <> '' then sData := sData + ',';
+
+      if sMode = 'PENDING' then
+        sData := sData +
+          '{' +
+          '"EjecucionId":'  + IntToStr(Q.FieldByName('EjecucionId').AsInteger) + ',' +
+          '"PlantillaId":'  + IntToStr(Q.FieldByName('PlantillaId').AsInteger) + ',' +
+          '"TareaId":"'     + JSON_StrWeb(Q.FieldByName('TareaId').AsString) + '",' +
+          '"TareaTxt":"'    + JSON_StrWeb(Q.FieldByName('TareaTxt').AsString) + '",' +
+          '"Codigo":"'      + JSON_StrWeb(Q.FieldByName('Codigo').AsString) + '",' +
+          '"Descripcion":"' + JSON_StrWeb(Q.FieldByName('Descripcion').AsString) + '",' +
+          '"DocTipo":"'     + JSON_StrWeb(Q.FieldByName('DocTipo').AsString) + '",' +
+          '"DocId":'        + IntToStr(Q.FieldByName('DocId').AsInteger) + ',' +
+          '"Estado":'       + IntToStr(Q.FieldByName('Estado').AsInteger) + ',' +
+          '"Flags":"'       + JSON_StrWeb(Q.FieldByName('Flags').AsString) + '",' +
+          '"FechaInicio":"' + FormatDateTime('dd/mm/yyyy hh:nn', Q.FieldByName('FechaInicio').AsDateTime) + '",' +
+          '"Total":'        + IntToStr(Q.FieldByName('Total').AsInteger) + ',' +
+          '"Respondidas":'  + IntToStr(Q.FieldByName('Respondidas').AsInteger) + ',' +
+          '"NoConformes":'  + IntToStr(Q.FieldByName('NoConformes').AsInteger) + ',' +
+          '"CriticasNOK":'  + IntToStr(Q.FieldByName('CriticasNOK').AsInteger) + ',' +
+          '"Pendientes":'   + IntToStr(Q.FieldByName('Pendientes').AsInteger) +
+          '}'
+      else
+        sData := sData +
+          '{' +
+          '"PlantillaId":'  + IntToStr(Q.FieldByName('PlantillaId').AsInteger) + ',' +
+          '"Codigo":"'      + JSON_StrWeb(Q.FieldByName('Codigo').AsString) + '",' +
+          '"Descripcion":"' + JSON_StrWeb(Q.FieldByName('Descripcion').AsString) + '",' +
+          '"EjecucionId":'  + IntToStr(Q.FieldByName('EjecucionId').AsInteger) + ',' +
+          '"Estado":'       + IntToStr(Q.FieldByName('Estado').AsInteger) + ',' +
+          '"Flags":"'       + JSON_StrWeb(Q.FieldByName('Flags').AsString) + '",' +
+          // Total surt del resum quan hi ha execució; si no n'hi ha, del
+          // recompte de preguntes actives de la plantilla.
+          '"Total":'        + IntToStr( IfThen ( Q.FieldByName('EjecucionId').AsInteger = 0,
+                                                 Q.FieldByName('NumPreguntas').AsInteger,
+                                                 Q.FieldByName('Total').AsInteger ) ) + ',' +
+          '"Respondidas":'  + IntToStr(Q.FieldByName('Respondidas').AsInteger) + ',' +
+          '"NoConformes":'  + IntToStr(Q.FieldByName('NoConformes').AsInteger) + ',' +
+          '"CriticasNOK":'  + IntToStr(Q.FieldByName('CriticasNOK').AsInteger) + ',' +
+          '"Pendientes":'   + IntToStr(Q.FieldByName('Pendientes').AsInteger) +
+          '}';
+
+      Q.Next;
+
+    end;
+
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Message":"","Data":[' + sData + ']}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 2. OBRIR O CONTINUAR UNA EXECUCIÓ                                     │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /openchecklist
+//      &PlantillaId=10 &TareaId=REC &DocTipo=REC &DocId=626 &Flags=TEMP|ADR
+//
+// Idempotent per empresa i clau completa: si ja hi ha execució oberta, retorna
+// aquella; si no, en crea una. Cal que ho sigui perquè l'operari hi tornarà a
+// entrar diverses vegades i perquè un reintent per timeout no ha de crear una
+// execució duplicada.
+//
+// Una execució VALIDADA no es reobre ni se'n crea una altra amb la mateixa
+// clau: es retorna un error funcional clar.
+procedure WebModule1openChecklistAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iPlantillaId: Integer;
+  sTareaId: String;
+  sDocTipo: String;
+  iDocId: Integer;
+  sFlags: String;
+  iEjecucionId: Integer;
+  iEstado: Integer;
+  sSQL: String;
+  sDocWhere: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iPlantillaId := StrToIntDef(contentfields.Values['PlantillaId'], 0);
+  if iPlantillaId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Plantilla no especificada","Data":[]}';
+    Exit;
+  end;
+
+  sTareaId := Trim(contentfields.Values['TareaId']);
+  if sTareaId='' then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Tarea no especificada","Data":[]}';
+    Exit;
+  end;
+
+  sDocTipo := Trim(contentfields.Values['DocTipo']);
+  iDocId   := StrToIntDef(contentfields.Values['DocId'], 0);
+  sFlags   := Trim(contentfields.Values['Flags']);
+
+  {$ENDREGION}
+
+  {$REGION 'Cerca i creació'}
+
+  // La clau del document, compartida per la cerca i per la comprovació de
+  // validades. Amb DocTipo buit, l'execució és lliure.
+  if sDocTipo = '' then
+    sDocWhere := '  AND DocTipo IS NULL AND DocId IS NULL '
+  else
+    sDocWhere := '  AND DocTipo = ''' + SQL_Str(sDocTipo) + ''' AND DocId = ' + IntToStr(iDocId) + ' ';
+
+  iEjecucionId := 0;
+  iEstado      := 0;
+
+  sSQL :=
+    'SELECT TOP 1 EjecucionId, Estado ' +
+    'FROM FS_SGA_Chk_Ejecuciones WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND PlantillaId = ' + IntToStr(iPlantillaId) + ' ' +
+    '  AND TareaId = ''' + SQL_Str(sTareaId) + ''' ' +
+    sDocWhere +
+    // Les anul·lades no compten: se'n pot obrir una de nova.
+    '  AND Estado <> 3 ' +
+    'ORDER BY EjecucionId DESC';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.Eof then
+    begin
+      iEjecucionId := Q.FieldByName('EjecucionId').AsInteger;
+      iEstado      := Q.FieldByName('Estado').AsInteger;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  // Una execució ja validada no es reobre des de la PDA. Només des de
+  // l'escriptori i amb permís: afecta la integritat de l'auditoria.
+  if (iEjecucionId > 0) and (iEstado = 2) then
+  begin
+    Result :=
+      '{"Result":"ERROR","Message":"Este checklist ya está validado y no se puede reabrir desde la PDA.",' +
+      '"Data":[{"EjecucionId":' + IntToStr(iEjecucionId) + ',"Estado":' + IntToStr(iEstado) + '}]}';
+    Exit;
+  end;
+
+  if iEjecucionId = 0 then
+  begin
+
+    sSQL :=
+      'INSERT INTO FS_SGA_Chk_Ejecuciones ' +
+      '  ( CodigoEmpresa, PlantillaId, TareaId, DocTipo, DocId, Estado, ' +
+      '    FechaInicio, UsuarioInicio, Observaciones, Flags ) ' +
+      'VALUES ( ' +
+      IntToStr(CodigoEmpresa.Almacenes) + ', ' +
+      IntToStr(iPlantillaId) + ', ' +
+      '''' + SQL_Str(sTareaId) + ''', ';
+
+    if sDocTipo = '' then
+      sSQL := sSQL + 'NULL, NULL, '
+    else
+      sSQL := sSQL + '''' + SQL_Str(sDocTipo) + ''', ' + IntToStr(iDocId) + ', ';
+
+    sSQL := sSQL +
+      '0, GETDATE(), ' + IntToStr(CodigoUsuario) + ', '''', ' +
+      '''' + SQL_Str(sFlags) + ''' ) ' +
+      'SELECT SCOPE_IDENTITY()';
+
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    try
+      Q.Open;
+      if not Q.Eof then
+        iEjecucionId := Q.Fields[0].AsInteger;
+    finally
+      SQL_CloseFree ( Q );
+    end;
+
+    if iEjecucionId = 0 then
+    begin
+      Result := '{"Result":"ERROR","Message":"No se ha podido crear la ejecución del checklist","Data":[]}';
+      Exit;
+    end;
+
+  end
+  else
+  begin
+
+    // Ja existia: si arriben flags nous, s'actualitzen. Un checklist de
+    // temperatura pot passar a ser també d'ADR a mitja recepció.
+    if sFlags <> '' then
+    begin
+      sSQL :=
+        'UPDATE FS_SGA_Chk_Ejecuciones SET Flags = ''' + SQL_Str(sFlags) + ''' ' +
+        'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+        '  AND EjecucionId = ' + IntToStr(iEjecucionId);
+      SQL_Execute_NoRes ( Conn, sSQL );
+    end;
+
+  end;
+
+  {$ENDREGION}
+
+  Result :=
+    '{"Result":"OK","Message":"","Data":[{' +
+    '"EjecucionId":' + IntToStr(iEjecucionId) + ',' +
+    '"Estado":' + IntToStr(iEstado) + ',' +
+    '"Resumen":' + FS_SGA_CHK_ResumenJSON ( Conn, CodigoEmpresa.Almacenes, iEjecucionId ) +
+    '}]}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 3. CONTINGUT D'UNA EXECUCIÓ                                           │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /getchecklist   &EjecucionId=41
+//
+// Embolcall de FS_SGA_TABLE_Chk_Ejecucion, que ja retorna les 30 columnes que
+// calen i ja filtra per CondicionFlag de secció i de pregunta.
+//
+// S'agrupa per SECCIÓ aquí i no al client: la PDA ha de pintar, no reconstruir
+// l'estructura del checklist.
+procedure WebModule1getChecklistAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iEjecucionId: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+  sSecciones: String;
+  sPreguntas: String;
+  // Preguntes amb ExigeFotoNC=1, carregades d'una sola consulta. La funció de
+  // taula no retorna aquest camp i consultar-lo pregunta a pregunta serien
+  // 12 anades i tornades a la base de dades per obrir un checklist.
+  slFotoNC: TStringList;
+  iSeccionActual: Integer;
+  sSeccionTxt: String;
+  bPrimera: Boolean;
+  // Capçalera
+  iPlantillaId, iEstado: Integer;
+  sCodigo, sDescripcion, sFlags, sObservaciones: String;
+  sFechaValidacion: String;
+
+  // Tanca la secció que s'estava muntant i l'afegeix a la llista.
+  procedure CerrarSeccion;
+  begin
+    if sPreguntas = '' then Exit;
+    if sSecciones <> '' then sSecciones := sSecciones + ',';
+    sSecciones := sSecciones +
+      '{' +
+      '"SeccionId":' + IfThen ( iSeccionActual = 0, 'null', IntToStr(iSeccionActual) ) + ',' +
+      '"Descripcion":"' + JSON_StrWeb(sSeccionTxt) + '",' +
+      '"Preguntas":[' + sPreguntas + ']' +
+      '}';
+    sPreguntas := '';
+  end;
+
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iEjecucionId := StrToIntDef(contentfields.Values['EjecucionId'], 0);
+  if iEjecucionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Ejecución no especificada","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Capçalera'}
+
+  iPlantillaId := 0;
+  iEstado      := 0;
+  sCodigo      := '';
+  sDescripcion := '';
+  sFlags       := '';
+  sObservaciones   := '';
+  sFechaValidacion := '';
+
+  sSQL :=
+    'SELECT e.PlantillaId, e.Estado, e.Flags, e.Observaciones, e.FechaValidacion, ' +
+    '       p.Codigo, p.Descripcion ' +
+    'FROM FS_SGA_Chk_Ejecuciones e WITH (NOLOCK) ' +
+    'INNER JOIN FS_SGA_Chk_Plantillas p WITH (NOLOCK) ' +
+    '        ON p.CodigoEmpresa = e.CodigoEmpresa AND p.PlantillaId = e.PlantillaId ' +
+    'WHERE e.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND e.EjecucionId = ' + IntToStr(iEjecucionId);
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if Q.Eof then
+    begin
+      Result := '{"Result":"ERROR","Message":"La ejecución no existe","Data":[]}';
+      Exit;
+    end;
+    iPlantillaId := Q.FieldByName('PlantillaId').AsInteger;
+    iEstado      := Q.FieldByName('Estado').AsInteger;
+    sFlags       := Q.FieldByName('Flags').AsString;
+    sObservaciones := Q.FieldByName('Observaciones').AsString;
+    sCodigo      := Q.FieldByName('Codigo').AsString;
+    sDescripcion := Q.FieldByName('Descripcion').AsString;
+    if not Q.FieldByName('FechaValidacion').IsNull then
+      sFechaValidacion := FormatDateTime('dd/mm/yyyy hh:nn', Q.FieldByName('FechaValidacion').AsDateTime);
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Preguntes, agrupades per secció'}
+
+  sSecciones     := '';
+  sPreguntas     := '';
+  iSeccionActual := -1;
+  sSeccionTxt    := '';
+  bPrimera       := TRUE;
+
+  slFotoNC := TStringList.Create;
+  slFotoNC.Sorted := TRUE;
+
+  sSQL :=
+    'SELECT PreguntaId FROM FS_SGA_Chk_Preguntas WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND PlantillaId = ' + IntToStr(iPlantillaId) + ' ' +
+    '  AND ISNULL(ExigeFotoNC,0) = 1';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    while not Q.Eof do
+    begin
+      slFotoNC.Add ( Q.FieldByName('PreguntaId').AsString );
+      Q.Next;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  sSQL :=
+    'SELECT * FROM FS_SGA_TABLE_Chk_Ejecucion ( ' +
+    IntToStr(CodigoEmpresa.Almacenes) + ', ' + IntToStr(iEjecucionId) + ' ) ' +
+    'ORDER BY OrdenSeccion, SeccionId, Orden, PreguntaId';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+
+    Q.Open;
+
+    while not Q.Eof do
+    begin
+
+      // Canvi de secció: es tanca l'anterior i s'obre la nova.
+      if bPrimera or ( Q.FieldByName('SeccionId').AsInteger <> iSeccionActual ) then
+      begin
+        if not bPrimera then CerrarSeccion;
+        iSeccionActual := Q.FieldByName('SeccionId').AsInteger;
+        sSeccionTxt    := Q.FieldByName('SeccionTxt').AsString;
+        bPrimera       := FALSE;
+      end;
+
+      if sPreguntas <> '' then sPreguntas := sPreguntas + ',';
+
+      sPreguntas := sPreguntas +
+        '{' +
+        '"PreguntaId":'        + IntToStr(Q.FieldByName('PreguntaId').AsInteger) + ',' +
+        '"Texto":"'            + JSON_StrWeb(Q.FieldByName('Texto').AsString) + '",' +
+        '"Ayuda":"'            + JSON_StrWeb(Q.FieldByName('Ayuda').AsString) + '",' +
+        '"TipoRespuesta":"'    + JSON_StrWeb(Q.FieldByName('TipoRespuesta').AsString) + '",' +
+        '"Unidad":"'           + JSON_StrWeb(Q.FieldByName('Unidad').AsString) + '",' +
+        '"ValorMin":'          + IfThen ( Q.FieldByName('ValorMin').IsNull, 'null', SQL_FloatToStr(Q.FieldByName('ValorMin').AsFloat) ) + ',' +
+        '"ValorMax":'          + IfThen ( Q.FieldByName('ValorMax').IsNull, 'null', SQL_FloatToStr(Q.FieldByName('ValorMax').AsFloat) ) + ',' +
+        '"Decimales":'         + IntToStr(Q.FieldByName('Decimales').AsInteger) + ',' +
+        '"ListaValores":"'     + JSON_StrWeb(Q.FieldByName('ListaValores').AsString) + '",' +
+        '"LongitudMax":'       + IntToStr(Q.FieldByName('LongitudMax').AsInteger) + ',' +
+        '"ValorConforme":"'    + JSON_StrWeb(Q.FieldByName('ValorConforme').AsString) + '",' +
+        '"EvaluaConformidad":' + IfThen ( Q.FieldByName('EvaluaConformidad').AsBoolean, '1', '0' ) + ',' +
+        '"ExigeMotivoNC":'     + IfThen ( Q.FieldByName('ExigeMotivoNC').AsBoolean, '1', '0' ) + ',' +
+        '"ExigeComentarioNC":' + IfThen ( Q.FieldByName('ExigeComentarioNC').AsBoolean, '1', '0' ) + ',' +
+        // ExigeFotoNC no és a la funció de taula: surt de la llista carregada
+        // abans del bucle.
+        '"ExigeFotoNC":'       + IfThen ( slFotoNC.IndexOf ( Q.FieldByName('PreguntaId').AsString ) >= 0, '1', '0' ) + ',' +
+        '"EsCritica":'         + IfThen ( Q.FieldByName('EsCritica').AsBoolean, '1', '0' ) + ',' +
+        '"EsObligatoria":'     + IfThen ( Q.FieldByName('EsObligatoria').AsBoolean, '1', '0' ) + ',' +
+        '"Respuesta":"'        + JSON_StrWeb(Q.FieldByName('Respuesta').AsString) + '",' +
+        '"Valor":"'            + JSON_StrWeb(Q.FieldByName('Valor').AsString) + '",' +
+        '"Observaciones":"'    + JSON_StrWeb(Q.FieldByName('Observaciones').AsString) + '",' +
+        '"Conformidad":"'      + JSON_StrWeb(Q.FieldByName('Conformidad').AsString) + '",' +
+        '"MotivoNCId":'        + IfThen ( Q.FieldByName('MotivoNCId').IsNull, 'null', IntToStr(Q.FieldByName('MotivoNCId').AsInteger) ) + ',' +
+        '"MotivoNCTxt":"'      + JSON_StrWeb(Q.FieldByName('MotivoNCTxt').AsString) + '",' +
+        '"ComentarioNC":"'     + JSON_StrWeb(Q.FieldByName('ComentarioNC').AsString) + '",' +
+        '"ConformidadManual":' + IfThen ( Q.FieldByName('ConformidadManual').AsBoolean, '1', '0' ) + ',' +
+        '"NumModificaciones":' + IntToStr(Q.FieldByName('NumModificaciones').AsInteger) + ',' +
+        '"Estado":"'           + JSON_StrWeb(Q.FieldByName('Estado').AsString) + '"' +
+        '}';
+
+      Q.Next;
+
+    end;
+
+    CerrarSeccion;
+
+  finally
+    SQL_CloseFree ( Q );
+    slFotoNC.Free;
+  end;
+
+  {$ENDREGION}
+
+  Result :=
+    '{"Result":"OK","Message":"","Data":[{' +
+    '"Ejecucion":{' +
+      '"EjecucionId":' + IntToStr(iEjecucionId) + ',' +
+      '"PlantillaId":' + IntToStr(iPlantillaId) + ',' +
+      '"Codigo":"' + JSON_StrWeb(sCodigo) + '",' +
+      '"Descripcion":"' + JSON_StrWeb(sDescripcion) + '",' +
+      '"Estado":' + IntToStr(iEstado) + ',' +
+      '"Flags":"' + JSON_StrWeb(sFlags) + '",' +
+      '"Observaciones":"' + JSON_StrWeb(sObservaciones) + '",' +
+      '"FechaValidacion":"' + sFechaValidacion + '"' +
+    '},' +
+    '"Resumen":' + FS_SGA_CHK_ResumenJSON ( Conn, CodigoEmpresa.Almacenes, iEjecucionId ) + ',' +
+    '"Secciones":[' + sSecciones + ']' +
+    '}]}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 4. DESAR UNA RESPOSTA                                                 │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /savechecklistrespuesta
+//      &EjecucionId=41 &PreguntaId=101 &OperacionId=<uuid>
+//      &Respuesta=S &Valor= &Observaciones=
+//      &Conformidad=C &MotivoNCId= &ComentarioNC=
+//
+// Una crida per resposta: amb un tall de WiFi es perd una resposta, no la
+// sessió sencera. És l'alternativa pragmàtica a l'offline, que exigiria
+// resoldre conflictes de dues PDAs sobre la mateixa execució.
+//
+// SOBRE OperacionId: la taula FS_SGA_Chk_Respuestas no té cap camp on
+// persistir-lo, i afegir-n'hi un seria un canvi d'esquema que el pla
+// descarta. Per tant NO es promet exactly-once. El que sí es garanteix és que
+// un reintent no duplica la resposta actual, perquè l'escriptura és un UPSERT
+// sobre la PK (CodigoEmpresa, EjecucionId, PreguntaId). El log, en canvi, pot
+// contenir reintents duplicats: és append-only i això és preferible a perdre
+// traça.
+procedure WebModule1saveChecklistRespuestaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iEjecucionId: Integer;
+  iPreguntaId: Integer;
+  sRespuesta: String;
+  sValor: String;
+  sObservaciones: String;
+  sConformidad: String;
+  sConformidadCalc: String;
+  sMotivoNCId: String;
+  sComentarioNC: String;
+  bConformidadManual: Boolean;
+  sSQL: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+  iEstadoEjec: Integer;
+  iPlantillaId: Integer;
+  bExiste: Boolean;
+  // Instantània de la pregunta
+  sTipoRespuesta, sValorConforme, sListaValores: String;
+  sTextoPregunta, sSeccionPregunta: String;
+  bEvalua, bEsCritica, bEsObligatoria: Boolean;
+  vValorMin, vValorMax: Variant;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iEjecucionId := StrToIntDef(contentfields.Values['EjecucionId'], 0);
+  iPreguntaId  := StrToIntDef(contentfields.Values['PreguntaId'], 0);
+  if (iEjecucionId=0) or (iPreguntaId=0) then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Ejecución o pregunta no especificada","Data":[]}';
+    Exit;
+  end;
+
+  sRespuesta     := Trim(contentfields.Values['Respuesta']);
+  sValor         := contentfields.Values['Valor'];
+  sObservaciones := contentfields.Values['Observaciones'];
+  sConformidad   := UpperCase(Trim(contentfields.Values['Conformidad']));
+  // MotivoNCId acaba concatenat a l'SQL, i per tant NO pot arribar-hi tal com
+  // ve de la petició: es passa per StrToIntDef, que descarta qualsevol cosa que
+  // no sigui un enter. Buit = sense motiu (NULL).
+  sMotivoNCId    := Trim(contentfields.Values['MotivoNCId']);
+  if sMotivoNCId <> '' then
+    sMotivoNCId := IntToStr ( StrToIntDef ( sMotivoNCId, 0 ) );
+  if sMotivoNCId = '0' then
+    sMotivoNCId := '';
+  sComentarioNC  := contentfields.Values['ComentarioNC'];
+
+  {$ENDREGION}
+
+  {$REGION 'Validació: l´execució ha d´estar oberta'}
+
+  iEstadoEjec  := -1;
+  iPlantillaId := 0;
+
+  sSQL :=
+    'SELECT Estado, PlantillaId FROM FS_SGA_Chk_Ejecuciones WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND EjecucionId = ' + IntToStr(iEjecucionId);
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.Eof then
+    begin
+      iEstadoEjec  := Q.FieldByName('Estado').AsInteger;
+      iPlantillaId := Q.FieldByName('PlantillaId').AsInteger;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  if iEstadoEjec = -1 then
+  begin
+    Result := '{"Result":"ERROR","Message":"La ejecución no existe","Data":[]}';
+    Exit;
+  end;
+
+  // Validada (2) o anul·lada (3): no s'hi escriu. Completa (1) sí, perquè es
+  // pot corregir una resposta abans de validar.
+  if iEstadoEjec >= 2 then
+  begin
+    Result := '{"Result":"ERROR","Message":"El checklist ya está validado o anulado: no admite cambios.","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Instantània de la pregunta i conformitat'}
+
+  sTipoRespuesta := 'B';
+  sValorConforme := '';
+  sListaValores  := '';
+  sTextoPregunta := '';
+  sSeccionPregunta := '';
+  bEvalua        := TRUE;
+  bEsCritica     := FALSE;
+  bEsObligatoria := TRUE;
+  vValorMin      := Null;
+  vValorMax      := Null;
+
+  sSQL :=
+    'SELECT p.TipoRespuesta, p.ValorConforme, p.ListaValores, p.Texto, ' +
+    '       p.EvaluaConformidad, p.EsCritica, p.EsObligatoria, p.ValorMin, p.ValorMax, ' +
+    '       SeccionTxt = ISNULL(s.Descripcion,'''') ' +
+    'FROM FS_SGA_Chk_Preguntas p WITH (NOLOCK) ' +
+    'LEFT JOIN FS_SGA_Chk_Secciones s WITH (NOLOCK) ' +
+    '       ON s.CodigoEmpresa = p.CodigoEmpresa ' +
+    '      AND s.PlantillaId   = p.PlantillaId ' +
+    '      AND s.SeccionId     = p.SeccionId ' +
+    'WHERE p.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND p.PlantillaId = ' + IntToStr(iPlantillaId) + ' ' +
+    '  AND p.PreguntaId = ' + IntToStr(iPreguntaId);
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if Q.Eof then
+    begin
+      Result := '{"Result":"ERROR","Message":"La pregunta no pertenece a este checklist","Data":[]}';
+      Exit;
+    end;
+    sTipoRespuesta   := Q.FieldByName('TipoRespuesta').AsString;
+    sValorConforme   := Q.FieldByName('ValorConforme').AsString;
+    sListaValores    := Q.FieldByName('ListaValores').AsString;
+    sTextoPregunta   := Q.FieldByName('Texto').AsString;
+    sSeccionPregunta := Q.FieldByName('SeccionTxt').AsString;
+    bEvalua          := Q.FieldByName('EvaluaConformidad').AsBoolean;
+    bEsCritica       := Q.FieldByName('EsCritica').AsBoolean;
+    bEsObligatoria   := Q.FieldByName('EsObligatoria').AsBoolean;
+    if not Q.FieldByName('ValorMin').IsNull then vValorMin := Q.FieldByName('ValorMin').AsFloat;
+    if not Q.FieldByName('ValorMax').IsNull then vValorMax := Q.FieldByName('ValorMax').AsFloat;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  // La conformitat que val és la que calcula el servidor. La PDA pot proposar
+  // la seva per pintar el color a l'instant, però si difereix de la calculada
+  // es marca com a manual: algú l'ha sobreescrita a consciència i ha de constar.
+  sConformidadCalc := FS_SGA_CHK_EvaluarConformidad (
+    sTipoRespuesta, sRespuesta, sValor, sValorConforme, sListaValores,
+    bEvalua, vValorMin, vValorMax );
+
+  bConformidadManual := FALSE;
+  if sConformidad = '' then
+    sConformidad := sConformidadCalc
+  else
+    if sConformidad <> sConformidadCalc then
+      bConformidadManual := TRUE;
+
+  // Si la resposta deixa de ser NO CONFORME, el motiu i el comentari de NC
+  // s'esborren. Si no, una pregunta corregida de NO a SÍ es quedaria amb el
+  // motiu antic penjat i l'informe d'auditoria comptaria una NC inexistent.
+  // Es fa aquí i no al client perquè és el servidor qui decideix la
+  // conformitat: el client no sap encara que ha deixat de ser NC.
+  if sConformidad <> 'N' then
+  begin
+    sMotivoNCId   := '';
+    sComentarioNC := '';
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Log ABANS de sobreescriure'}
+
+  bExiste := SQL_Execute ( Conn,
+    'SELECT COUNT(*) FROM FS_SGA_Chk_Respuestas WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) +
+    '  AND EjecucionId = ' + IntToStr(iEjecucionId) +
+    '  AND PreguntaId = ' + IntToStr(iPreguntaId) ) > 0;
+
+  // Sense això, passar de NO CONFORME a CONFORME cinc minuts abans de validar
+  // no deixaria cap rastre.
+  //
+  // La taula de log només té els camps *Ant: guarda el valor que hi HAVIA. El
+  // valor nou és el que queda a FS_SGA_Chk_Respuestas, i la seqüència de files
+  // del log reconstrueix l'historial complet.
+  if bExiste then
+  begin
+    sSQL :=
+      'INSERT INTO FS_SGA_Chk_Respuestas_Log ' +
+      '  ( CodigoEmpresa, EjecucionId, PreguntaId, Fecha, CodigoUsuario, Origen, ' +
+      '    RespuestaAnt, ValorAnt, ConformidadAnt, MotivoNCIdAnt, ObservacionesAnt ) ' +
+      'SELECT ' +
+      '  CodigoEmpresa, EjecucionId, PreguntaId, GETDATE(), ' + IntToStr(CodigoUsuario) + ', ''PDA'', ' +
+      '  Respuesta, Valor, Conformidad, MotivoNCId, Observaciones ' +
+      'FROM FS_SGA_Chk_Respuestas WITH (NOLOCK) ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+      '  AND EjecucionId = ' + IntToStr(iEjecucionId) + ' ' +
+      '  AND PreguntaId = ' + IntToStr(iPreguntaId);
+    SQL_Execute_NoRes ( Conn, sSQL );
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Upsert de la resposta'}
+
+  if bExiste then
+  begin
+
+    sSQL :=
+      'UPDATE FS_SGA_Chk_Respuestas SET ' +
+      '  Respuesta = ''' + SQL_Str(sRespuesta) + ''', ' +
+      '  Valor = ''' + SQL_Str(sValor) + ''', ' +
+      '  Observaciones = ''' + SQL_Str(sObservaciones) + ''', ' +
+      '  Conformidad = ''' + SQL_Str(sConformidad) + ''', ' +
+      '  MotivoNCId = ' + IfThen ( sMotivoNCId = '', 'NULL', sMotivoNCId ) + ', ' +
+      '  ComentarioNC = ''' + SQL_Str(sComentarioNC) + ''', ' +
+      '  ConformidadManual = ' + SQL_BooleanToStr(bConformidadManual) + ', ' +
+      '  Fecha = GETDATE(), ' +
+      '  CodigoUsuario = ' + IntToStr(CodigoUsuario) + ', ' +
+      '  NumModificaciones = NumModificaciones + 1, ' +
+      '  Origen = ''PDA'' ' +
+      'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+      '  AND EjecucionId = ' + IntToStr(iEjecucionId) + ' ' +
+      '  AND PreguntaId = ' + IntToStr(iPreguntaId);
+
+  end
+  else
+  begin
+
+    sSQL :=
+      'INSERT INTO FS_SGA_Chk_Respuestas ' +
+      '  ( CodigoEmpresa, EjecucionId, PreguntaId, Respuesta, Valor, Observaciones, ' +
+      '    Conformidad, MotivoNCId, ComentarioNC, ConformidadManual, ' +
+      '    FechaPrimera, UsuarioPrimero, Fecha, CodigoUsuario, NumModificaciones, Origen, ' +
+      '    TextoPregunta, SeccionPregunta, EsCriticaSnap, EsObligatoriaSnap ) ' +
+      'VALUES ( ' +
+      IntToStr(CodigoEmpresa.Almacenes) + ', ' +
+      IntToStr(iEjecucionId) + ', ' +
+      IntToStr(iPreguntaId) + ', ' +
+      '''' + SQL_Str(sRespuesta) + ''', ' +
+      '''' + SQL_Str(sValor) + ''', ' +
+      '''' + SQL_Str(sObservaciones) + ''', ' +
+      '''' + SQL_Str(sConformidad) + ''', ' +
+      IfThen ( sMotivoNCId = '', 'NULL', sMotivoNCId ) + ', ' +
+      '''' + SQL_Str(sComentarioNC) + ''', ' +
+      SQL_BooleanToStr(bConformidadManual) + ', ' +
+      'GETDATE(), ' + IntToStr(CodigoUsuario) + ', ' +
+      'GETDATE(), ' + IntToStr(CodigoUsuario) + ', 0, ''PDA'', ' +
+      // La instantània: el text de la pregunta d'avui. Si demà el mestre la
+      // canvia, l'auditoria ha de poder dir què es va preguntar realment.
+      '''' + SQL_Str(sTextoPregunta) + ''', ' +
+      '''' + SQL_Str(sSeccionPregunta) + ''', ' +
+      SQL_BooleanToStr(bEsCritica) + ', ' +
+      SQL_BooleanToStr(bEsObligatoria) + ' )';
+
+  end;
+
+  if not SQL_Execute_NoRes ( Conn, sSQL ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"No se ha podido guardar la respuesta","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  // Es retorna la conformitat resultant i el resum actualitzat perquè la PDA
+  // repinti el comptador sense una segona crida.
+  Result :=
+    '{"Result":"OK","Message":"","Data":[{' +
+    '"PreguntaId":' + IntToStr(iPreguntaId) + ',' +
+    '"Conformidad":"' + JSON_StrWeb(sConformidad) + '",' +
+    '"ConformidadCalculada":"' + JSON_StrWeb(sConformidadCalc) + '",' +
+    '"ConformidadManual":' + IfThen ( bConformidadManual, '1', '0' ) + ',' +
+    '"Resumen":' + FS_SGA_CHK_ResumenJSON ( Conn, CodigoEmpresa.Almacenes, iEjecucionId ) +
+    '}]}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 5. CATÀLEG DE MOTIUS DE NO CONFORMITAT                                │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /listmotivosnc
+//
+// Són 22 files: no té sentit demanar-les cada vegada que es marca una NC. Es
+// carrega en obrir el checklist i es manté en memòria.
+//
+// Es retorna UpdatedAt perquè la PDA pugui invalidar el catàleg quan canviï
+// sense haver de comparar-ne el contingut.
+procedure WebModule1listMotivosNCAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  sSQL: String;
+  sData: String;
+  sUpdatedAt: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Consulta'}
+
+  sData      := '';
+  sUpdatedAt := '';
+
+  sSQL :=
+    'SELECT MotivoId, Codigo, Descripcion, Familia, Gravedad, Orden ' +
+    'FROM FS_SGA_Chk_MotivosNC WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND Activa = 1 ' +
+    'ORDER BY Familia, Orden, Descripcion';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    while not Q.Eof do
+    begin
+      if sData <> '' then sData := sData + ',';
+      sData := sData +
+        '{' +
+        '"MotivoId":'     + IntToStr(Q.FieldByName('MotivoId').AsInteger) + ',' +
+        '"Codigo":"'      + JSON_StrWeb(Q.FieldByName('Codigo').AsString) + '",' +
+        '"Descripcion":"' + JSON_StrWeb(Q.FieldByName('Descripcion').AsString) + '",' +
+        '"Familia":"'     + JSON_StrWeb(Q.FieldByName('Familia').AsString) + '",' +
+        '"Gravedad":'     + IntToStr(Q.FieldByName('Gravedad').AsInteger) + ',' +
+        '"Orden":'        + IntToStr(Q.FieldByName('Orden').AsInteger) +
+        '}';
+      Q.Next;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Message":"","UpdatedAt":"' + sUpdatedAt + '","Data":[' + sData + ']}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 6. VALIDAR UNA EXECUCIÓ                                               │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /validarchecklist   &EjecucionId=41 &Observaciones=...
+//
+// Comprova que les obligatòries estiguin respostes. Si en falten, retorna
+// ERROR amb la llista i NO canvia l'estat.
+//
+// Si hi ha crítiques NO conformes, AVISA però NO bloqueja: si el camió ha de
+// sortir, sortirà; el que importa és que consti qui ho va decidir sabent-ho.
+// És la decisió del pla de Desktop i aquí es manté.
+//
+// L'excepció la mana la plantilla: si BloqueaSiCriticaNOK = 1, aquell checklist
+// concret sí que bloqueja. No es decideix aquí a mà, es llegeix del mestre.
+procedure WebModule1validarChecklistAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iEjecucionId: Integer;
+  sObservaciones: String;
+  iEstadoEjec: Integer;
+  iPendientes, iCriticasNOK: Integer;
+  bBloqueaSiCriticaNOK: Boolean;
+  sFaltan: String;
+  sSQL: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iEjecucionId   := StrToIntDef(contentfields.Values['EjecucionId'], 0);
+  sObservaciones := contentfields.Values['Observaciones'];
+
+  if iEjecucionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Ejecución no especificada","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'L´execució ha d´existir i no estar ja validada'}
+
+  iEstadoEjec := StrToIntDef ( VarToStr ( SQL_Execute ( Conn,
+    'SELECT Estado FROM FS_SGA_Chk_Ejecuciones WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) +
+    '  AND EjecucionId = ' + IntToStr(iEjecucionId) ) ), -1 );
+
+  if iEstadoEjec = -1 then
+  begin
+    Result := '{"Result":"ERROR","Message":"La ejecución no existe","Data":[]}';
+    Exit;
+  end;
+
+  if iEstadoEjec = 2 then
+  begin
+    Result := '{"Result":"ERROR","Message":"El checklist ya está validado","Data":[]}';
+    Exit;
+  end;
+
+  if iEstadoEjec = 3 then
+  begin
+    Result := '{"Result":"ERROR","Message":"El checklist está anulado","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Comprovació de les obligatòries'}
+
+  iPendientes  := 0;
+  iCriticasNOK := 0;
+
+  sSQL := 'SELECT Pendientes, CriticasNOK FROM FS_SGA_TABLE_Chk_Resumen ( ' +
+          IntToStr(CodigoEmpresa.Almacenes) + ', ' + IntToStr(iEjecucionId) + ' )';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.Eof then
+    begin
+      iPendientes  := Q.FieldByName('Pendientes').AsInteger;
+      iCriticasNOK := Q.FieldByName('CriticasNOK').AsInteger;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  bBloqueaSiCriticaNOK := SQL_Execute ( Conn,
+    'SELECT ISNULL(p.BloqueaSiCriticaNOK,0) ' +
+    'FROM FS_SGA_Chk_Ejecuciones e WITH (NOLOCK) ' +
+    'INNER JOIN FS_SGA_Chk_Plantillas p WITH (NOLOCK) ' +
+    '        ON p.CodigoEmpresa = e.CodigoEmpresa AND p.PlantillaId = e.PlantillaId ' +
+    'WHERE e.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) +
+    '  AND e.EjecucionId = ' + IntToStr(iEjecucionId) ) = 1;
+
+  // Amb mancances NO es canvia l'estat: es retorna qui falta perquè la PDA hi
+  // pugui anar directament.
+  if iPendientes > 0 then
+  begin
+
+    sFaltan := '';
+    sSQL :=
+      'SELECT PreguntaId, Texto FROM FS_SGA_TABLE_Chk_Ejecucion ( ' +
+      IntToStr(CodigoEmpresa.Almacenes) + ', ' + IntToStr(iEjecucionId) + ' ) ' +
+      'WHERE EsObligatoria = 1 AND Estado = '''' ' +
+      'ORDER BY OrdenSeccion, Orden';
+
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    try
+      Q.Open;
+      while not Q.Eof do
+      begin
+        if sFaltan <> '' then sFaltan := sFaltan + ',';
+        sFaltan := sFaltan +
+          '{"PreguntaId":' + IntToStr(Q.FieldByName('PreguntaId').AsInteger) + ',' +
+          '"Texto":"' + JSON_StrWeb(Q.FieldByName('Texto').AsString) + '"}';
+        Q.Next;
+      end;
+    finally
+      SQL_CloseFree ( Q );
+    end;
+
+    Result :=
+      '{"Result":"ERROR","Message":"Faltan ' + IntToStr(iPendientes) +
+      ' preguntas obligatorias por responder","Data":[{' +
+      '"Pendientes":' + IntToStr(iPendientes) + ',' +
+      '"Faltan":[' + sFaltan + ']' +
+      '}]}';
+    Exit;
+
+  end;
+
+  // La plantilla pot exigir que una crítica NO conforme bloquegi la validació.
+  // Per defecte no ho fa: avisa i deixa validar.
+  if ( iCriticasNOK > 0 ) and bBloqueaSiCriticaNOK then
+  begin
+    Result :=
+      '{"Result":"ERROR","Message":"Este checklist no se puede validar con ' +
+      IntToStr(iCriticasNOK) + ' incidencia(s) crítica(s) no conforme(s).","Data":[{' +
+      '"CriticasNOK":' + IntToStr(iCriticasNOK) + ',' +
+      '"Bloquea":1' +
+      '}]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Validació'}
+
+  sSQL :=
+    'UPDATE FS_SGA_Chk_Ejecuciones SET ' +
+    '  Estado = 2, ' +
+    '  FechaValidacion = GETDATE(), ' +
+    '  UsuarioValidacion = ' + IntToStr(CodigoUsuario) + ', ' +
+    '  Observaciones = ''' + SQL_Str(sObservaciones) + ''' ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND EjecucionId = ' + IntToStr(iEjecucionId) + ' ' +
+    // Cinturó: que dues PDA validant alhora no ho facin dues vegades.
+    '  AND Estado < 2';
+
+  if not SQL_Execute_NoRes ( Conn, sSQL ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"No se ha podido validar el checklist","Data":[]}';
+    Exit;
+  end;
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'CHECKLIST',
+            'Validado el checklist ' + IntToStr(iEjecucionId) +
+            IfThen ( iCriticasNOK > 0, ' CON ' + IntToStr(iCriticasNOK) + ' CRITICAS NO CONFORMES', '' ) );
+
+  {$ENDREGION}
+
+  Result :=
+    '{"Result":"OK","Message":"","Data":[{' +
+    '"EjecucionId":' + IntToStr(iEjecucionId) + ',' +
+    '"Estado":2,' +
+    // L'avís, no el bloqueig.
+    '"CriticasNOK":' + IntToStr(iCriticasNOK) + ',' +
+    '"Aviso":"' + IfThen ( iCriticasNOK > 0,
+                           'El checklist se ha validado con ' + IntToStr(iCriticasNOK) + ' incidencia(s) crítica(s) no conforme(s).',
+                           '' ) + '",' +
+    '"Resumen":' + FS_SGA_CHK_ResumenJSON ( Conn, CodigoEmpresa.Almacenes, iEjecucionId ) +
+    '}]}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 7. FOTO D'UNA NO CONFORMITAT                                          │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /uploadchecklistfoto
+//      &EjecucionId=41 &PreguntaId=101 &Foto=<base64> &NombreFichero=...
+//
+// La imatge es desa DINS de la base de dades, al camp DataFotoBase64 que hi
+// afegeix el script 00140. No a disc, i per dues raons:
+//
+//   1. El webservice corre com a SERVEI de Windows i no té les credencials del
+//      recurs compartit de xarxa on apunta el paràmetre 151. Escriure-hi
+//      fallava amb "No se ha podido crear la carpeta de destino".
+//   2. Una foto a disc i la seva fila a la base de dades es poden separar. Un
+//      checklist és un registre d'auditoria i la foto n'és la prova: si algú
+//      neteja la carpeta, queda una ruta que no porta enlloc.
+//
+// És el mateix patró que ja fan servir les fotos de línia de recepció a
+// FS_SGA_Recepciones_Lin_Fotos.
+procedure WebModule1uploadChecklistFotoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iEjecucionId: Integer;
+  iPreguntaId: Integer;
+  sFotoBase64: String;
+  sNombreFichero: String;
+  sSQL: String;
+  iAdjuntoId: Integer;
+  iTamano: Integer;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iEjecucionId   := StrToIntDef(contentfields.Values['EjecucionId'], 0);
+  iPreguntaId    := StrToIntDef(contentfields.Values['PreguntaId'], 0);
+  sFotoBase64    := contentfields.Values['Foto'];
+  sNombreFichero := Trim(contentfields.Values['NombreFichero']);
+
+  if iEjecucionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Ejecución no especificada","Data":[]}';
+    Exit;
+  end;
+
+  if sFotoBase64='' then begin
+    Result := '{"Result":"ERROR","Message":"No se ha recibido ninguna imagen","Data":[]}';
+    Exit;
+  end;
+
+  // La PDA pot enviar el prefix del data URI; es treu abans de descodificar.
+  if Pos('base64,', sFotoBase64) > 0 then
+    sFotoBase64 := Copy ( sFotoBase64, Pos('base64,', sFotoBase64) + 7, Length(sFotoBase64) );
+
+  if sNombreFichero = '' then
+    sNombreFichero := 'NC_' + IntToStr(iPreguntaId) + '_' + FormatDateTime('yyyymmdd_hhnnsszzz', Now()) + '.jpg';
+  sNombreFichero := ExtractFileName ( sNombreFichero );
+
+  // Mida real de la imatge un cop descodificada. El base64 ocupa 4 caràcters
+  // per cada 3 bytes, i el padding final ('=') no compta.
+  iTamano := (Length(sFotoBase64) div 4) * 3;
+  if (Length(sFotoBase64) > 0) and (sFotoBase64[Length(sFotoBase64)] = '=') then
+    Dec(iTamano);
+  if (Length(sFotoBase64) > 1) and (sFotoBase64[Length(sFotoBase64)-1] = '=') then
+    Dec(iTamano);
+
+  {$ENDREGION}
+
+  {$REGION 'Alta a FS_SGA_Chk_Adjuntos'}
+
+  // La imatge va per PARÀMETRE i no concatenada: una foto de 300 KB dins d'una
+  // cadena SQL és inviable, i a més estalvia haver d'escapar-la.
+  sSQL :=
+    'INSERT INTO FS_SGA_Chk_Adjuntos ' +
+    '  ( CodigoEmpresa, EjecucionId, PreguntaId, AccionId, NombreFichero, RutaFichero, ' +
+    '    Tipo, TamanoBytes, Descripcion, Fecha, CodigoUsuario, Origen, DataFotoBase64 ) ' +
+    'VALUES ( ' +
+    IntToStr(CodigoEmpresa.Almacenes) + ', ' +
+    IntToStr(iEjecucionId) + ', ' +
+    IfThen ( iPreguntaId = 0, 'NULL', IntToStr(iPreguntaId) ) + ', ' +
+    'NULL, ' +
+    '''' + SQL_Str(sNombreFichero) + ''', ' +
+    'NULL, ' +
+    '''FOTO'', ' +
+    IntToStr(iTamano) + ', ' +
+    ''''', GETDATE(), ' + IntToStr(CodigoUsuario) + ', ''PDA'', ' +
+    ':Foto ) ' +
+    'SELECT SCOPE_IDENTITY()';
+
+  iAdjuntoId := 0;
+  Q := TADOQuery.Create(nil);
+  try
+    Q.Connection := Conn;
+    Q.CursorLocation := clUseClient;
+    Q.CursorType := ctStatic;
+    // ParamCheck ha d'estar ACTIU perquè es reconegui :Foto.
+    Q.ParamCheck := TRUE;
+    Q.SQL.Text := sSQL;
+    Q.Parameters.ParamByName('Foto').DataType := ftMemo;
+    Q.Parameters.ParamByName('Foto').Value := sFotoBase64;
+
+    try
+      Q.Open;
+      if not Q.Eof then
+        iAdjuntoId := Q.Fields[0].AsInteger;
+    except
+      on E: Exception do
+      begin
+        Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb('No se ha podido guardar la imagen: ' + E.Message) + '","Data":[]}';
+        Exit;
+      end;
+    end;
+
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  {$ENDREGION}
+
+  Result :=
+    '{"Result":"OK","Message":"","Data":[{' +
+    '"AdjuntoId":' + IntToStr(iAdjuntoId) + ',' +
+    '"NombreFichero":"' + JSON_StrWeb(sNombreFichero) + '",' +
+    '"TamanoBytes":' + IntToStr(iTamano) +
+    '}]}';
+
+end;
+
+
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 8. FOTOS D'UNA EXECUCIÓ                                               │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /listchecklistfotos   &EjecucionId=41 [&PreguntaId=101]
+//
+// Sense PreguntaId retorna totes les fotos de l'execució; amb PreguntaId,
+// només les d'aquella pregunta.
+//
+// Retorna la imatge sencera en base64: a la PDA les miniatures i el visor
+// surten del mateix contingut, i una segona crida per obrir la foto en gran
+// amb WiFi de moll és el que fa que el visor trigui a aparèixer.
+procedure WebModule1listChecklistFotosAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iEjecucionId: Integer;
+  iPreguntaId: Integer;
+  sSQL: String;
+  sData: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iEjecucionId := StrToIntDef(contentfields.Values['EjecucionId'], 0);
+  iPreguntaId  := StrToIntDef(contentfields.Values['PreguntaId'], 0);
+
+  if iEjecucionId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Ejecución no especificada","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Consulta'}
+
+  sData := '';
+
+  sSQL :=
+    'SELECT AdjuntoId, PreguntaId, NombreFichero, TamanoBytes, Fecha, CodigoUsuario, ' +
+    '       DataFotoBase64 = ISNULL(DataFotoBase64,'''') ' +
+    'FROM FS_SGA_Chk_Adjuntos WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND EjecucionId = ' + IntToStr(iEjecucionId) + ' ' +
+    '  AND Tipo = ''FOTO'' ';
+
+  if iPreguntaId > 0 then
+    sSQL := sSQL + '  AND PreguntaId = ' + IntToStr(iPreguntaId) + ' ';
+
+  sSQL := sSQL + 'ORDER BY AdjuntoId';
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+
+    Q.Open;
+
+    while not Q.Eof do
+    begin
+
+      if sData <> '' then sData := sData + ',';
+
+      sData := sData +
+        '{' +
+        '"AdjuntoId":'      + IntToStr(Q.FieldByName('AdjuntoId').AsInteger) + ',' +
+        '"PreguntaId":'     + IfThen ( Q.FieldByName('PreguntaId').IsNull, 'null', IntToStr(Q.FieldByName('PreguntaId').AsInteger) ) + ',' +
+        '"NombreFichero":"' + JSON_StrWeb(Q.FieldByName('NombreFichero').AsString) + '",' +
+        '"TamanoBytes":'    + IntToStr(Q.FieldByName('TamanoBytes').AsInteger) + ',' +
+        '"Fecha":"'         + FormatDateTime('dd/mm/yyyy hh:nn', Q.FieldByName('Fecha').AsDateTime) + '",' +
+        '"DataFotoBase64":"' + JSON_StrWeb(Q.FieldByName('DataFotoBase64').AsString) + '"' +
+        '}';
+
+      Q.Next;
+
+    end;
+
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  {$ENDREGION}
+
+  Result := '{"Result":"OK","Message":"","Data":[' + sData + ']}';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ 9. ESBORRAR UNA FOTO                                                  │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /deletechecklistfoto   &AdjuntoId=7
+//
+// Només s'esborra si l'execució segueix OBERTA. Un cop validada, la foto és
+// part del registre d'auditoria i treure-la seria reescriure la prova.
+procedure WebModule1deleteChecklistFotoAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; Port: Integer; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  sUsuario: String;
+  sError: String;
+  iAdjuntoId: Integer;
+  iEstadoEjec: Integer;
+  sSQL: String;
+  Q: TADOQuery;
+  contentfields: TStringList;
+{$ENDREGION}
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Código de empresa no especificado","Data":[]}';
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0);
+  UUID          := contentfields.Values['UUID'];
+  gaLogFile.MAC := UUID;
+  sUsuario      := contentfields.Values['Username'];
+
+  if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  iAdjuntoId := StrToIntDef(contentfields.Values['AdjuntoId'], 0);
+  if iAdjuntoId=0 then begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"Adjunto no especificado","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'L´execució ha d´estar oberta'}
+
+  iEstadoEjec := -1;
+
+  sSQL :=
+    'SELECT e.Estado ' +
+    'FROM FS_SGA_Chk_Adjuntos a WITH (NOLOCK) ' +
+    'INNER JOIN FS_SGA_Chk_Ejecuciones e WITH (NOLOCK) ' +
+    '        ON e.CodigoEmpresa = a.CodigoEmpresa AND e.EjecucionId = a.EjecucionId ' +
+    'WHERE a.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND a.AdjuntoId = ' + IntToStr(iAdjuntoId);
+
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    Q.Open;
+    if not Q.Eof then
+      iEstadoEjec := Q.Fields[0].AsInteger;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  if iEstadoEjec = -1 then
+  begin
+    Result := '{"Result":"ERROR","Message":"La foto no existe","Data":[]}';
+    Exit;
+  end;
+
+  if iEstadoEjec >= 2 then
+  begin
+    Result := '{"Result":"ERROR","Message":"El checklist ya está validado: las fotos no se pueden borrar.","Data":[]}';
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  sSQL :=
+    'DELETE FROM FS_SGA_Chk_Adjuntos ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
+    '  AND AdjuntoId = ' + IntToStr(iAdjuntoId);
+
+  if not SQL_Execute_NoRes ( Conn, sSQL ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"No se ha podido borrar la foto","Data":[]}';
+    Exit;
+  end;
+
+  LOG_Add ( Conn, CodigoUsuario, UUID, sRemoteAddr, 'CHECKLIST',
+            'Borrada la foto ' + IntToStr(iAdjuntoId) + ' de un checklist' );
+
+  Result := '{"Result":"OK","Message":"","Data":[{"AdjuntoId":' + IntToStr(iAdjuntoId) + '}]}';
 
 end;
 

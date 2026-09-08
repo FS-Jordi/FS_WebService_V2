@@ -707,6 +707,44 @@ begin
       WebModule1checkLicenseAction
         ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
 
+    // ── CHECKLISTS (mòdul llicenciat EE77) ──────────────────────────────
+    // Porten PeerPort perquè els set validen la llicència amb LICENSE_Check.
+    else if (sCommand='/listchecklists') then
+      WebModule1listChecklistsAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/openchecklist') then
+      WebModule1openChecklistAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/getchecklist') then
+      WebModule1getChecklistAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/savechecklistrespuesta') then
+      WebModule1saveChecklistRespuestaAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/listmotivosnc') then
+      WebModule1listMotivosNCAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/validarchecklist') then
+      WebModule1validarChecklistAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/uploadchecklistfoto') then
+      WebModule1uploadChecklistFotoAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/listchecklistfotos') then
+      WebModule1listChecklistFotosAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
+    else if (sCommand='/deletechecklistfoto') then
+      WebModule1deleteChecklistFotoAction
+        ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
+
     else if (sCommand='/freelicense') then
       WebModule1freeLicenseAction
         ( SQLConn, sParams, AConnection.PeerIP, AConnection.PeerPort, statusCode, statusText, sResponse )
