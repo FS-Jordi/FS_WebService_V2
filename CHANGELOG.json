@@ -5,6 +5,14 @@
     "repo": "https://github.com/FS-Jordi/FS_WebService_V2"
   },
   "versionBase": "2.0.0",
+  "fuentes": [
+    {
+      "id": "common",
+      "nombre": "COMMON",
+      "ruta": "c:/ARTECSOFT/Projectes/Programes/FACTORYSTART/COMMON",
+      "modo": "usadas"
+    }
+  ],
   "clientes": [
     {
       "id": "general",
@@ -2581,6 +2589,30 @@
           },
           "commits": [],
           "id": "c112"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "origen": "common",
+          "titulo": {
+            "es": "Aviso de falta de stock erróneo al servir pedidos",
+            "ca": "Avís de falta d'estoc erroni en servir comandes"
+          },
+          "descripcion": {
+            "es": "Al servir un pedido podía avisar de que no había stock aunque sí lo hubiera. Ocurría cuando el almacén del pedido expide desde la ubicación de otro almacén: la comprobación miraba el almacén equivocado. Ahora se verifica sobre el almacén desde el que realmente se expide.",
+            "ca": "En servir una comanda podia avisar que no hi havia estoc encara que n'hi hagués. Passava quan el magatzem de la comanda expedeix des de la ubicació d'un altre magatzem: la comprovació mirava el magatzem equivocat. Ara es verifica sobre el magatzem des del qual realment s'expedeix."
+          },
+          "tecnico": {
+            "es": "En Functions_SAGE.pas se añade CodigoAlmacenStock a la estructura de filas. Se resuelve con FS_SGA_ObtenerUbicacionesAlmacen, tomando FS_SGA_Almacenes.UbicacionExpedicion y extrayendo su almacén con FS_SGA_CodigoAlmacen: la ubicación 1.XXX.002.01.01 del almacén 24 pertenece en realidad al almacén 1. El resultado se cachea por almacén en una TStringList para no repetir la consulta, y si falla se conserva el almacén del pedido.",
+            "ca": "A Functions_SAGE.pas s'afegeix CodigoAlmacenStock a l'estructura de files. Es resol amb FS_SGA_ObtenerUbicacionesAlmacen, agafant FS_SGA_Almacenes.UbicacionExpedicion i extraient-ne el magatzem amb FS_SGA_CodigoAlmacen: la ubicació 1.XXX.002.01.01 del magatzem 24 pertany en realitat al magatzem 1. El resultat es cacheja per magatzem en una TStringList per no repetir la consulta, i si falla es conserva el magatzem de la comanda."
+          },
+          "commits": [
+            "0e85e94"
+          ],
+          "id": "c113"
         }
       ]
     }
