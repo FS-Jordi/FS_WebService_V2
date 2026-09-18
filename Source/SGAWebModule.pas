@@ -15962,7 +15962,7 @@ begin
 
       TI_PREPARACION:
       begin
-        sPathInformes := sPathInformes + '\labels\recepcion\palets';
+        sPathInformes := sPathInformes + '\labels\expedicion\pakaging';
       end;
 
       TI_RECEPCION:
@@ -25371,8 +25371,156 @@ begin
     end;
 
     sSQL := sSQL +
-      //'AND lind.RecepcionIdLinea IN (12) ' +
       'ORDER BY lind.recepcionid DESC, r.codigoarticulo';
+
+    FS_MainWebServiceSGA.ppDBPipelineLineas.Close;
+    FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'RecepcionLineas';
+
+  end else if Folder = 'expedicion' then
+  begin
+
+    if Tipo='pakaging' then
+    begin
+      sSQL :=
+        'SELECT  CPC.CodigoCliente, CPC.RazonSocial, '+
+        '    CAC.*, PPL.*, PL.*, ' +
+
+             //-- Pes total de tots els palets de la preparació
+        '    PC.codigoempresa  as _caja_codigoempresa, '+
+        '    PC.idPreparacion  as _caja_idPreparacion,  '+
+        '    PC.idPalet  as _caja_idPalet,  '+
+        '    PC.idPackaging  as _caja_idPackaging,  '+
+        '    PC.Matricula  as _caja_Matricula,  '+
+        '    PC.Ejercicio  as _caja_Ejercicio,  '+
+        '    PC.PesoBruto as _caja_PesoBruto,  '+
+        '    PC.PesoNeto  as _caja_PesoNeto,  '+
+        '    PC.Volumen  as _caja_Volumen,  '+
+        '    PC.Ancho  as _caja_Ancho,  '+
+        '    PC.Fondo  as _caja_Fondo,  '+
+        '    PC.Alto  as _caja_Alto,  '+
+        '    PC.identificadorexpedicion  as _caja_identificadorexpedicion,  '+
+        '    PC.Caja  as _caja_caja,  '+
+
+        '    (SELECT SUM(PesoBruto)  '+
+        '     FROM FS_SGA_PackingList_PackagingPalet  ' +
+        '     WHERE IdPreparacion = PL.preparacionid) AS _Palet_SumaPesoTotal,  ' +
+
+        '    PP.codigoempresa  as _palet_codigoempresa,  '+
+        '    PP.idPreparacion  as _palet_idPreparacion,  '+
+        '    PP.idPalet  as _palet_idPalet,   '+
+        '    PP.idPackaging  as _palet_idPackaging,  '+
+        '    PP.Matricula  as _palet_Matricula,  '+
+        '    PP.Ejercicio  as _palet_Ejercicio,  '+
+        '    PP.PesoBruto as _palet_PesoBruto,  '+
+        '    PP.PesoNeto  as _palet_PesoNeto,  '+
+        '    PP.Volumen  as _palet_Volumen,  '+
+        '    PP.Ancho  as _palet_Ancho,  '+
+        '    PP.Fondo  as _palet_Fondo,  '+
+        '    PP.Alto  as _palet_Alto,  '+
+        '    PP.OrdenCarga  as _palet_OrdenCarga,  '+
+        '    PP.identificadorexpedicion  as _palet_identificadorexpedicion,  '+
+        '    PP.Palet  as _palet_Palet,  '+
+
+             //datos maestros ficha Caja
+        '    PDC.codigoempresa _Caja_Maestro_CodigoEmpresa,  '+
+        '    PDC.Dt_ID AS _Caja_Maestro_Id,  '+
+        '    PDC.Dt_Nombre AS _Caja_Maestro_Nombre,   '+
+        '    PDC.Dt_Descripcion AS _Caja_Maestro_Descripcion,   '+
+        '    PDC.Dt_Peso AS _Caja_Maestro_Peso,  '+
+        '    PDC.Dt_Volumen AS _Caja_Maestro_Volumen,   '+
+        '    PDC.Dt_Carga AS _Caja_Maestro_Carga,  '+
+        '    PDC.Dt_Longitud AS _Caja_Maestro_Longitud,   '+
+        '    PDC.Dt_Anchura AS _Caja_Maestro_Anchura,  '+
+        '    PDC.Dt_Altura AS _Caja_Maestro_Altura,  '+
+        '    PDC.Dt_Color AS _Caja_Maestro_Color,  '+
+        '    PDC.Dt_Material AS _Caja_Maestro_Material,  '+
+        '    PDC.Dt_ISO AS _Caja_Maestro_ISO,  '+
+        '    PDC.Dt_Tipo AS _Caja_Maestro_Tipo,   '+
+        '    PDC.Dt_CodigoSage AS _Caja_Maestro_CodigoSage,  '+
+        '    PDC.Dt_CodigoSage_EDI AS _Caja_Maestro_CodigoSage_EDI,   '+
+        '    PDC.Dt_CodigoArticulo AS _Caja_Maestro_CodigoArticulo,  '+
+        '    PDC.Dt_DigitoMatricula AS _Caja_Maestro_DigitoMatricula,   '+
+
+            //datos maestros ficha Palet
+        '    PDP.codigoempresa _Palet_Maestro_CodigoEmpresa,  '+
+        '    PDP.Dt_ID AS _Palet_Maestro_Id,  '+
+        '    PDP.Dt_Nombre AS _Palet_Maestro_Nombre,  '+
+        '    PDP.Dt_Descripcion AS _Palet_Maestro_Descripcion, '+
+        '    PDP.Dt_Peso AS _Palet_Maestro_Peso,  '+
+        '    PDP.Dt_Volumen AS _Palet_Maestro_Volumen,  '+
+        '    PDP.Dt_Carga AS _Palet_Maestro_Carga,  '+
+        '    PDP.Dt_Longitud AS _Palet_Maestro_Longitud,  '+
+        '    PDP.Dt_Anchura AS _Palet_Maestro_Anchura,  '+
+        '    PDP.Dt_Altura AS _Palet_Maestro_Altura,  '+
+        '    PDP.Dt_Color AS _Palet_Maestro_Color,  '+
+        '    PDP.Dt_Material AS _Palet_Maestro_Material,   '+
+        '    PDP.Dt_ISO AS _Palet_Maestro_ISO,   '+
+        '    PDP.Dt_Tipo AS _Palet_Maestro_Tipo,  '+
+        '    PDP.Dt_CodigoSage AS _Palet_Maestro_CodigoSage,  '+
+        '    PDP.Dt_CodigoSage_EDI AS _Palet_Maestro_CodigoSage_EDI,  '+
+        '    PDP.Dt_CodigoArticulo AS _Palet_Maestro_CodigoArticulo,   '+
+        '    PDP.Dt_DigitoMatricula AS _Palet_Maestro_DigitoMatricula,   '+
+
+        '    TRP.Transportista AS _TRANS_PEDIDO_NOMBRE , ' +
+        '    TRP.CodigoRuta_ AS _TRANS_PEDIDO_CODIGO_RUTA , ' +
+        '    TRP.ModeloVehiculo AS _TRANS_PEDIDO_VEHICULO , ' +
+        '    TRP.Matricula AS _TRANS_PEDIDO_MATRICULA , ' +
+        '    TRP.Conductor AS _TRANS_PEDIDO_CONDUCTOR , ' +
+
+        '    TRA.Transportista AS _TRANS_ALBARAN_NOMBRE , ' +
+        '    TRA.CodigoRuta_ AS _TRANS_ALBARAN_CODIGO_RUTA , ' +
+        '    TRA.ModeloVehiculo AS _TRANS_ALBARAN_VEHICULO , ' +
+        '    TRA.Matricula AS _TRANS_ALBARAN_MATRICULA , ' +
+        '    TRA.Conductor AS _TRANS_ALBARAN_CONDUCTOR , ' +
+
+        '        MAX(PL.cajaId) OVER (PARTITION BY PL.paletId) AS CajasPalet , ' +
+
+        '        DENSE_RANK() OVER ( PARTITION BY PL.IdentificadorExpedicion ORDER BY PL.cajaid ) AS NumeroCajaCorrelatiu ' +
+
+        ' FROM FS_SGA_PAckinglist PL WITH (NOLOCK)  ' +
+
+        '    LEFT JOIN FS_SGA_PackingList_PackagingPalet PP WITH (NOLOCK)  ' +
+        '    ON PP.IdPreparacion=PL.preparacionid AND PP.IDPalet=PL.PaletId  ' +
+
+        '    LEFT JOIN FS_SGA_PackingList_PackagingCaja PC WITH (NOLOCK)  ' +
+        '    ON PC.IdPreparacion=PL.preparacionid AND PC.IDPalet=PL.PaletId AND PC.IDCaja=PL.CajaId  ' +
+
+        '    INNER join FS_SGA_Picking_Pedido_Lineas PPL WITH (NOLOCK)  ' +
+        '      ON PL.pickingId=PPL.pickingId  ' +
+        '      AND PL.IdentificadorExpedicion=PPL.IdentificadorExpedicion  ' +
+
+        '    LEFT join CabeceraAlbaranCliente CAC WITH (NOLOCK)  ' +
+        '      ON CAC.idAlbaranCli=PPL.idAlbaranCli  ' +
+
+        ' INNER JOIN CabeceraPedidoCliente CPC '+
+          '   ON CPC.codigoEmpresa = PL.codigoEmpresa '+
+          '  AND CPC.ejercicioPedido = PPL.EjercicioPedido '+
+          '  AND CPC.seriePedido = PPL.seriePedido '+
+          '  AND CPC.numeroPedido = PPL.numeroPedido '+
+
+        ' LEFT JOIN FS_SGA_PackagingDetalle pdP	WITH (NOLOCK)   '+
+        '   ON PDP.Dt_Id=PP.IdPackaging  '+
+
+        ' LEFT JOIN FS_SGA_PackagingDetalle pdC	WITH (NOLOCK)  '+
+        '   ON PDC.Dt_Id=PC.IdPackaging  '+
+
+        '    LEFT JOIN Transportistas TRP	WITH (NOLOCK)   '+
+        '      ON TRP.codigoempresa=CPC.codigoempresa ' +
+        '         AND TRP.CodigoTransportista=CPC.CodigoTransportistaEnvios  '+
+
+        '    LEFT JOIN Transportistas TRA	WITH (NOLOCK)   '+
+        '      ON TRA.codigoempresa=CAC.codigoempresa ' +
+        '         AND TRA.CodigoTransportista=CAC.CodigoTransportistaEnvios  '+
+
+        '    WHERE ' +
+        '      PL.preparacionid = ' + inttostr(IdObjeto) +
+        '    ORDER BY CPC.CodigoCliente, PL.paletId, PL.cajaId, PL.codigoArticulo ';
+
+      FS_MainWebServiceSGA.ppDBPipelineLineas.Close;
+      FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'CajasClienteDetalle';
+
+    end;
+
   end;
 
   gaLogFile.Write(sSQL);
@@ -25403,10 +25551,15 @@ begin
   end;
 
   try
+
+    Q.Close;
+    FS_MainWebServiceSGA.DataSource1.DataSet := Q;
+    FS_MainWebServiceSGA.ppReport1.DataPipeline := FS_MainWebServiceSGA.ppDBPipelineLineas;
+    FS_MainWebServiceSGA.ppDBPipelineLineas.Close;
+
     FS_MainWebServiceSGA.tmrTimeout.Enabled := FALSE;
     FS_MainWebServiceSGA.tmrTimeout.Interval := 3000;
 
-    FS_MainWebServiceSGA.DataSource1.DataSet := Q;
     FS_MainWebServiceSGA.ppReport1.PrinterSetup.PrinterName := Impresora;
     FS_MainWebServiceSGA.ppReport1.DeviceType := 'Printer';
     FS_MainWebServiceSGA.ppReport1.PrinterSetup.Copies := 1;
@@ -25424,6 +25577,9 @@ begin
       gaLogFile.Write_DBException(E, sSQL, 'Error al imprimir informe', CONST_LOGID_BBDD );
     end;
   end;
+
+  while FS_MainWebServiceSGA.ppReport1.Printing do
+    Sleep(100);
 
   Q.Close;
   FreeAndNil(Q);
@@ -26370,6 +26526,10 @@ var
   Matricula: string;
   Stock: Double;
   UnidadesMedida: Boolean;
+  OldPartida: String;
+  OldTalla: String;
+  OldColor: String;
+  OldUnidadM: String;
 {$ENDREGION}
 
 begin
@@ -26421,6 +26581,27 @@ begin
 
   {$REGION 'Actualitzem les ubicacions'}
 
+  // Recuperar informació antiga
+  (*
+  sSQL :=
+    'SELECT * FROM FS_SGA_Inventario_Detalle WITH (NOLOCK) ' +
+    'WHERE Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+    '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  Q.Open;
+
+  if not Q.EOF then
+  begin
+    OldPartida := Q.FieldByName('Partida').AsString;
+    OldTalla   := Q.FieldByName('CodigoTalla01_').AsString;
+    OldColor   := Q.FieldByName('CodigoColor_').AsString;
+    OldUnidadM := Q.FieldByName('UnidadMedida').AsString;
+  end;
+
+  Q.Close;
+  FreeAndNil(Q);
+  *)
+
   sAuxFecha := Trim(_Get_JSonValue ( JSonObjectNew, 'FechaCaduca' ));
   if (sAuxFecha='') or (StrToDateDef(sAuxFecha,0)=0) then
     sFechaCaduca := 'NULL'
@@ -26464,6 +26645,34 @@ begin
       gbTratamientoSimplificado
     );
 
+  sSQL :=
+    'DELETE FROM FS_SGA_Inventario_Detalle ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
+    '  AND ( ' +
+    '    Inventario_UbicacionId = ' + IntToStr(OldId) + ' ' +
+    '    OR ( ' +
+    '      CodigoUbicacion = ''' + SQL_Str(CodigoUbicacion) + ''' ' +
+    '      AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+    '      AND Partida = ''' + SQL_Str(Partida) + ''' ' +
+    '      AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+    '      AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+    '      AND UnidadMedida = ''' + SQL_Str(UnidadMedida) + ''' ' +
+    '    ) ' +
+    '  )';
+
+  try
+    SQL_Execute_NoRes(Conn,sSQL);
+  except
+    on E:Exception do
+    begin
+      gaLogFile.Write_DBException(E,sSQL,'Error al borrar línea del inventario', CONST_LOGID_BBDD );
+      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
+      Exit;
+    end;
+  end;
+
   // Fem l'entrada de l'article
   sSQL :=
     'INSERT INTO FS_SGA_Inventario_Detalle ( CodigoEmpresa, Inventario_Id, CodigoUbicacion, CodigoArticulo, Partida, UnidadMedida, ' +
@@ -26497,24 +26706,6 @@ begin
     on E:Exception do
     begin
       gaLogFile.Write_DBException(E,sSQL,'Error al añadir línea al inventario', CONST_LOGID_BBDD );
-      Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
-      Exit;
-    end;
-  end;
-
-  sSQL :=
-    'DELETE FROM FS_SGA_Inventario_Detalle ' +
-    'WHERE ' +
-    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
-    '  AND Inventario_Id = ' + IntToStr(IdInventario) + ' ' +
-    '  AND Inventario_UbicacionId = ' + IntToStr(OldId);
-
-  try
-    SQL_Execute_NoRes(Conn,sSQL);
-  except
-    on E:Exception do
-    begin
-      gaLogFile.Write_DBException(E,sSQL,'Error al borrar línea del inventario', CONST_LOGID_BBDD );
       Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + E.Message + '","Data":[]}';
       Exit;
     end;
@@ -39540,7 +39731,7 @@ begin
     MovOrigen               := Q.FieldByName('LineasPosicion').AsString;
     TratamientoSeries       := (Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0);
 
-    if (TratamientoSeries and (Q.FieldByName('CantidadSerie').AsFloat > 0)) then
+    if (TratamientoSeries or (Q.FieldByName('CantidadSerie').AsFloat > 0)) then
     begin
       NumeroSerie             := Q.FieldByName('NumeroSerie').AsString;
       NumeroSerieFabricante   := Q.FieldByName('NumeroSerieFabricante').AsString;

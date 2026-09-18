@@ -1,0 +1,2588 @@
+{
+  "proyecto": {
+    "nombre": "FS WebService SGA",
+    "codigo": "FS_WEBSERVICESGA_V2",
+    "repo": "https://github.com/FS-Jordi/FS_WebService_V2"
+  },
+  "versionBase": "2.0.0",
+  "clientes": [
+    {
+      "id": "general",
+      "nombre": "Interno / General"
+    },
+    {
+      "id": "alfran",
+      "nombre": "Alfran"
+    },
+    {
+      "id": "paniker",
+      "nombre": "Paniker"
+    },
+    {
+      "id": "accesfluid",
+      "nombre": "AccesFluid"
+    },
+    {
+      "id": "gemavi",
+      "nombre": "Gemavi"
+    },
+    {
+      "id": "refigal",
+      "nombre": "Refigal"
+    },
+    {
+      "id": "reisopack",
+      "nombre": "Reisopack"
+    }
+  ],
+  "versiones": [
+    {
+      "numero": "2.1.0",
+      "estado": "cerrada",
+      "fechaInicio": "2025-11-24",
+      "fechaFin": "2025-12-29",
+      "entradas": [
+        {
+          "fecha": "2025-11-24",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Aviso de artículos con lote o número de serie",
+            "ca": "Avís d'articles amb lot o número de sèrie"
+          },
+          "descripcion": {
+            "es": "En las recepciones y en el resto de listados, el terminal ya sabe si un artículo necesita lote o número de serie y lo pide en el momento adecuado. Se evitan entradas incompletas que después había que corregir.",
+            "ca": "A les recepcions i a la resta de llistats, el terminal ja sap si un article necessita lot o número de sèrie i el demana en el moment adequat. S'eviten entrades incompletes que després calia corregir."
+          },
+          "tecnico": {
+            "es": "Se añaden TratamientoPartidas y TrataNumerosSerieLc al detalle de recepciones y se normaliza el alias del campo de tratamiento de series a TrataNumerosSerieLc en todas las consultas que lo devuelven.",
+            "ca": "S'afegeixen TratamientoPartidas i TrataNumerosSerieLc al detall de recepcions i es normalitza l'àlies del camp de tractament de sèries a TrataNumerosSerieLc en totes les consultes que el retornen."
+          },
+          "commits": [
+            "c194e10"
+          ],
+          "id": "c001"
+        },
+        {
+          "fecha": "2025-11-24",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La versión del servicio se muestra en la conexión",
+            "ca": "La versió del servei es mostra a la connexió"
+          },
+          "descripcion": {
+            "es": "Al consultar los datos de conexión se indica también la versión del servicio instalada, lo que facilita comprobar si un terminal está trabajando con la versión correcta.",
+            "ca": "En consultar les dades de connexió també s'indica la versió del servei instal·lada, cosa que facilita comprovar si un terminal treballa amb la versió correcta."
+          },
+          "commits": [
+            "c194e10"
+          ],
+          "id": "c002"
+        },
+        {
+          "fecha": "2025-12-03",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Números de serie en la preparación de pedidos",
+            "ca": "Números de sèrie en la preparació de comandes"
+          },
+          "descripcion": {
+            "es": "Ahora se pueden capturar y guardar los números de serie de los artículos durante la preparación, no solo en la recepción. El sistema avisa si un número de serie ya se ha usado en otra línea de la misma preparación, evitando duplicados.",
+            "ca": "Ara es poden capturar i desar els números de sèrie dels articles durant la preparació, no només a la recepció. El sistema avisa si un número de sèrie ja s'ha fet servir en una altra línia de la mateixa preparació, evitant duplicats."
+          },
+          "tecnico": {
+            "es": "Nuevos endpoints /savenumerosseriepreparacion, /getnumerosseriepreparacion y /checknumeroseriepreparacion sobre la tabla FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie. El antiguo /getnumerosserie pasa a llamarse /getnumerosserierecepcion.",
+            "ca": "Nous endpoints /savenumerosseriepreparacion, /getnumerosseriepreparacion i /checknumeroseriepreparacion sobre la taula FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie. L'antic /getnumerosserie passa a dir-se /getnumerosserierecepcion."
+          },
+          "commits": [
+            "7624da9"
+          ],
+          "id": "c003"
+        },
+        {
+          "fecha": "2025-12-03",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Bloqueo y desbloqueo de ubicaciones desde el terminal",
+            "ca": "Bloqueig i desbloqueig d'ubicacions des del terminal"
+          },
+          "descripcion": {
+            "es": "Se puede bloquear o desbloquear una ubicación directamente desde el terminal, y los listados indican qué ubicaciones están bloqueadas. Los usuarios autorizados pueden trabajar con una ubicación bloqueada cuando sea necesario.",
+            "ca": "Es pot bloquejar o desbloquejar una ubicació directament des del terminal, i els llistats indiquen quines ubicacions estan bloquejades. Els usuaris autoritzats poden treballar amb una ubicació bloquejada quan calgui."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /setbloqueoubicacion que actualiza FS_SGA_ESTR_UBICA.Bloqueada. Los listados de ubicaciones devuelven el campo Bloqueada y se acepta el parámetro ByPassLocked para saltar la comprobación.",
+            "ca": "Nou endpoint /setbloqueoubicacion que actualitza FS_SGA_ESTR_UBICA.Bloqueada. Els llistats d'ubicacions retornen el camp Bloqueada i s'accepta el paràmetre ByPassLocked per saltar la comprovació."
+          },
+          "commits": [
+            "7624da9"
+          ],
+          "id": "c004"
+        },
+        {
+          "fecha": "2025-12-03",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Corrección en movimientos sin unidad de medida base",
+            "ca": "Correcció en moviments sense unitat de mesura base"
+          },
+          "descripcion": {
+            "es": "Se han corregido movimientos de stock que fallaban o se registraban mal cuando el artículo no tenía definida una unidad de medida alternativa. Ahora se utiliza la unidad indicada con factor de conversión 1.",
+            "ca": "S'han corregit moviments d'estoc que fallaven o es registraven malament quan l'article no tenia definida una unitat de mesura alternativa. Ara s'utilitza la unitat indicada amb factor de conversió 1."
+          },
+          "commits": [
+            "7624da9"
+          ],
+          "id": "c005"
+        },
+        {
+          "fecha": "2025-12-13",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Atención simultánea de varios terminales",
+            "ca": "Atenció simultània de diversos terminals"
+          },
+          "descripcion": {
+            "es": "El servicio atiende ahora varias peticiones a la vez en lugar de una detrás de otra. Cuando varios operarios trabajan al mismo tiempo, las respuestas del terminal son mucho más rápidas y una consulta lenta ya no bloquea al resto.",
+            "ca": "El servei atén ara diverses peticions alhora en comptes d'una darrere l'altra. Quan diversos operaris treballen al mateix temps, les respostes del terminal són molt més ràpides i una consulta lenta ja no bloqueja la resta."
+          },
+          "tecnico": {
+            "es": "Nueva clase TAsyncWebModuleThread en Main.pas: cada petición se ejecuta en su propio hilo con conexión ADO independiente, control de timeout (504) y errores de conexión (503), y sección crítica gHttpResponseCS para serializar el envío de la respuesta HTTP.",
+            "ca": "Nova classe TAsyncWebModuleThread a Main.pas: cada petició s'executa en el seu propi fil amb connexió ADO independent, control de timeout (504) i errors de connexió (503), i secció crítica gHttpResponseCS per serialitzar l'enviament de la resposta HTTP."
+          },
+          "commits": [
+            "2b7e86b"
+          ],
+          "id": "c006"
+        },
+        {
+          "fecha": "2025-12-13",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Consultas de almacén más rápidas",
+            "ca": "Consultes de magatzem més ràpides"
+          },
+          "descripcion": {
+            "es": "Se han optimizado las consultas del panel de situación del almacén y de las listas de preparación, que ahora se cargan notablemente más rápido, sobre todo en almacenes con mucho volumen.",
+            "ca": "S'han optimitzat les consultes del panell de situació del magatzem i de les llistes de preparació, que ara es carreguen notablement més ràpid, sobretot en magatzems amb molt volum."
+          },
+          "tecnico": {
+            "es": "Se sustituyen las funciones con valores de tabla (FS_SGA_TABLE_AcumuladoStock, FS_SGA_TABLE_Ubicaciones, FS_SGA_TABLE_Movimientos, FS_SGA_TABLE_Articulos) por accesos directos a FS_SGA_AcumuladoStock, FS_SGA_ESTR_UBICA, FS_SGA_MovimientosAlmacen y Articulos con filtro por empresa, ejercicio y periodo.",
+            "ca": "Se substitueixen les funcions amb valors de taula (FS_SGA_TABLE_AcumuladoStock, FS_SGA_TABLE_Ubicaciones, FS_SGA_TABLE_Movimientos, FS_SGA_TABLE_Articulos) per accessos directes a FS_SGA_AcumuladoStock, FS_SGA_ESTR_UBICA, FS_SGA_MovimientosAlmacen i Articulos amb filtre per empresa, exercici i període."
+          },
+          "commits": [
+            "2b7e86b"
+          ],
+          "id": "c007"
+        },
+        {
+          "fecha": "2025-12-13",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Embalaje por defecto para palets y cajas",
+            "ca": "Embalatge per defecte per a palets i caixes"
+          },
+          "descripcion": {
+            "es": "Si no hay un embalaje asignado al palet o a la caja en curso, se aplica automáticamente el embalaje configurado por defecto en los parámetros, evitando tener que seleccionarlo cada vez. También se permite consultar un palet o caja concretos, no solo el actual.",
+            "ca": "Si no hi ha cap embalatge assignat al palet o a la caixa en curs, s'aplica automàticament l'embalatge configurat per defecte als paràmetres, i s'evita haver de seleccionar-lo cada vegada. També es permet consultar un palet o caixa concrets, no només l'actual."
+          },
+          "tecnico": {
+            "es": "Se leen los parámetros FS_PARAMS_SGA_PackagingPaletDefecto y FS_PARAMS_SGA_PackagingCajaDefecto; se añaden los parámetros PaletId, CajaId y Matricula y un nuevo endpoint /updatepaletcajapreparacion.",
+            "ca": "Es llegeixen els paràmetres FS_PARAMS_SGA_PackagingPaletDefecto i FS_PARAMS_SGA_PackagingCajaDefecto; s'afegeixen els paràmetres PaletId, CajaId i Matricula i un nou endpoint /updatepaletcajapreparacion."
+          },
+          "commits": [
+            "2b7e86b"
+          ],
+          "id": "c008"
+        },
+        {
+          "fecha": "2025-12-13",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Lectura de ubicaciones de cualquier almacén",
+            "ca": "Lectura d'ubicacions de qualsevol magatzem"
+          },
+          "descripcion": {
+            "es": "Al escanear el código de una ubicación ya no es obligatorio que pertenezca al almacén por defecto del terminal: se reconoce igualmente y deja de dar error de código incorrecto.",
+            "ca": "En escanejar el codi d'una ubicació ja no és obligatori que pertanyi al magatzem per defecte del terminal: es reconeix igualment i deixa de donar error de codi incorrecte."
+          },
+          "commits": [
+            "2b7e86b"
+          ],
+          "id": "c009"
+        },
+        {
+          "fecha": "2025-12-29",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Packing list asistido vuelve a generarse correctamente",
+            "ca": "El packing list assistit es torna a generar correctament"
+          },
+          "descripcion": {
+            "es": "La generación del packing list asistido se ejecuta de nuevo en el momento, en lugar de quedar en cola de procesos. Además, en el modo asistido ya no se rechaza la operación por dar la preparación como servida.",
+            "ca": "La generació del packing list assistit s'executa de nou al moment, en comptes de quedar en cua de processos. A més, en el mode assistit ja no es rebutja l'operació perquè la preparació consti com a servida."
+          },
+          "tecnico": {
+            "es": "WebModule1generatePackingListAsis vuelve a ejecutar FS_SGA_PROC_PackingList_ASIS de forma síncrona y a llamar a servirPreparacion; se añade el parámetro MetodoExp que salta la comprobación FS_SGA_PreparacionServida cuando vale ASISTIDO.",
+            "ca": "WebModule1generatePackingListAsis torna a executar FS_SGA_PROC_PackingList_ASIS de manera síncrona i a cridar servirPreparacion; s'afegeix el paràmetre MetodoExp que salta la comprovació FS_SGA_PreparacionServida quan val ASISTIDO."
+          },
+          "commits": [
+            "29b3be1"
+          ],
+          "id": "c010"
+        },
+        {
+          "fecha": "2025-12-29",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Listado correcto de almacenes por usuario",
+            "ca": "Llistat correcte de magatzems per usuari"
+          },
+          "descripcion": {
+            "es": "Se ha corregido el listado de almacenes visibles en el terminal, que en algunas configuraciones multiempresa no mostraba todos los almacenes asignados al usuario.",
+            "ca": "S'ha corregit el llistat de magatzems visibles al terminal, que en algunes configuracions multiempresa no mostrava tots els magatzems assignats a l'usuari."
+          },
+          "commits": [
+            "29b3be1"
+          ],
+          "id": "c011"
+        },
+        {
+          "fecha": "2025-12-29",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las ubicaciones del inventario ya no desaparecen",
+            "ca": "Les ubicacions de l'inventari ja no desapareixen"
+          },
+          "descripcion": {
+            "es": "Al borrar la lectura de una ubicación durante un inventario, la ubicación se mantiene en el recuento vacía en lugar de eliminarse. Así no se pierden ubicaciones que quedaban sin inventariar.",
+            "ca": "En esborrar la lectura d'una ubicació durant un inventari, la ubicació es manté al recompte buida en comptes d'eliminar-se. Així no es perden ubicacions que quedaven sense inventariar."
+          },
+          "tecnico": {
+            "es": "En el borrado de FS_SGA_Inventario_Detalle: si solo queda una línea para esa ubicación se vacían los campos (artículo, partida, unidad, talla, color) en vez de ejecutar el DELETE.",
+            "ca": "En l'esborrat de FS_SGA_Inventario_Detalle: si només queda una línia per a aquella ubicació es buiden els camps (article, partida, unitat, talla, color) en comptes d'executar el DELETE."
+          },
+          "commits": [
+            "29b3be1"
+          ],
+          "id": "c012"
+        },
+        {
+          "fecha": "2025-12-29",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Consulta de los pedidos de una preparación",
+            "ca": "Consulta de les comandes d'una preparació"
+          },
+          "descripcion": {
+            "es": "Se puede consultar bajo demanda qué pedidos incluye una preparación concreta. Esto permite además que el listado de preparaciones se cargue más rápido, ya que no calcula los pedidos de todas ellas.",
+            "ca": "Es pot consultar sota demanda quines comandes inclou una preparació concreta. Això permet, a més, que el llistat de preparacions es carregui més ràpid, ja que no calcula les comandes de totes."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /getpedidos (WebModule1getPedidosAction) que invoca FS_SGA_GetPedidos para una PreparacionId; se elimina esa llamada del bucle de listPreparaciones.",
+            "ca": "Nou endpoint /getpedidos (WebModule1getPedidosAction) que invoca FS_SGA_GetPedidos per a una PreparacionId; s'elimina aquesta crida del bucle de listPreparaciones."
+          },
+          "commits": [
+            "29b3be1"
+          ],
+          "id": "c013"
+        },
+        {
+          "fecha": "2025-12-29",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Desglose de preparaciones por línea configurable",
+            "ca": "Desglossament de preparacions per línia configurable"
+          },
+          "descripcion": {
+            "es": "Se puede decidir por parámetro si las preparaciones se desglosan por línea de pedido o se agrupan, adaptando el trabajo del operario a la forma de trabajar de cada almacén.",
+            "ca": "Es pot decidir per paràmetre si les preparacions es desglossen per línia de comanda o s'agrupen, adaptant la feina de l'operari a la manera de treballar de cada magatzem."
+          },
+          "tecnico": {
+            "es": "Se lee el parámetro FS_PARAMS_SGA_DesglosarPreparacionesPorLinea; si está desactivado se usa GUID0 como LineasPosicion en lugar de la línea concreta.",
+            "ca": "Es llegeix el paràmetre FS_PARAMS_SGA_DesglosarPreparacionesPorLinea; si està desactivat es fa servir GUID0 com a LineasPosicion en comptes de la línia concreta."
+          },
+          "commits": [
+            "29b3be1"
+          ],
+          "id": "c014"
+        }
+      ]
+    },
+    {
+      "numero": "2.2.0",
+      "estado": "cerrada",
+      "fechaInicio": "2026-01-05",
+      "fechaFin": "2026-02-17",
+      "entradas": [
+        {
+          "fecha": "2026-01-05",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Los packing list asistidos no se pisan entre sí",
+            "ca": "Els packing lists assistits no es trepitgen entre si"
+          },
+          "descripcion": {
+            "es": "Si dos operarios piden a la vez la generación de un packing list asistido, ahora se procesan uno detrás de otro en lugar de a la vez. Se evitan packing lists incompletos o mezclados.",
+            "ca": "Si dos operaris demanen alhora la generació d'un packing list assistit, ara es processen un darrere l'altre en comptes de alhora. S'eviten packing lists incomplets o barrejats."
+          },
+          "tecnico": {
+            "es": "Se añade la sección crítica gPackingListAsisCS, pasada como ASyncLock opcional a TAsyncWebModuleThread; el hilo de /generatepackinglistasis la adquiere antes de ejecutar la acción y registra en el log si queda en espera.",
+            "ca": "S'afegeix la secció crítica gPackingListAsisCS, passada com a ASyncLock opcional a TAsyncWebModuleThread; el fil de /generatepackinglistasis l'adquireix abans d'executar l'acció i registra al log si queda en espera."
+          },
+          "commits": [
+            "72dd1db"
+          ],
+          "id": "c015"
+        },
+        {
+          "fecha": "2026-01-05",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Logotipo adaptado al modo oscuro",
+            "ca": "Logotip adaptat al mode fosc"
+          },
+          "descripcion": {
+            "es": "Cuando el terminal trabaja en modo oscuro se muestra una versión del logotipo pensada para fondos oscuros, y si no existe se usa la habitual. La pantalla queda más legible.",
+            "ca": "Quan el terminal treballa en mode fosc es mostra una versió del logotip pensada per a fons foscos, i si no existeix es fa servir l'habitual. La pantalla queda més llegible."
+          },
+          "tecnico": {
+            "es": "El endpoint del logo acepta el parámetro DarkMode y busca el fichero con sufijo _dark, con retorno a logo.png si no se encuentra.",
+            "ca": "L'endpoint del logo accepta el paràmetre DarkMode i busca el fitxer amb sufix _dark, amb retorn a logo.png si no es troba."
+          },
+          "commits": [
+            "72dd1db"
+          ],
+          "id": "c016"
+        },
+        {
+          "fecha": "2026-01-05",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Números de serie mostrados solo del artículo correcto",
+            "ca": "Números de sèrie mostrats només de l'article correcte"
+          },
+          "descripcion": {
+            "es": "Al consultar los números de serie de una preparación se muestran únicamente los del artículo, lote, talla y color que se están tratando, evitando ver series de otras líneas.",
+            "ca": "En consultar els números de sèrie d'una preparació es mostren únicament els de l'article, lot, talla i color que s'estan tractant, evitant veure sèries d'altres línies."
+          },
+          "commits": [
+            "72dd1db"
+          ],
+          "id": "c017"
+        },
+        {
+          "fecha": "2026-01-12",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Se guarda el código leído junto al número de serie",
+            "ca": "Es desa el codi llegit juntament amb el número de sèrie"
+          },
+          "descripcion": {
+            "es": "Además del número de serie, el sistema conserva el código de barras original que se escaneó. Facilita verificar después qué se leyó realmente en cada operación.",
+            "ca": "A més del número de sèrie, el sistema conserva el codi de barres original que es va escanejar. Facilita verificar després què es va llegir realment a cada operació."
+          },
+          "tecnico": {
+            "es": "Nuevo campo ScanCode en FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie, guardado en /savenumerosseriepreparacion y devuelto en /getnumerosseriepreparacion.",
+            "ca": "Nou camp ScanCode a FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie, desat a /savenumerosseriepreparacion i retornat a /getnumerosseriepreparacion."
+          },
+          "commits": [
+            "af727b8"
+          ],
+          "id": "c018"
+        },
+        {
+          "fecha": "2026-01-12",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Control de series duplicadas por artículo",
+            "ca": "Control de sèries duplicades per article"
+          },
+          "descripcion": {
+            "es": "La comprobación de números de serie repetidos ahora tiene en cuenta el artículo, de forma que un mismo número asignado a artículos distintos deja de darse por duplicado. También se ha corregido el borrado de series en recepciones cuando no se indica la línea de detalle.",
+            "ca": "La comprovació de números de sèrie repetits ara té en compte l'article, de manera que un mateix número assignat a articles diferents deixa de donar-se per duplicat. També s'ha corregit l'esborrat de sèries en recepcions quan no s'indica la línia de detall."
+          },
+          "commits": [
+            "af727b8"
+          ],
+          "id": "c019"
+        },
+        {
+          "fecha": "2026-01-13",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las devoluciones vuelven a filtrar pedidos anulados",
+            "ca": "Les devolucions tornen a filtrar comandes anul·lades"
+          },
+          "descripcion": {
+            "es": "En las devoluciones solo se tienen en cuenta los pedidos y líneas en estado válido, de modo que no aparecen documentos anulados o ya cerrados.",
+            "ca": "A les devolucions només es tenen en compte les comandes i línies en estat vàlid, de manera que no hi apareixen documents anul·lats o ja tancats."
+          },
+          "commits": [
+            "b57d245"
+          ],
+          "id": "c020"
+        },
+        {
+          "fecha": "2026-01-13",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Se respeta el tamaño de página en un listado",
+            "ca": "Es respecta la mida de pàgina en un llistat"
+          },
+          "descripcion": {
+            "es": "Un listado que siempre devolvía todos los registros de golpe vuelve a respetar el número de resultados solicitado, con la consiguiente mejora de velocidad en el terminal.",
+            "ca": "Un llistat que sempre retornava tots els registres de cop torna a respectar el nombre de resultats sol·licitat, amb la consegüent millora de velocitat al terminal."
+          },
+          "commits": [
+            "b57d245"
+          ],
+          "id": "c021"
+        },
+        {
+          "fecha": "2026-01-14",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Filtros de estado, ejercicio y país en pedidos de venta",
+            "ca": "Filtres d'estat, exercici i país en comandes de venda"
+          },
+          "descripcion": {
+            "es": "El listado de pedidos de cliente se puede filtrar por estado, por uno o varios ejercicios y por país de destino, y se incluye una consulta con los países disponibles para elegirlos de una lista. Antes quedaban excluidos los pedidos anulados de forma fija.",
+            "ca": "El llistat de comandes de client es pot filtrar per estat, per un o diversos exercicis i per país de destinació, i s'inclou una consulta amb els països disponibles per triar-los d'una llista. Abans quedaven excloses les comandes anul·lades de manera fixa."
+          },
+          "tecnico": {
+            "es": "Nuevos parámetros Estado, Ejercicio (lista) y SiglaNacion en el listado de CabeceraPedidoCliente, que ya no fuerza Estado<>2; nuevo WebModule1paisesVentaAction que devuelve SiglaNacion y Nacion distintos, y el campo SiglaNacion se añade a la respuesta.",
+            "ca": "Nous paràmetres Estado, Ejercicio (llista) i SiglaNacion al llistat de CabeceraPedidoCliente, que ja no força Estado<>2; nou WebModule1paisesVentaAction que retorna SiglaNacion i Nacion diferents, i el camp SiglaNacion s'afegeix a la resposta."
+          },
+          "commits": [
+            "84ba2f7"
+          ],
+          "id": "c022"
+        },
+        {
+          "fecha": "2026-01-14",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Ordenación configurable en clientes y proveedores",
+            "ca": "Ordenació configurable en clients i proveïdors"
+          },
+          "descripcion": {
+            "es": "Los listados de clientes y de proveedores se pueden ordenar por el campo que interese y en el sentido deseado, en lugar de un orden fijo.",
+            "ca": "Els llistats de clients i de proveïdors es poden ordenar pel camp que interessi i en el sentit desitjat, en comptes d'un ordre fix."
+          },
+          "tecnico": {
+            "es": "Se aceptan los parámetros OrderBy y OrderType, con valores por defecto CodigoCliente y RazonSocial respectivamente.",
+            "ca": "S'accepten els paràmetres OrderBy i OrderType, amb valors per defecte CodigoCliente i RazonSocial respectivament."
+          },
+          "commits": [
+            "84ba2f7"
+          ],
+          "id": "c023"
+        },
+        {
+          "fecha": "2026-01-27",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las unidades por agrupación ya no se mezclan al preparar",
+            "ca": "Les unitats per agrupació ja no es barregen en preparar"
+          },
+          "descripcion": {
+            "es": "Al preparar pedidos con artículos que se manejan en cajas, palés u otras agrupaciones, las cantidades preparadas se controlan por separado para cada agrupación. Antes se podían sumar entre sí y mostrar cantidades pendientes incorrectas.",
+            "ca": "En preparar comandes amb articles que es gestionen en caixes, palets o altres agrupacions, les quantitats preparades es controlen per separat per a cada agrupació. Abans es podien sumar entre elles i mostrar quantitats pendents incorrectes."
+          },
+          "tecnico": {
+            "es": "Se añade CodigoAgrupacion al agrupamiento y a los JOIN contra FS_SGA_AcumuladoPendiente, a las consultas de FS_SGA_Picking_Pedido_Lineas y a los procedimientos de expedición, retorno a expedición y reserva de stock. Se protege UdUsadas/UdUsadasBase con ISNULL para que no lleguen nulos.",
+            "ca": "S'afegeix CodigoAgrupacion a l'agrupament i als JOIN contra FS_SGA_AcumuladoPendiente, a les consultes de FS_SGA_Picking_Pedido_Lineas i als procediments d'expedició, retorn a expedició i reserva d'estoc. Es protegeix UdUsadas/UdUsadasBase amb ISNULL perquè no arribin nuls."
+          },
+          "commits": [
+            "8a90081"
+          ],
+          "id": "c024"
+        },
+        {
+          "fecha": "2026-01-27",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Más información del artículo en las líneas de pedido de cliente",
+            "ca": "Més informació de l'article a les línies de comanda de client"
+          },
+          "descripcion": {
+            "es": "Al consultar las líneas de un pedido de cliente ahora se ven los códigos alternativos, la descripción de talla y color, la segunda descripción del artículo y las unidades y la unidad de medida base. Así se identifica el material sin tener que salir a otra pantalla.",
+            "ca": "En consultar les línies d'una comanda de client ara es veuen els codis alternatius, la descripció de talla i color, la segona descripció de l'article i les unitats i la unitat de mesura base. Així s'identifica el material sense haver de sortir a una altra pantalla."
+          },
+          "tecnico": {
+            "es": "La consulta de LineasPedidoCliente incorpora JOIN con Articulos, Colores_, Vis_VistaTallas y CodigosTallaColor, y devuelve TratamientoPartidas, TratamientoSeries, TratamientoColores, FactorConversion y UnidadMedidaBase. Se corrige además el filtro por ejercicio, que usaba el código de empresa en lugar de EjercicioPedido.",
+            "ca": "La consulta de LineasPedidoCliente incorpora JOIN amb Articulos, Colores_, Vis_VistaTallas i CodigosTallaColor, i retorna TratamientoPartidas, TratamientoSeries, TratamientoColores, FactorConversion i UnidadMedidaBase. Es corregeix a més el filtre per exercici, que feia servir el codi d'empresa en comptes d'EjercicioPedido."
+          },
+          "commits": [
+            "8a90081"
+          ],
+          "id": "c025"
+        },
+        {
+          "fecha": "2026-01-27",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Consulta de países disponible en el terminal",
+            "ca": "Consulta de països disponible al terminal"
+          },
+          "descripcion": {
+            "es": "Se puede consultar el listado de países desde el terminal, no sólo desde las pantallas de venta. Es útil para informar el país en cualquier documento.",
+            "ca": "Es pot consultar el llistat de països des del terminal, no només des de les pantalles de venda. És útil per informar el país en qualsevol document."
+          },
+          "tecnico": {
+            "es": "El endpoint /paisesventa pasa a llamarse /paises (WebModule1paisesAction) y se registra como petición asíncrona.",
+            "ca": "L'endpoint /paisesventa passa a dir-se /paises (WebModule1paisesAction) i es registra com a petició asíncrona."
+          },
+          "commits": [
+            "8a90081"
+          ],
+          "id": "c026"
+        },
+        {
+          "fecha": "2026-02-02",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Nombre comercial del cliente y del proveedor en el terminal",
+            "ca": "Nom comercial del client i del proveïdor al terminal"
+          },
+          "descripcion": {
+            "es": "Las pantallas de preparación, expedición, recepciones, devoluciones y palés muestran ahora el nombre comercial además de la razón social. El operario reconoce antes con quién está trabajando.",
+            "ca": "Les pantalles de preparació, expedició, recepcions, devolucions i palets mostren ara el nom comercial a més de la raó social. L'operari reconeix abans amb qui està treballant."
+          },
+          "tecnico": {
+            "es": "Se añade el campo Nombre (procedente de CabeceraPedidoCliente, CabeceraPedidoProveedor, Proveedores o Clientes según el caso) a las consultas y al JSON de packing list, líneas de devolución de cliente y proveedor, líneas de picking, recepciones, cabeceras de devolución y recepción, y palés.",
+            "ca": "S'afegeix el camp Nombre (procedent de CabeceraPedidoCliente, CabeceraPedidoProveedor, Proveedores o Clientes segons el cas) a les consultes i al JSON de packing list, línies de devolució de client i proveïdor, línies de picking, recepcions, capçaleres de devolució i recepció, i palets."
+          },
+          "commits": [
+            "0c82b91"
+          ],
+          "id": "c027"
+        },
+        {
+          "fecha": "2026-02-09",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "El registro de actividad identifica el terminal de cada operación",
+            "ca": "El registre d'activitat identifica el terminal de cada operació"
+          },
+          "descripcion": {
+            "es": "Cada línea del registro del servicio queda marcada con el dispositivo que la ha originado. Ante una incidencia se puede saber directamente desde qué terminal se hizo cada acción, lo que acorta mucho el diagnóstico.",
+            "ca": "Cada línia del registre del servei queda marcada amb el dispositiu que l'ha originada. Davant d'una incidència es pot saber directament des de quin terminal es va fer cada acció, cosa que escurça molt el diagnòstic."
+          },
+          "tecnico": {
+            "es": "gaLogFile incorpora ShowMAC y DefaultMAC, y todas las acciones del webmodule asignan gaLogFile.MAC con el UUID recibido. En /checklicense y /freelicense el UUID se extrae descifrando el parámetro data. Se han retirado además numerosas trazas de depuración que volcaban SQL completo al log.",
+            "ca": "gaLogFile incorpora ShowMAC i DefaultMAC, i totes les accions del webmodule assignen gaLogFile.MAC amb l'UUID rebut. A /checklicense i /freelicense l'UUID s'extreu desxifrant el paràmetre data. S'han retirat a més nombroses traces de depuració que abocaven SQL complet al log."
+          },
+          "commits": [
+            "e815756",
+            "108ab98"
+          ],
+          "id": "c028"
+        },
+        {
+          "fecha": "2026-02-17",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Impresión automática de varios informes al servir el pedido",
+            "ca": "Impressió automàtica de diversos informes en servir la comanda"
+          },
+          "descripcion": {
+            "es": "Al cerrar una preparación se pueden lanzar automáticamente varios documentos a la vez (por ejemplo albarán y etiquetas) y dirigirlos a una impresora concreta. Antes sólo se podía generar un informe y siempre a la impresora por defecto.",
+            "ca": "En tancar una preparació es poden llançar automàticament diversos documents alhora (per exemple albarà i etiquetes) i adreçar-los a una impressora concreta. Abans només es podia generar un informe i sempre a la impressora per defecte."
+          },
+          "tecnico": {
+            "es": "El parámetro InformeAuto pasa a aceptar una lista separada por comas y se genera una operación GENERARINFORME (o GENERARINFORME_CUSTOM) por informe dentro del bucle de albaranes, con el nuevo parámetro Printer. Cada grupo de documentos comparte un GUID en oper_IdAlbaran que enlaza los informes con el albarán generado, y los parámetros incluyen ejercicio, serie y número de pedido.",
+            "ca": "El paràmetre InformeAuto passa a acceptar una llista separada per comes i es genera una operació GENERARINFORME (o GENERARINFORME_CUSTOM) per informe dins del bucle d'albarans, amb el nou paràmetre Printer. Cada grup de documents comparteix un GUID a oper_IdAlbaran que enllaça els informes amb l'albarà generat, i els paràmetres inclouen exercici, sèrie i número de comanda."
+          },
+          "commits": [
+            "fa172f5",
+            "ac55254"
+          ],
+          "id": "c029"
+        },
+        {
+          "fecha": "2026-02-17",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Editar el texto de una línea durante la preparación",
+            "ca": "Editar el text d'una línia durant la preparació"
+          },
+          "descripcion": {
+            "es": "El operario puede modificar desde el terminal la descripción de una línea de preparación, y el cambio se traslada también a la línea del pedido de cliente para que aparezca en el albarán.",
+            "ca": "L'operari pot modificar des del terminal la descripció d'una línia de preparació, i el canvi es trasllada també a la línia de la comanda de client perquè aparegui a l'albarà."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /updatedescripcionlinea (WebModule1updateDescripcionLineaAction) que actualiza DescripcionLinea en FS_SGA_Picking_Pedido_Lineas y propaga el valor a LineasPedidoCliente. El campo se devuelve además en la consulta de líneas de picking.",
+            "ca": "Nou endpoint /updatedescripcionlinea (WebModule1updateDescripcionLineaAction) que actualitza DescripcionLinea a FS_SGA_Picking_Pedido_Lineas i propaga el valor a LineasPedidoCliente. El camp es retorna a més a la consulta de línies de picking."
+          },
+          "commits": [
+            "fa172f5"
+          ],
+          "id": "c030"
+        },
+        {
+          "fecha": "2026-02-17",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Configurar qué tipos de artículo se ven en expedición",
+            "ca": "Configurar quins tipus d'article es veuen a expedició"
+          },
+          "descripcion": {
+            "es": "Además de los artículos de almacén, ahora se pueden mostrar en la preparación los artículos de tipo inmovilizado o comentario si la empresa así lo configura. Antes quedaban siempre ocultos.",
+            "ca": "A més dels articles de magatzem, ara es poden mostrar a la preparació els articles de tipus immobilitzat o comentari si l'empresa ho configura així. Abans quedaven sempre ocults."
+          },
+          "tecnico": {
+            "es": "Nuevo parámetro FS_PARAMS_SGA_MostrarTiposArticuloEXP que construye la lista de TipoArticulo admitidos ('M' más opcionalmente 'I' y 'C') usada en el WHERE de la consulta de líneas de picking; el tipo se devuelve también en el JSON.",
+            "ca": "Nou paràmetre FS_PARAMS_SGA_MostrarTiposArticuloEXP que construeix la llista de TipoArticulo admesos ('M' més opcionalment 'I' i 'C') utilitzada al WHERE de la consulta de línies de picking; el tipus es retorna també al JSON."
+          },
+          "commits": [
+            "fa172f5"
+          ],
+          "id": "c031"
+        },
+        {
+          "fecha": "2026-02-17",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Listado de impresoras corregido",
+            "ca": "Llistat d'impressores corregit"
+          },
+          "descripcion": {
+            "es": "Se ha eliminado la entrada ficticia \"Impresora por defecto\" del listado y se han dejado de mostrar las impresoras redirigidas por escritorio remoto, que no son utilizables desde el terminal.",
+            "ca": "S'ha eliminat l'entrada fictícia \"Impressora per defecte\" del llistat i s'han deixat de mostrar les impressores redirigides per escriptori remot, que no són utilitzables des del terminal."
+          },
+          "commits": [
+            "fa172f5",
+            "ac55254"
+          ],
+          "id": "c032"
+        },
+        {
+          "fecha": "2026-02-17",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Aviso de partidas incorrectas antes de cerrar la recepción",
+            "ca": "Avís de partides incorrectes abans de tancar la recepció"
+          },
+          "descripcion": {
+            "es": "Al validar una recepción se comprueba que las partidas informadas sean correctas y se avisa antes de generar el albarán, evitando tener que corregir el documento una vez creado.",
+            "ca": "En validar una recepció es comprova que les partides informades siguin correctes i s'avisa abans de generar l'albarà, evitant haver de corregir el document un cop creat."
+          },
+          "tecnico": {
+            "es": "Tras FS_SGA_CheckTallerExterno se encadena la validación FS_SGA_Partidas_Correctas, que devuelve sResult/sMsg en la misma respuesta de comprobación previa.",
+            "ca": "Després de FS_SGA_CheckTallerExterno s'encadena la validació FS_SGA_Partidas_Correctas, que retorna sResult/sMsg a la mateixa resposta de comprovació prèvia."
+          },
+          "commits": [
+            "fa172f5"
+          ],
+          "id": "c033"
+        }
+      ]
+    },
+    {
+      "numero": "2.3.0",
+      "estado": "cerrada",
+      "fechaInicio": "2026-02-22",
+      "fechaFin": "2026-04-02",
+      "entradas": [
+        {
+          "fecha": "2026-02-22",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Incidencias con comentarios y fotos en las líneas de recepción",
+            "ca": "Incidències amb comentaris i fotos a les línies de recepció"
+          },
+          "descripcion": {
+            "es": "Al recepcionar mercancía se puede marcar el estado de cada línea, dejar un comentario y adjuntar fotografías hechas con el terminal. Queda constancia gráfica de roturas, faltas o material en mal estado para reclamar al proveedor.",
+            "ca": "En recepcionar mercaderia es pot marcar l'estat de cada línia, deixar un comentari i adjuntar fotografies fetes amb el terminal. Queda constància gràfica de trencaments, faltes o material en mal estat per reclamar al proveïdor."
+          },
+          "tecnico": {
+            "es": "Nuevas tablas FS_SGA_Recepciones_Lin_Info (EstadoRecep, Comentarios) y FS_SGA_Recepciones_Lin_Fotos (DataFotoBase64), creadas por Setup/2026-02-20_RecepcionesExtra.sql. Nuevos endpoints /updateextrainfolinearecepcion, /uploadfotoslinearecepcion y /getextrainfolinearecepcion. Para admitir el volumen de las imágenes se amplía el buffer de CanonicalizeUrl a 64 KB y las peticiones de más de 60.000 caracteres se decodifican con TIdURI.URLDecode.",
+            "ca": "Noves taules FS_SGA_Recepciones_Lin_Info (EstadoRecep, Comentarios) i FS_SGA_Recepciones_Lin_Fotos (DataFotoBase64), creades per Setup/2026-02-20_RecepcionesExtra.sql. Nous endpoints /updateextrainfolinearecepcion, /uploadfotoslinearecepcion i /getextrainfolinearecepcion. Per admetre el volum de les imatges s'amplia el búfer de CanonicalizeUrl a 64 KB i les peticions de més de 60.000 caràcters es descodifiquen amb TIdURI.URLDecode."
+          },
+          "commits": [
+            "ac55254"
+          ],
+          "id": "c034"
+        },
+        {
+          "fecha": "2026-02-22",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Observaciones y descripciones editables en las recepciones",
+            "ca": "Observacions i descripcions editables a les recepcions"
+          },
+          "descripcion": {
+            "es": "Se pueden escribir observaciones generales de una recepción y modificar el texto de cada línea desde el terminal. El texto de la línea se traslada también al pedido de proveedor.",
+            "ca": "Es poden escriure observacions generals d'una recepció i modificar el text de cada línia des del terminal. El text de la línia es trasllada també a la comanda de proveïdor."
+          },
+          "tecnico": {
+            "es": "Nuevos endpoints /updateobservacionesrecepcion y /updatedescripcionlinearecepcion. El de preparación admite además ObservacionesPreparacion junto a las de albarán y factura. DescripcionLinea se propaga a LineasPedidoProveedor.",
+            "ca": "Nous endpoints /updateobservacionesrecepcion i /updatedescripcionlinearecepcion. El de preparació admet a més ObservacionesPreparacion al costat de les d'albarà i factura. DescripcionLinea es propaga a LineasPedidoProveedor."
+          },
+          "commits": [
+            "ac55254",
+            "e181072"
+          ],
+          "id": "c035"
+        },
+        {
+          "fecha": "2026-02-22",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las etiquetas se localizan correctamente en instalaciones multiempresa",
+            "ca": "Les etiquetes es localitzen correctament en instal·lacions multiempresa"
+          },
+          "descripcion": {
+            "es": "Se ha corregido la ruta del repositorio de etiquetas, que en algunas configuraciones apuntaba a una carpeta equivocada y hacía que no se encontraran las plantillas de impresión.",
+            "ca": "S'ha corregit la ruta del repositori d'etiquetes, que en algunes configuracions apuntava a una carpeta equivocada i feia que no es trobessin les plantilles d'impressió."
+          },
+          "commits": [
+            "ac55254"
+          ],
+          "id": "c036"
+        },
+        {
+          "fecha": "2026-02-25",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Cantidad por defecto configurable al escanear un código",
+            "ca": "Quantitat per defecte configurable en escanejar un codi"
+          },
+          "descripcion": {
+            "es": "La cantidad que se propone al leer un código de barras ya no es fija: cada empresa decide si al escanear se suma una unidad, ninguna o la cantidad que prefiera. Se ahorran pulsaciones en los flujos más repetitivos.",
+            "ca": "La quantitat que es proposa en llegir un codi de barres ja no és fixa: cada empresa decideix si en escanejar se suma una unitat, cap o la quantitat que prefereixi. S'estalvien pulsacions als fluxos més repetitius."
+          },
+          "tecnico": {
+            "es": "Las respuestas de lectura de código leen FS_PARAMS_SGA_CantidadAlLeerCodigo y devuelven Cantidad y CantidadBase calculadas con el FactorConversion_ del artículo, en lugar de los valores fijos 0 o 1.",
+            "ca": "Les respostes de lectura de codi llegeixen FS_PARAMS_SGA_CantidadAlLeerCodigo i retornen Cantidad i CantidadBase calculades amb el FactorConversion_ de l'article, en comptes dels valors fixos 0 o 1."
+          },
+          "commits": [
+            "e181072"
+          ],
+          "id": "c037"
+        },
+        {
+          "fecha": "2026-02-25",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Fecha de recepción prevista en el listado de recepciones",
+            "ca": "Data de recepció prevista al llistat de recepcions"
+          },
+          "descripcion": {
+            "es": "El listado de recepciones muestra la fecha de recepción prevista más próxima y el nombre del proveedor cuando la recepción corresponde a un único pedido. Ayuda a priorizar qué descargar primero.",
+            "ca": "El llistat de recepcions mostra la data de recepció prevista més propera i el nom del proveïdor quan la recepció correspon a una única comanda. Ajuda a prioritzar què descarregar primer."
+          },
+          "tecnico": {
+            "es": "La consulta de cabeceras de recepción se reescribe con OUTER APPLY que calcula NumLineasTotales, NumLineasPendientes, FechaRecepcionMin, NumPedidos y el Nombre (sólo si hay un único pedido de proveedor asociado), y devuelve FechaRecepcion en el JSON.",
+            "ca": "La consulta de capçaleres de recepció es reescriu amb OUTER APPLY que calcula NumLineasTotales, NumLineasPendientes, FechaRecepcionMin, NumPedidos i el Nombre (només si hi ha una única comanda de proveïdor associada), i retorna FechaRecepcion al JSON."
+          },
+          "commits": [
+            "e181072",
+            "1a0ded2"
+          ],
+          "id": "c038"
+        },
+        {
+          "fecha": "2026-02-25",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las operaciones enviadas a Sage identifican el terminal de origen",
+            "ca": "Les operacions enviades a Sage identifiquen el terminal d'origen"
+          },
+          "descripcion": {
+            "es": "La creación de albaranes, devoluciones y movimientos de stock queda registrada con el terminal que la solicitó, en lugar de con el equipo donde corre el servicio. Facilita seguir el rastro de cualquier documento.",
+            "ca": "La creació d'albarans, devolucions i moviments d'estoc queda registrada amb el terminal que la va sol·licitar, en comptes de l'equip on s'executa el servei. Facilita seguir el rastre de qualsevol document."
+          },
+          "tecnico": {
+            "es": "En las operaciones CREARALBARANCLIENTE, CREARDEVOLUCIONCLIENTE, CREARDEVOLUCIONPROVEEDOR, CREARALBARANPROVEEDOR y MOVIMIENTOSTOCK, oper_mac_address pasa a informarse con el UUID del dispositivo en lugar de NETWORK_LocalMAC(); MOVIMIENTOSTOCK añade además oper_mac_address y oper_ip_address, que no informaba.",
+            "ca": "A les operacions CREARALBARANCLIENTE, CREARDEVOLUCIONCLIENTE, CREARDEVOLUCIONPROVEEDOR, CREARALBARANPROVEEDOR i MOVIMIENTOSTOCK, oper_mac_address passa a informar-se amb l'UUID del dispositiu en comptes de NETWORK_LocalMAC(); MOVIMIENTOSTOCK hi afegeix a més oper_mac_address i oper_ip_address, que no informava."
+          },
+          "commits": [
+            "e181072"
+          ],
+          "id": "c039"
+        },
+        {
+          "fecha": "2026-03-02",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Cálculo automático de la partida en recepción",
+            "ca": "Càlcul automàtic de la partida en recepció"
+          },
+          "descripcion": {
+            "es": "Al recepcionar, el sistema puede proponer automáticamente la partida a partir del artículo y de la partida indicada por el proveedor, siguiendo la regla definida para cada empresa. Se evitan errores de tecleo y partidas duplicadas.",
+            "ca": "En recepcionar, el sistema pot proposar automàticament la partida a partir de l'article i de la partida indicada pel proveïdor, seguint la regla definida per a cada empresa. S'eviten errors de teclat i partides duplicades."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /calcularpartidaauto (WebModule1calcularPartidaAutoAction) que invoca la función SQL personalizable FS_SGA_RECEPCION_Partida con empresa, ejercicio activo, artículo y partida de proveedor, y devuelve la partida calculada.",
+            "ca": "Nou endpoint /calcularpartidaauto (WebModule1calcularPartidaAutoAction) que invoca la funció SQL personalitzable FS_SGA_RECEPCION_Partida amb empresa, exercici actiu, article i partida de proveïdor, i retorna la partida calculada."
+          },
+          "commits": [
+            "1a0ded2"
+          ],
+          "id": "c040"
+        },
+        {
+          "fecha": "2026-03-02",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Fecha prevista real en recepciones de varios pedidos",
+            "ca": "Data prevista real en recepcions de diverses comandes"
+          },
+          "descripcion": {
+            "es": "Cuando una recepción agrupa líneas de varios pedidos, cada línea muestra la fecha de recepción prevista más próxima que le corresponde realmente, en lugar de una fecha genérica de la cabecera.",
+            "ca": "Quan una recepció agrupa línies de diverses comandes, cada línia mostra la data de recepció prevista més propera que li correspon realment, en comptes d'una data genèrica de la capçalera."
+          },
+          "tecnico": {
+            "es": "La consulta de líneas de recepción incorpora un CROSS APPLY que calcula FechaRecepcionMinima como el mínimo entre CabeceraPedidoProveedor.FechaRecepcion y la mínima FechaRecepcion de las LineasPedidoProveedor implicadas; el JSON devuelve ese valor. Se elimina además el filtro Estado = 0 del listado de recepciones para que no desaparezcan las que quedan abiertas.",
+            "ca": "La consulta de línies de recepció incorpora un CROSS APPLY que calcula FechaRecepcionMinima com el mínim entre CabeceraPedidoProveedor.FechaRecepcion i la mínima FechaRecepcion de les LineasPedidoProveedor implicades; el JSON retorna aquest valor. S'elimina a més el filtre Estado = 0 del llistat de recepcions perquè no desapareguin les que queden obertes."
+          },
+          "commits": [
+            "1a0ded2"
+          ],
+          "id": "c041"
+        },
+        {
+          "fecha": "2026-03-02",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Recálculos automáticos tras generar el albarán de cliente",
+            "ca": "Recàlculs automàtics després de generar l'albarà de client"
+          },
+          "descripcion": {
+            "es": "Después de crear el albarán de cliente se encadenan automáticamente los cálculos posteriores configurados, sin necesidad de lanzarlos a mano.",
+            "ca": "Després de crear l'albarà de client s'encadenen automàticament els càlculs posteriors configurats, sense necessitat de llançar-los a mà."
+          },
+          "tecnico": {
+            "es": "Llamada a FS_SGA_AddCalculosOperations ( Conn, CodigoEmpresa, 'AlbaranCliente', sGUIDOperacion, lstSQL, iSQLidx ) que inserta las operaciones de cálculo en el mismo lote, enlazadas por el GUID de operación.",
+            "ca": "Crida a FS_SGA_AddCalculosOperations ( Conn, CodigoEmpresa, 'AlbaranCliente', sGUIDOperacion, lstSQL, iSQLidx ) que insereix les operacions de càlcul al mateix lot, enllaçades pel GUID d'operació."
+          },
+          "commits": [
+            "1a0ded2"
+          ],
+          "id": "c042"
+        },
+        {
+          "fecha": "2026-03-09",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Recepciones parciales manteniendo la recepción abierta",
+            "ca": "Recepcions parcials mantenint la recepció oberta"
+          },
+          "descripcion": {
+            "es": "Se puede generar el albarán de lo recibido hasta el momento y dejar la recepción abierta con el material pendiente, que pasa a una recepción de restos enlazada con la original. Así se descargan camiones en varias tandas sin perder el seguimiento ni duplicar el albarán.",
+            "ca": "Es pot generar l'albarà del que s'ha rebut fins al moment i deixar la recepció oberta amb el material pendent, que passa a una recepció de restes enllaçada amb l'original. Així es descarreguen camions en diverses tandes sense perdre el seguiment ni duplicar l'albarà."
+          },
+          "tecnico": {
+            "es": "Nuevo parámetro MantenerAbierta en la generación del albarán de recepción: invoca FS_SGA_Recepcion_CrearRestos antes de depurar las líneas y deja Estado = 1 en lugar de 3 si quedan unidades pendientes. FS_SGA_Recepciones incorpora RecepcionIdVinculada, de modo que una recepción de restos reutiliza el Albaran e IdAlbaranPro de la recepción original, que se propagan a FS_Operations (oper_Albaran, oper_IdAlbaran) para que Sage añada las líneas al mismo albarán.",
+            "ca": "Nou paràmetre MantenerAbierta a la generació de l'albarà de recepció: invoca FS_SGA_Recepcion_CrearRestos abans de depurar les línies i deixa Estado = 1 en comptes de 3 si queden unitats pendents. FS_SGA_Recepciones incorpora RecepcionIdVinculada, de manera que una recepció de restes reutilitza l'Albaran i l'IdAlbaranPro de la recepció original, que es propaguen a FS_Operations (oper_Albaran, oper_IdAlbaran) perquè Sage afegeixi les línies al mateix albarà."
+          },
+          "commits": [
+            "c27bd74"
+          ],
+          "id": "c043"
+        },
+        {
+          "fecha": "2026-03-09",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Aviso de fotos adjuntas en las líneas de recepción",
+            "ca": "Avís de fotos adjuntes a les línies de recepció"
+          },
+          "descripcion": {
+            "es": "El listado de líneas de recepción indica cuántas fotografías tiene cada línea, de modo que se detecta de un vistazo dónde hay una incidencia documentada.",
+            "ca": "El llistat de línies de recepció indica quantes fotografies té cada línia, de manera que es detecta d'un cop d'ull on hi ha una incidència documentada."
+          },
+          "tecnico": {
+            "es": "Las consultas de líneas de recepción devuelven NumFotos mediante una subconsulta COUNT sobre FS_SGA_Recepciones_Lin_Fotos.",
+            "ca": "Les consultes de línies de recepció retornen NumFotos mitjançant una subconsulta COUNT sobre FS_SGA_Recepciones_Lin_Fotos."
+          },
+          "commits": [
+            "c27bd74"
+          ],
+          "id": "c044"
+        },
+        {
+          "fecha": "2026-03-09",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Se conserva la partida indicada por el proveedor",
+            "ca": "Es conserva la partida indicada pel proveïdor"
+          },
+          "descripcion": {
+            "es": "Al recepcionar se guarda la partida tal como viene del proveedor además de la partida asignada internamente, lo que permite cotejar y reclamar sobre el albarán original.",
+            "ca": "En recepcionar es desa la partida tal com ve del proveïdor a més de la partida assignada internament, cosa que permet acarar i reclamar sobre l'albarà original."
+          },
+          "tecnico": {
+            "es": "Nuevo campo PartidaProveedor en los INSERT y UPDATE de FS_SGA_Recepciones_Lineas_Detalle, alimentado desde el JSON de la recepción.",
+            "ca": "Nou camp PartidaProveedor als INSERT i UPDATE de FS_SGA_Recepciones_Lineas_Detalle, alimentat des del JSON de la recepció."
+          },
+          "commits": [
+            "c27bd74"
+          ],
+          "id": "c045"
+        },
+        {
+          "fecha": "2026-03-09",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "El servicio informa de su versión y del cliente instalado",
+            "ca": "El servei informa de la seva versió i del client instal·lat"
+          },
+          "descripcion": {
+            "es": "Al consultar el servicio web, éste devuelve su nombre, número de versión y el código de cliente configurado. Facilita comprobar qué versión hay instalada sin acceder al servidor.",
+            "ca": "En consultar el servei web, aquest retorna el seu nom, número de versió i el codi de client configurat. Facilita comprovar quina versió hi ha instal·lada sense accedir al servidor."
+          },
+          "tecnico": {
+            "es": "La respuesta por defecto (raíz y WebModule1DefaultHandlerAction) pasa de una cadena fija a un array con Name, Version (TVSFixedFileInfo.FileVersion) y customerCode.",
+            "ca": "La resposta per defecte (arrel i WebModule1DefaultHandlerAction) passa d'una cadena fixa a un array amb Name, Version (TVSFixedFileInfo.FileVersion) i customerCode."
+          },
+          "commits": [
+            "c27bd74"
+          ],
+          "id": "c046"
+        },
+        {
+          "fecha": "2026-03-11",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Recepción de varias líneas de pedido a la vez",
+            "ca": "Recepció de diverses línies de comanda alhora"
+          },
+          "descripcion": {
+            "es": "Cuando el mismo artículo llega repartido en varias líneas del pedido, ahora se puede recepcionar de una sola vez y el sistema reparte automáticamente las cantidades entre las líneas afectadas. Antes había que entrar línea por línea.",
+            "ca": "Quan el mateix article arriba repartit en diverses línies de la comanda, ara es pot recepcionar d'una sola vegada i el sistema reparteix automàticament les quantitats entre les línies afectades. Abans calia entrar línia per línia."
+          },
+          "tecnico": {
+            "es": "Nuevo bloque 'Distribucion' en el JSON de guardar detalle de recepción: por cada elemento se inserta una fila en FS_SGA_Recepciones_Lineas_Detalle con sus UnidadesEntradaBase/UnidadesRechazoBase y se reparten los números de serie de FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie de forma secuencial entre las líneas.",
+            "ca": "Nou bloc 'Distribucion' al JSON de desar detall de recepció: per cada element s'insereix una fila a FS_SGA_Recepciones_Lineas_Detalle amb les seves UnidadesEntradaBase/UnidadesRechazoBase i es reparteixen els números de sèrie de FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie de manera seqüencial entre les línies."
+          },
+          "commits": [
+            "ef5ebdc"
+          ],
+          "id": "c047"
+        },
+        {
+          "fecha": "2026-03-11",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "El listado de recepción muestra las líneas agrupadas",
+            "ca": "El llistat de recepció mostra les línies agrupades"
+          },
+          "descripcion": {
+            "es": "Al consultar las líneas de una recepción, ahora se ve qué líneas del pedido están agrupadas entre sí y los totales recibidos tienen en cuenta todo el grupo. Así se entiende de un vistazo qué queda pendiente.",
+            "ca": "En consultar les línies d'una recepció, ara es veu quines línies de la comanda estan agrupades entre elles i els totals rebuts tenen en compte tot el grup. Així s'entén d'un cop d'ull què queda pendent."
+          },
+          "tecnico": {
+            "es": "Nueva tabla FS_SGA_Recepciones_Lineas_Agrupadas enlazada por LineasPosicion; el JSON de líneas incorpora el array \"LineasAgrupadas\" y las consultas de totales aceptan una lista de RecepcionIdLinea (IN) en lugar de un único identificador.",
+            "ca": "Nova taula FS_SGA_Recepciones_Lineas_Agrupadas enllaçada per LineasPosicion; el JSON de línies incorpora l'array \"LineasAgrupadas\" i les consultes de totals accepten una llista de RecepcionIdLinea (IN) en lloc d'un únic identificador."
+          },
+          "commits": [
+            "ef5ebdc"
+          ],
+          "id": "c048"
+        },
+        {
+          "fecha": "2026-03-12",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Reparto automático al modificar o borrar una recepción agrupada",
+            "ca": "Repartiment automàtic en modificar o esborrar una recepció agrupada"
+          },
+          "descripcion": {
+            "es": "Al borrar o modificar una línea que forma parte de un grupo, las cantidades recibidas se vuelven a repartir solas entre el resto de líneas del grupo. Antes podían quedar descuadradas.",
+            "ca": "En esborrar o modificar una línia que forma part d'un grup, les quantitats rebudes es tornen a repartir soles entre la resta de línies del grup. Abans podien quedar descompensades."
+          },
+          "tecnico": {
+            "es": "Llamada a FS_SGA_RECEPCION_RepartirAgrupacion tras guardar y tras borrar detalle de recepción, resolviendo primero el LineasPosicion de la línea afectada.",
+            "ca": "Crida a FS_SGA_RECEPCION_RepartirAgrupacion després de desar i després d'esborrar detall de recepció, resolent primer el LineasPosicion de la línia afectada."
+          },
+          "commits": [
+            "b747520"
+          ],
+          "id": "c049"
+        },
+        {
+          "fecha": "2026-03-12",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La recepción se cierra siempre al finalizarla",
+            "ca": "La recepció es tanca sempre en finalitzar-la"
+          },
+          "descripcion": {
+            "es": "Al finalizar una recepción con unidades pendientes, el documento podía quedarse en estado abierto y volver a aparecer en la lista de trabajo. Ahora se cierra correctamente en todos los casos.",
+            "ca": "En finalitzar una recepció amb unitats pendents, el document podia quedar-se en estat obert i tornar a aparèixer a la llista de treball. Ara es tanca correctament en tots els casos."
+          },
+          "commits": [
+            "b747520",
+            "d18d219"
+          ],
+          "id": "c050"
+        },
+        {
+          "fecha": "2026-03-17",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Ya no se pierden líneas de pedido al cerrar la recepción",
+            "ca": "Ja no es perden línies de comanda en tancar la recepció"
+          },
+          "descripcion": {
+            "es": "Al cerrar una recepción se eliminaban las líneas sin unidades recibidas y se generaba un documento de restos, lo que hacía perder la trazabilidad del pedido original. Se ha desactivado ese comportamiento y ahora se conserva toda la recepción tal cual.",
+            "ca": "En tancar una recepció s'eliminaven les línies sense unitats rebudes i es generava un document de restes, cosa que feia perdre la traçabilitat de la comanda original. S'ha desactivat aquest comportament i ara es conserva tota la recepció tal com és."
+          },
+          "commits": [
+            "d18d219"
+          ],
+          "id": "c051"
+        },
+        {
+          "fecha": "2026-03-17",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Corregida la línea asignada al repartir una recepción",
+            "ca": "Corregida la línia assignada en repartir una recepció"
+          },
+          "descripcion": {
+            "es": "Al repartir una recepción entre varias líneas, las cantidades podían asignarse a una línea de pedido equivocada. Ahora siempre van a la línea correcta.",
+            "ca": "En repartir una recepció entre diverses línies, les quantitats es podien assignar a una línia de comanda equivocada. Ara sempre van a la línia correcta."
+          },
+          "commits": [
+            "d18d219"
+          ],
+          "id": "c052"
+        },
+        {
+          "fecha": "2026-03-17",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las recepciones repetidas se acumulan en una sola línea",
+            "ca": "Les recepcions repetides s'acumulen en una sola línia"
+          },
+          "descripcion": {
+            "es": "Si se recepciona varias veces el mismo artículo con los mismos datos (ubicación, matrícula, lote, caducidad...), las cantidades se suman en una única línea de detalle en lugar de crear líneas duplicadas. El detalle de la recepción queda mucho más limpio.",
+            "ca": "Si es recepciona diverses vegades el mateix article amb les mateixes dades (ubicació, matrícula, lot, caducitat...), les quantitats se sumen en una única línia de detall en lloc de crear línies duplicades. El detall de la recepció queda molt més net."
+          },
+          "tecnico": {
+            "es": "Antes de insertar en FS_SGA_Recepciones_Lineas_Detalle se busca un registro con todos los campos descriptivos coincidentes; si existe se hace UPDATE acumulativo (Unidades, UnidadesEntradaBase, CantidadError...) y los números de serie se añaden sin borrar los existentes (flag IsNew).",
+            "ca": "Abans d'inserir a FS_SGA_Recepciones_Lineas_Detalle es busca un registre amb tots els camps descriptius coincidents; si existeix es fa UPDATE acumulatiu (Unidades, UnidadesEntradaBase, CantidadError...) i els números de sèrie s'afegeixen sense esborrar els existents (flag IsNew)."
+          },
+          "commits": [
+            "6e1cb13"
+          ],
+          "id": "c053"
+        },
+        {
+          "fecha": "2026-03-20",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Impresión de informes y etiquetas de recepción desde el terminal",
+            "ca": "Impressió d'informes i etiquetes de recepció des del terminal"
+          },
+          "descripcion": {
+            "es": "Ya se pueden imprimir informes y etiquetas de una recepción directamente desde el terminal, eligiendo la plantilla y la impresora. Las etiquetas incluyen datos de proveedor, artículo, lote, caducidad, números de serie y orden de fabricación asociada.",
+            "ca": "Ja es poden imprimir informes i etiquetes d'una recepció directament des del terminal, triant la plantilla i la impressora. Les etiquetes inclouen dades de proveïdor, article, lot, caducitat, números de sèrie i ordre de fabricació associada."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /imprimirinforme (WebModule1imprimirInformeAction) con parámetros Folder, Type, Template, Objeto e Impresora; usa ReportBuilder sobre las plantillas de <repositorio>\\labels\\<folder>\\<type>. La auditoría registra la acción PRINT-INFORME.",
+            "ca": "Nou endpoint /imprimirinforme (WebModule1imprimirInformeAction) amb paràmetres Folder, Type, Template, Objeto i Impresora; fa servir ReportBuilder sobre les plantilles de <repositori>\\labels\\<folder>\\<type>. L'auditoria registra l'acció PRINT-INFORME."
+          },
+          "commits": [
+            "ee45da3"
+          ],
+          "id": "c054"
+        },
+        {
+          "fecha": "2026-03-20",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Plantillas de etiquetas organizadas por carpetas",
+            "ca": "Plantilles d'etiquetes organitzades per carpetes"
+          },
+          "descripcion": {
+            "es": "Las plantillas de etiquetas se pueden organizar por proceso y tipo (por ejemplo recepción, palet, caja) y el terminal muestra sólo las que corresponden a lo que se está haciendo.",
+            "ca": "Les plantilles d'etiquetes es poden organitzar per procés i tipus (per exemple recepció, palet, caixa) i el terminal mostra només les que corresponen al que s'està fent."
+          },
+          "tecnico": {
+            "es": "La acción de listado de plantillas pasa a recibir Folder y Type en lugar de Template y compone la ruta <repositorio>\\labels\\<folder>\\<type>.",
+            "ca": "L'acció de llistat de plantilles passa a rebre Folder i Type en lloc de Template i compon la ruta <repositori>\\labels\\<folder>\\<type>."
+          },
+          "commits": [
+            "ee45da3"
+          ],
+          "id": "c055"
+        },
+        {
+          "fecha": "2026-03-30",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Control de números de serie en entradas y salidas de stock",
+            "ca": "Control de números de sèrie en entrades i sortides d'estoc"
+          },
+          "descripcion": {
+            "es": "Las entradas y salidas manuales de stock de artículos con número de serie ahora piden y registran los números de serie uno a uno, y quedan reflejados también en Sage. Así el inventario de series se mantiene siempre al día.",
+            "ca": "Les entrades i sortides manuals d'estoc d'articles amb número de sèrie ara demanen i registren els números de sèrie un a un, i queden reflectits també a Sage. Així l'inventari de sèries es manté sempre al dia."
+          },
+          "tecnico": {
+            "es": "En las acciones de entrada y salida de stock se comprueba ARTICULO_TratamientoSeries y se lee el JSON 'Series'. Se genera un movimiento global a Sage (tmsageMovimientoStock) más un movimiento por serie en SGA y en MovimientoArticuloSerie (tmsageMovimientoStockSeries), con OrigenDocumento OD_ENTRADA_STOCK / OD_SALIDA_STOCK. Se elimina la inserción directa en TmpIME_MovimientoStock.",
+            "ca": "A les accions d'entrada i sortida d'estoc es comprova ARTICULO_TratamientoSeries i es llegeix el JSON 'Series'. Es genera un moviment global a Sage (tmsageMovimientoStock) més un moviment per sèrie a SGA i a MovimientoArticuloSerie (tmsageMovimientoStockSeries), amb OrigenDocumento OD_ENTRADA_STOCK / OD_SALIDA_STOCK. S'elimina la inserció directa a TmpIME_MovimientoStock."
+          },
+          "commits": [
+            "cf17f74"
+          ],
+          "id": "c056"
+        },
+        {
+          "fecha": "2026-03-30",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Aviso si un número de serie ya está en stock",
+            "ca": "Avís si un número de sèrie ja és en estoc"
+          },
+          "descripcion": {
+            "es": "Al dar entrada a un número de serie que ya existe en stock, el terminal avisa y no deja continuar, evitando duplicados. Si la configuración de Sage permite series duplicadas, no se bloquea.",
+            "ca": "En donar entrada a un número de sèrie que ja existeix en estoc, el terminal avisa i no deixa continuar, evitant duplicats. Si la configuració de Sage permet sèries duplicades, no es bloqueja."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /checknumeroserieenstock (WebModule1checkNumeroSerieEnStockAction): consulta ArticulosSeries con UnidadesSerie > 0 y respeta el parámetro de Sage CUESTIONARIO/GES/NSeriesDuplicado.",
+            "ca": "Nou endpoint /checknumeroserieenstock (WebModule1checkNumeroSerieEnStockAction): consulta ArticulosSeries amb UnidadesSerie > 0 i respecta el paràmetre de Sage CUESTIONARIO/GES/NSeriesDuplicado."
+          },
+          "commits": [
+            "cf17f74"
+          ],
+          "id": "c057"
+        },
+        {
+          "fecha": "2026-03-30",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Consulta de los números de serie disponibles en una ubicación",
+            "ca": "Consulta dels números de sèrie disponibles en una ubicació"
+          },
+          "descripcion": {
+            "es": "En las salidas de stock el terminal ya puede mostrar la lista de números de serie realmente disponibles en la ubicación, para elegirlos sin tener que teclearlos ni equivocarse.",
+            "ca": "A les sortides d'estoc el terminal ja pot mostrar la llista de números de sèrie realment disponibles a la ubicació, per triar-los sense haver-los de teclejar ni equivocar-se."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /getnumerosserieubicacion (WebModule1getNumerosSerieSalidaStockAction) sobre FS_SGA_AcumuladoStock_Series (Periodo 99) filtrando por almacén, ubicación, artículo y, opcionalmente, partida, talla y color.",
+            "ca": "Nou endpoint /getnumerosserieubicacion (WebModule1getNumerosSerieSalidaStockAction) sobre FS_SGA_AcumuladoStock_Series (Període 99) filtrant per magatzem, ubicació, article i, opcionalment, partida, talla i color."
+          },
+          "commits": [
+            "cf17f74"
+          ],
+          "id": "c058"
+        },
+        {
+          "fecha": "2026-03-30",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Los números de serie llegan al albarán de compra",
+            "ca": "Els números de sèrie arriben a l'albarà de compra"
+          },
+          "descripcion": {
+            "es": "Al finalizar una recepción de proveedor, cada número de serie recibido genera su propio movimiento y queda vinculado al albarán de compra en Sage, con la trazabilidad completa hasta la línea del pedido.",
+            "ca": "En finalitzar una recepció de proveïdor, cada número de sèrie rebut genera el seu propi moviment i queda vinculat a l'albarà de compra a Sage, amb la traçabilitat completa fins a la línia de la comanda."
+          },
+          "tecnico": {
+            "es": "La consulta de traspaso a Sage añade un LEFT JOIN con FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie; cuando hay CantidadSerie se usa esa cantidad para el movimiento y se informan NumeroSerie, NumeroSerieFabricante, OrigenDocumento = OD_ALBARAN_COMPRA y MovOrigen = LineasPosicion.",
+            "ca": "La consulta de traspàs a Sage afegeix un LEFT JOIN amb FS_SGA_Recepciones_Lineas_Detalle_NumerosSerie; quan hi ha CantidadSerie es fa servir aquesta quantitat per al moviment i s'informen NumeroSerie, NumeroSerieFabricante, OrigenDocumento = OD_ALBARAN_COMPRA i MovOrigen = LineasPosicion."
+          },
+          "commits": [
+            "cf17f74"
+          ],
+          "id": "c059"
+        },
+        {
+          "fecha": "2026-03-30",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Corregidos los números de serie mostrados en preparación",
+            "ca": "Corregits els números de sèrie mostrats en preparació"
+          },
+          "descripcion": {
+            "es": "En la preparación de pedidos podían aparecer números de serie que no correspondían a la línea consultada. Ahora se muestran sólo los de la línea y la agrupación correctas.",
+            "ca": "A la preparació de comandes podien aparèixer números de sèrie que no corresponien a la línia consultada. Ara es mostren només els de la línia i l'agrupació correctes."
+          },
+          "tecnico": {
+            "es": "Se restaura el filtro por AutoID en el JOIN con FS_SGA_Picking_Pedido_Lineas_Detalle y se añade CodigoAgrupacion como criterio, sustituyendo el parámetro AutoID de la petición.",
+            "ca": "Es restaura el filtre per AutoID al JOIN amb FS_SGA_Picking_Pedido_Lineas_Detalle i s'afegeix CodigoAgrupacion com a criteri, substituint el paràmetre AutoID de la petició."
+          },
+          "commits": [
+            "cf17f74"
+          ],
+          "id": "c060"
+        },
+        {
+          "fecha": "2026-04-02",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Preparación de pedidos con números de serie",
+            "ca": "Preparació de comandes amb números de sèrie"
+          },
+          "descripcion": {
+            "es": "Al preparar artículos con número de serie, cada unidad escaneada genera su propio movimiento de salida y entrada en expedición, con su número de serie identificado. Así se sabe exactamente qué serie se ha enviado a cada cliente.",
+            "ca": "En preparar articles amb número de sèrie, cada unitat escanejada genera el seu propi moviment de sortida i entrada a expedició, amb el seu número de sèrie identificat. Així se sap exactament quina sèrie s'ha enviat a cada client."
+          },
+          "tecnico": {
+            "es": "La acción de picking acepta el JSON opcional 'NumerosSerie' y recorre su lista generando un par salida/entrada por serie con SGA_FS_ALMACEN_MovimientoStock; si hay series no se acumula sobre el AutoID existente de FS_SGA_Picking_Pedido_Lineas_Detalle sino que se crea un registro nuevo.",
+            "ca": "L'acció de picking accepta el JSON opcional 'NumerosSerie' i recorre la seva llista generant un parell sortida/entrada per sèrie amb SGA_FS_ALMACEN_MovimientoStock; si hi ha sèries no s'acumula sobre l'AutoID existent de FS_SGA_Picking_Pedido_Lineas_Detalle sinó que es crea un registre nou."
+          },
+          "commits": [
+            "4d33141"
+          ],
+          "id": "c061"
+        },
+        {
+          "fecha": "2026-04-02",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Ya no se pierden números de serie al preparar en varias veces",
+            "ca": "Ja no es perden números de sèrie en preparar en diverses vegades"
+          },
+          "descripcion": {
+            "es": "Si una línea se preparaba en varias pasadas, los números de serie guardados antes se borraban y sólo quedaban los últimos. Ahora se conservan todos.",
+            "ca": "Si una línia es preparava en diverses passades, els números de sèrie desats abans s'esborraven i només quedaven els últims. Ara es conserven tots."
+          },
+          "tecnico": {
+            "es": "Se elimina el DELETE previo sobre FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie; cada preparación añade sus propios registros.",
+            "ca": "S'elimina el DELETE previ sobre FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie; cada preparació afegeix els seus propis registres."
+          },
+          "commits": [
+            "4d33141"
+          ],
+          "id": "c062"
+        },
+        {
+          "fecha": "2026-04-02",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las preparaciones con serie se ven una a una en el terminal",
+            "ca": "Les preparacions amb sèrie es veuen una a una al terminal"
+          },
+          "descripcion": {
+            "es": "En artículos con número de serie, el terminal muestra cada preparación por separado en lugar de una cantidad acumulada, lo que permite revisar y corregir cada escaneo individualmente.",
+            "ca": "En articles amb número de sèrie, el terminal mostra cada preparació per separat en lloc d'una quantitat acumulada, cosa que permet revisar i corregir cada escaneig individualment."
+          },
+          "tecnico": {
+            "es": "FS_SGA_ObtenerMovimientosPreparacion recibe el nuevo parámetro TratamientoSeries y, cuando es cierto, consulta FS_SGA_Picking_Pedido_Lineas_Detalle (registro a registro) en lugar de FS_SGA_AcumuladoPendiente, devolviendo además el AutoId en el JSON.",
+            "ca": "FS_SGA_ObtenerMovimientosPreparacion rep el nou paràmetre TratamientoSeries i, quan és cert, consulta FS_SGA_Picking_Pedido_Lineas_Detalle (registre a registre) en lloc de FS_SGA_AcumuladoPendiente, retornant a més l'AutoId al JSON."
+          },
+          "commits": [
+            "4d33141"
+          ],
+          "id": "c063"
+        }
+      ]
+    },
+    {
+      "numero": "2.4.0",
+      "estado": "cerrada",
+      "fechaInicio": "2026-04-21",
+      "fechaFin": "2026-06-15",
+      "entradas": [
+        {
+          "fecha": "2026-04-21",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Números de serie en el packing list de expedición",
+            "ca": "Números de sèrie al packing list d'expedició"
+          },
+          "descripcion": {
+            "es": "Al preparar una expedición ya se puede indicar qué números de serie van dentro de cada bulto. El packing list genera una línea por número de serie y los movimientos de almacén quedan registrados serie a serie, de modo que siempre se sabe a qué cliente se ha enviado cada unidad concreta.",
+            "ca": "En preparar una expedició ja es pot indicar quins números de sèrie van dins de cada embalum. El packing list genera una línia per número de sèrie i els moviments de magatzem queden registrats sèrie a sèrie, de manera que sempre se sap a quin client s'ha enviat cada unitat concreta."
+          },
+          "tecnico": {
+            "es": "updatePackingList acepta el parámetro NumerosSerie (JSON con List de NumeroSerie/NumeroSerieFabricante/Cantidad). Por cada serie se inserta una línea en FS_SGA_PACKINGLIST y un registro en FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie, y se generan movimientos de entrada/salida individuales hacia la ubicación del palet. Al borrar la línea se recupera su NumeroSerie y se elimina el registro asociado.",
+            "ca": "updatePackingList accepta el paràmetre NumerosSerie (JSON amb List de NumeroSerie/NumeroSerieFabricante/Cantidad). Per cada sèrie s'insereix una línia a FS_SGA_PACKINGLIST i un registre a FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie, i es generen moviments d'entrada/sortida individuals cap a la ubicació del palet. En esborrar la línia es recupera el seu NumeroSerie i s'elimina el registre associat."
+          },
+          "commits": [
+            "1d24169"
+          ],
+          "id": "c064"
+        },
+        {
+          "fecha": "2026-04-21",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Los números de serie escaneados ya no se duplican",
+            "ca": "Els números de sèrie escanejats ja no es dupliquen"
+          },
+          "descripcion": {
+            "es": "Si se repetía el escaneo de números de serie sobre una misma línea, quedaban registros duplicados. Ahora cada nueva lectura sustituye la anterior de esa línea, salvo en expedición, donde las lecturas se siguen acumulando a propósito.",
+            "ca": "Si es repetia l'escaneig de números de sèrie sobre una mateixa línia, quedaven registres duplicats. Ara cada nova lectura substitueix l'anterior d'aquesta línia, excepte en expedició, on les lectures se segueixen acumulant expressament."
+          },
+          "tecnico": {
+            "es": "Nuevo parámetro Append en el guardado de series: si no viene a 1, se borran previamente los registros de FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie del PreparacionId + AutoID indicados.",
+            "ca": "Nou paràmetre Append en el desat de sèries: si no arriba a 1, s'esborren prèviament els registres de FS_SGA_Picking_Pedido_Lineas_Detalle_NumerosSerie del PreparacionId + AutoID indicats."
+          },
+          "commits": [
+            "1d24169"
+          ],
+          "id": "c065"
+        },
+        {
+          "fecha": "2026-04-21",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Validación de número de serie sobre el stock real",
+            "ca": "Validació de número de sèrie sobre l'estoc real"
+          },
+          "descripcion": {
+            "es": "La comprobación de si un número de serie ya está en stock ahora se hace sobre el saldo real del almacén, teniendo en cuenta ejercicio, talla y color. Así se evitan avisos incorrectos con series que ya habían salido del almacén. Además se exige la partida cuando el artículo la requiere.",
+            "ca": "La comprovació de si un número de sèrie ja és en estoc ara es fa sobre el saldo real del magatzem, tenint en compte exercici, talla i color. Així s'eviten avisos incorrectes amb sèries que ja havien sortit del magatzem. A més s'exigeix la partida quan l'article la requereix."
+          },
+          "tecnico": {
+            "es": "La consulta pasa de ArticulosSeries a FS_SGA_AcumuladoStock_Series (Ejercicio = año activo, Periodo = 99, UnidadesSaldo > 0). Se añade validación de partida vía ARTICULO_TratamientoPartida.",
+            "ca": "La consulta passa d'ArticulosSeries a FS_SGA_AcumuladoStock_Series (Ejercicio = any actiu, Periodo = 99, UnidadesSaldo > 0). S'afegeix validació de partida via ARTICULO_TratamientoPartida."
+          },
+          "commits": [
+            "1d24169"
+          ],
+          "id": "c066"
+        },
+        {
+          "fecha": "2026-04-21",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Factores de conversión de unidades uniformes",
+            "ca": "Factors de conversió d'unitats uniformes"
+          },
+          "descripcion": {
+            "es": "Todos los factores de conversión entre unidades pasan por un cálculo común según la configuración de la empresa. Se eliminan descuadres de cantidades entre pantallas que antes mostraban conversiones distintas para el mismo artículo.",
+            "ca": "Tots els factors de conversió entre unitats passen per un càlcul comú segons la configuració de l'empresa. S'eliminen descompensacions de quantitats entre pantalles que abans mostraven conversions diferents per al mateix article."
+          },
+          "tecnico": {
+            "es": "Se envuelven todas las lecturas y escrituras de FactorConversion con FS_SGA_FactorConversion(CodigoEmpresa, valor). Nuevos parámetros globales gbTiposUnidades y gbTiposUnidadesSimplificado.",
+            "ca": "S'embolcallen totes les lectures i escriptures de FactorConversion amb FS_SGA_FactorConversion(CodigoEmpresa, valor). Nous paràmetres globals gbTiposUnidades i gbTiposUnidadesSimplificado."
+          },
+          "commits": [
+            "1d24169"
+          ],
+          "id": "c067"
+        },
+        {
+          "fecha": "2026-05-07",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Packing list por palets y cajas con contenido detallado",
+            "ca": "Packing list per palets i caixes amb contingut detallat"
+          },
+          "descripcion": {
+            "es": "El packing list pasa a organizarse en palets y cajas que se pueden crear, renombrar, reordenar y eliminar desde el terminal. Dentro de cada caja se añaden artículos y sus números de serie uno a uno, y los pesos, volúmenes y medidas del palet se recalculan automáticamente a partir de su contenido.",
+            "ca": "El packing list passa a organitzar-se en palets i caixes que es poden crear, reanomenar, reordenar i eliminar des del terminal. Dins de cada caixa s'hi afegeixen articles i els seus números de sèrie un a un, i els pesos, volums i mides del palet es recalculen automàticament a partir del seu contingut."
+          },
+          "tecnico": {
+            "es": "Nuevos endpoints: /insertpackinglistpalet, /deletepackinglistpalet, /reorderpalets, /updatepackinglistpalet, /insertpackinglistcaja, /deletepackinglistcaja, /reordercajas, /updatepackinglistcaja, /getarticulosdisponiblesparapacking, /getnumerosseriedisponibles, /addarticuloacaja, /removearticulofromcaja, /updatearticuloencaja, /getubicacionexpedicion. Tablas FS_SGA_PackingList_PackagingPalet y _PackagingCaja (PesoBruto, Volumen, Ancho, Fondo, Alto), rellenadas desde FS_SGA_PackagingDetalle solo si están a 0 o si se cambia expresamente el tipo. Nuevo procedimiento interno _RecalcPaletFromCajas y emisión de palets/cajas huérfanos en getPackingList.",
+            "ca": "Nous endpoints: /insertpackinglistpalet, /deletepackinglistpalet, /reorderpalets, /updatepackinglistpalet, /insertpackinglistcaja, /deletepackinglistcaja, /reordercajas, /updatepackinglistcaja, /getarticulosdisponiblesparapacking, /getnumerosseriedisponibles, /addarticuloacaja, /removearticulofromcaja, /updatearticuloencaja, /getubicacionexpedicion. Taules FS_SGA_PackingList_PackagingPalet i _PackagingCaja (PesoBruto, Volumen, Ancho, Fondo, Alto), omplertes des de FS_SGA_PackagingDetalle només si són a 0 o si es canvia expressament el tipus. Nou procediment intern _RecalcPaletFromCajas i emissió de palets/caixes orfes a getPackingList."
+          },
+          "commits": [
+            "747a696"
+          ],
+          "id": "c068"
+        },
+        {
+          "fecha": "2026-05-07",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Recepciones filtradas por pedido de proveedor",
+            "ca": "Recepcions filtrades per comanda de proveïdor"
+          },
+          "descripcion": {
+            "es": "En una recepción que agrupa varios pedidos del mismo proveedor, ahora se puede trabajar pedido a pedido: las líneas, el detalle y los números de serie que se muestran y se modifican corresponden únicamente al pedido seleccionado. Las cantidades pedidas y recibidas se calculan correctamente aunque la línea esté agrupada o desagrupada.",
+            "ca": "En una recepció que agrupa diverses comandes del mateix proveïdor, ara es pot treballar comanda a comanda: les línies, el detall i els números de sèrie que es mostren i es modifiquen corresponen únicament a la comanda seleccionada. Les quantitats demanades i rebudes es calculen correctament encara que la línia estigui agrupada o desagrupada."
+          },
+          "tecnico": {
+            "es": "Nuevos parámetros FiltroEjercicioPedido / FiltroSeriePedido / FiltroNumeroPedido en updateRecepcion, en el detalle de líneas y en el borrado de detalle y series. La consulta de líneas incorpora un OUTER APPLY sobre FS_SGA_Recepciones_Lineas_Agrupadas + LineasPedidoProveedor que agrega UdPedidas/UdRecibidas por pedido y marca EsDesagrupada, más un CROSS APPLY que calcula FechaRecepcionMinima.",
+            "ca": "Nous paràmetres FiltroEjercicioPedido / FiltroSeriePedido / FiltroNumeroPedido a updateRecepcion, al detall de línies i a l'esborrat de detall i sèries. La consulta de línies incorpora un OUTER APPLY sobre FS_SGA_Recepciones_Lineas_Agrupadas + LineasPedidoProveedor que agrega UdPedidas/UdRecibidas per comanda i marca EsDesagrupada, més un CROSS APPLY que calcula FechaRecepcionMinima."
+          },
+          "commits": [
+            "747a696"
+          ],
+          "id": "c069"
+        },
+        {
+          "fecha": "2026-05-07",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Control de tiempos de las recepciones",
+            "ca": "Control de temps de les recepcions"
+          },
+          "descripcion": {
+            "es": "Las recepciones se pueden iniciar y finalizar igual que las preparaciones, lo que permite saber quién ha trabajado en cada recepción y cuánto tiempo ha dedicado.",
+            "ca": "Les recepcions es poden iniciar i finalitzar igual que les preparacions, cosa que permet saber qui ha treballat en cada recepció i quant temps hi ha dedicat."
+          },
+          "tecnico": {
+            "es": "Nuevos endpoints /startrecepcion y /stoprecepcion. Constantes de tipo de trabajo TI_PREPARACION, TI_RECEPCION, TI_DEVOLUCIONC, TI_DEVOLUCIONP y subtipos STI_RECEPCION_PALETS / _CAJAS / _ARTICULOS.",
+            "ca": "Nous endpoints /startrecepcion i /stoprecepcion. Constants de tipus de treball TI_PREPARACION, TI_RECEPCION, TI_DEVOLUCIONC, TI_DEVOLUCIONP i subtipus STI_RECEPCION_PALETS / _CAJAS / _ARTICULOS."
+          },
+          "commits": [
+            "747a696"
+          ],
+          "id": "c070"
+        },
+        {
+          "fecha": "2026-05-07",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Impresión de etiquetas por plantilla y catálogo ampliado",
+            "ca": "Impressió d'etiquetes per plantilla i catàleg ampliat"
+          },
+          "descripcion": {
+            "es": "La impresión pasa a basarse en plantillas de etiqueta, con un listado completo de informes disponibles. Los tipos de embalaje incorporan además peso, volumen, carga, medidas, material y código ISO, que se aprovechan al calcular los datos del palet.",
+            "ca": "La impressió passa a basar-se en plantilles d'etiqueta, amb un llistat complet d'informes disponibles. Els tipus d'embalatge incorporen a més pes, volum, càrrega, mides, material i codi ISO, que s'aprofiten en calcular les dades del palet."
+          },
+          "tecnico": {
+            "es": "imprimirInforme pasa a imprimirTemplate y se añade /listinformesall (informes de Sage + ficheros *.rtm del path del parámetro 151). El JSON de packagings incluye Dt_Peso, Dt_Volumen, Dt_Carga, Dt_Longitud, Dt_Anchura, Dt_Altura, Dt_Material y Dt_ISO.",
+            "ca": "imprimirInforme passa a imprimirTemplate i s'afegeix /listinformesall (informes de Sage + fitxers *.rtm del path del paràmetre 151). El JSON de packagings inclou Dt_Peso, Dt_Volumen, Dt_Carga, Dt_Longitud, Dt_Anchura, Dt_Altura, Dt_Material i Dt_ISO."
+          },
+          "commits": [
+            "747a696"
+          ],
+          "id": "c071"
+        },
+        {
+          "fecha": "2026-05-11",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Trazabilidad de series en traspasos entre ubicaciones",
+            "ca": "Traçabilitat de sèries en traspassos entre ubicacions"
+          },
+          "descripcion": {
+            "es": "Al mover artículos con número de serie entre ubicaciones o al trasladar un palet completo, cada serie se registra individualmente en el movimiento. De este modo el sistema sabe en todo momento en qué ubicación está cada unidad concreta, sin que ello duplique los movimientos contables en Sage.",
+            "ca": "En moure articles amb número de sèrie entre ubicacions o en traslladar un palet complet, cada sèrie es registra individualment al moviment. D'aquesta manera el sistema sap en tot moment a quina ubicació és cada unitat concreta, sense que això dupliqui els moviments comptables a Sage."
+          },
+          "tecnico": {
+            "es": "El traspaso acepta el parámetro Series (JSON con List) cuando ARTICULO_TratamientoSeries es cierto y genera un movimiento SGA por serie. En el traspaso de ubicación/palet completo se precargan las series desde FS_SGA_AcumuladoStock_Series antes de la salida. El movimiento agregado a MovimientoStock de Sage solo se emite si hay cambio de almacén (tmsageMovimientoStockSeries para las series).",
+            "ca": "El traspàs accepta el paràmetre Series (JSON amb List) quan ARTICULO_TratamientoSeries és cert i genera un moviment SGA per sèrie. En el traspàs d'ubicació/palet complet es precarreguen les sèries des de FS_SGA_AcumuladoStock_Series abans de la sortida. El moviment agregat a MovimientoStock de Sage només s'emet si hi ha canvi de magatzem (tmsageMovimientoStockSeries per a les sèries)."
+          },
+          "commits": [
+            "a2effe5"
+          ],
+          "id": "c072"
+        },
+        {
+          "fecha": "2026-05-15",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Aviso de stock insuficiente en Sage antes del traspaso",
+            "ca": "Avís d'estoc insuficient a Sage abans del traspàs"
+          },
+          "descripcion": {
+            "es": "Si la empresa no admite stock negativo, antes de realizar un traspaso se comprueba que Sage tenga existencias suficientes. Si no las hay, se avisa al operario en lugar de generar un movimiento que después provoca descuadres entre almacén y contabilidad.",
+            "ca": "Si l'empresa no admet estoc negatiu, abans de fer un traspàs es comprova que Sage tingui existències suficients. Si no n'hi ha, s'avisa l'operari en lloc de generar un moviment que després provoca descompensacions entre magatzem i comptabilitat."
+          },
+          "tecnico": {
+            "es": "Nueva llamada a SAGE_Check_Stock_Sage cuando el parámetro CUESTIONARIO/GES/StockNegativo es 0, ejecutada al inicio de la validación de restricciones.",
+            "ca": "Nova crida a SAGE_Check_Stock_Sage quan el paràmetre CUESTIONARIO/GES/StockNegativo és 0, executada a l'inici de la validació de restriccions."
+          },
+          "commits": [
+            "3a0542f"
+          ],
+          "id": "c073"
+        },
+        {
+          "fecha": "2026-05-15",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Un solo movimiento contable por traspaso en Sage",
+            "ca": "Un sol moviment comptable per traspàs a Sage"
+          },
+          "descripcion": {
+            "es": "Los traspasos entre almacenes generaban movimientos duplicados o incompletos en Sage cuando el artículo llevaba números de serie. Ahora se emite un único movimiento agregado con su contrapartida, mientras el detalle serie a serie se mantiene en el almacén.",
+            "ca": "Els traspassos entre magatzems generaven moviments duplicats o incomplets a Sage quan l'article portava números de sèrie. Ara s'emet un únic moviment agregat amb la seva contrapartida, mentre que el detall sèrie a sèrie es manté al magatzem."
+          },
+          "tecnico": {
+            "es": "Se elimina el INSERT manual en TmpIME_MovimientoStock y se sustituye por un movimiento agregado con TipoMovimientoSAGE = [tmsageMovimientoStock], enlazado a los movimientos por serie mediante MovPosicionOrigen. SGA_FS_ALMACEN_PrepareMov pasa a recibir Conn y CodigoEmpresa, y se fija OrigenDocumento (OD_SALIDA_STOCK / OD_ENTRADA_STOCK). Este commit se hizo en el contexto de un cliente concreto (Chmlab, fuera del catálogo), pero el cambio aplica de forma general.",
+            "ca": "S'elimina l'INSERT manual a TmpIME_MovimientoStock i se substitueix per un moviment agregat amb TipoMovimientoSAGE = [tmsageMovimientoStock], enllaçat als moviments per sèrie mitjançant MovPosicionOrigen. SGA_FS_ALMACEN_PrepareMov passa a rebre Conn i CodigoEmpresa, i es fixa OrigenDocumento (OD_SALIDA_STOCK / OD_ENTRADA_STOCK). Aquest commit es va fer en el context d'un client concret (Chmlab, fora del catàleg), però el canvi aplica de manera general."
+          },
+          "commits": [
+            "3a0542f"
+          ],
+          "id": "c074"
+        },
+        {
+          "fecha": "2026-05-15",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Listado de aprovisionamientos más rápido",
+            "ca": "Llistat d'aprovisionaments més ràpid"
+          },
+          "descripcion": {
+            "es": "La lista de aprovisionamientos se calcula ahora en el servidor de base de datos, lo que acelera su carga, e incluye el código y la descripción del artículo para identificar cada tarea de un vistazo.",
+            "ca": "La llista d'aprovisionaments es calcula ara al servidor de base de dades, cosa que accelera la seva càrrega, i inclou el codi i la descripció de l'article per identificar cada tasca d'un cop d'ull."
+          },
+          "tecnico": {
+            "es": "La consulta en línea se sustituye por el procedimiento almacenado FS_SGA_PROC_ListAprovisionamientos, con error controlado si no existe. El JSON añade CodigoArticulo y DescripcionArticulo.",
+            "ca": "La consulta en línia se substitueix pel procediment emmagatzemat FS_SGA_PROC_ListAprovisionamientos, amb error controlat si no existeix. El JSON afegeix CodigoArticulo i DescripcionArticulo."
+          },
+          "commits": [
+            "3a0542f"
+          ],
+          "id": "c075"
+        },
+        {
+          "fecha": "2026-05-22",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Manual de usuario descargable desde el terminal",
+            "ca": "Manual d'usuari descarregable des del terminal"
+          },
+          "descripcion": {
+            "es": "Los operarios pueden consultar el manual en PDF directamente desde el terminal. El dispositivo comprueba si hay una versión más reciente en el servidor y solo la descarga cuando ha cambiado.",
+            "ca": "Els operaris poden consultar el manual en PDF directament des del terminal. El dispositiu comprova si hi ha una versió més recent al servidor i només la descarrega quan ha canviat."
+          },
+          "tecnico": {
+            "es": "Nuevos endpoints /getmanual (devuelve 'Manual FS SGA_PDA.pdf' en base64 desde la carpeta del servicio) y /getmanualversion (timestamp del fichero, tamaño y disponibilidad).",
+            "ca": "Nous endpoints /getmanual (retorna 'Manual FS SGA_PDA.pdf' en base64 des de la carpeta del servei) i /getmanualversion (timestamp del fitxer, mida i disponibilitat)."
+          },
+          "commits": [
+            "0c0a8e1"
+          ],
+          "id": "c076"
+        },
+        {
+          "fecha": "2026-05-29",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La ubicación de destino siempre aparece en la lista",
+            "ca": "La ubicació de destí sempre apareix a la llista"
+          },
+          "descripcion": {
+            "es": "Al aprovisionar, la ubicación de destino no se mostraba si no estaba marcada como favorita o de tránsito, lo que impedía completar el movimiento. Ahora se muestra siempre, con las favoritas ordenadas en primer lugar.",
+            "ca": "En aprovisionar, la ubicació de destí no es mostrava si no estava marcada com a preferida o de trànsit, cosa que impedia completar el moviment. Ara es mostra sempre, amb les preferides ordenades en primer lloc."
+          },
+          "tecnico": {
+            "es": "El INNER JOIN con FS_SGA_TABLE_UbicacionesFavoritas pasa a LEFT JOIN desde FS_SGA_TABLE_Ubicaciones, con un campo calculado EsFavorita y orden EsFavorita DESC, ubifav_order, ubifav_Descripcion. Sin filtros se conserva el comportamiento anterior (solo favoritas).",
+            "ca": "L'INNER JOIN amb FS_SGA_TABLE_UbicacionesFavoritas passa a LEFT JOIN des de FS_SGA_TABLE_Ubicaciones, amb un camp calculat EsFavorita i ordre EsFavorita DESC, ubifav_order, ubifav_Descripcion. Sense filtres es conserva el comportament anterior (només preferides)."
+          },
+          "commits": [
+            "27139a7"
+          ],
+          "id": "c077"
+        },
+        {
+          "fecha": "2026-06-15",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Una impresora distinta para cada informe",
+            "ca": "Una impressora diferent per a cada informe"
+          },
+          "descripcion": {
+            "es": "Se puede asignar una impresora concreta a cada informe o etiqueta, de modo que las etiquetas de palet, los albaranes y el resto de documentos salgan por el dispositivo adecuado sin cambiar la configuración cada vez.",
+            "ca": "Es pot assignar una impressora concreta a cada informe o etiqueta, de manera que les etiquetes de palet, els albarans i la resta de documents surtin pel dispositiu adequat sense canviar la configuració cada vegada."
+          },
+          "tecnico": {
+            "es": "Nuevo parámetro InformeImpresora con formato 'idInforme:impresora|idInforme:impresora', convertido a TStringList para resolver la impresora por informe; si un informe no aparece, se usa la impresora general. Se incorpora la unidad PrintJobsWatchdog.",
+            "ca": "Nou paràmetre InformeImpresora amb format 'idInforme:impressora|idInforme:impressora', convertit a TStringList per resoldre la impressora per informe; si un informe no hi apareix, s'usa la impressora general. S'incorpora la unitat PrintJobsWatchdog."
+          },
+          "commits": [
+            "3bd68d8"
+          ],
+          "id": "c078"
+        },
+        {
+          "fecha": "2026-06-15",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La cantidad al escanear puede tomarse del código leído",
+            "ca": "La quantitat en escanejar es pot agafar del codi llegit"
+          },
+          "descripcion": {
+            "es": "El parámetro de cantidad al leer un código admite ahora el valor \"cantidad del escaneo\": en lugar de proponer siempre una cantidad fija, se respeta la que viene en el propio código de barras.",
+            "ca": "El paràmetre de quantitat en llegir un codi admet ara el valor \"quantitat de l'escaneig\": en lloc de proposar sempre una quantitat fixa, es respecta la que ve en el mateix codi de barres."
+          },
+          "tecnico": {
+            "es": "FS_PARAMS_SGA_CantidadAlLeerCodigo se lee como texto; el valor especial 'CANTIDAD SCAN' deja la cantidad a 0 y cualquier otro se interpreta como número con StrToFloatDef.",
+            "ca": "FS_PARAMS_SGA_CantidadAlLeerCodigo es llegeix com a text; el valor especial 'CANTIDAD SCAN' deixa la quantitat a 0 i qualsevol altre s'interpreta com a número amb StrToFloatDef."
+          },
+          "commits": [
+            "3bd68d8"
+          ],
+          "id": "c079"
+        },
+        {
+          "fecha": "2026-06-15",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Lectura de ubicaciones correcta con varios almacenes",
+            "ca": "Lectura d'ubicacions correcta amb diversos magatzems"
+          },
+          "descripcion": {
+            "es": "Cuando la misma codificación de ubicación se repetía en almacenes distintos, escanear una etiqueta podía resolver la ubicación equivocada. Ahora el almacén se tiene en cuenta al identificar la ubicación o la matrícula leída.",
+            "ca": "Quan la mateixa codificació d'ubicació es repetia en magatzems diferents, escanejar una etiqueta podia resoldre la ubicació equivocada. Ara el magatzem es té en compte en identificar la ubicació o la matrícula llegida."
+          },
+          "tecnico": {
+            "es": "FS_SGA_CodigoUbicacion_FromAlternativo recibe el parámetro CodigoAlmacen, y el análisis del código de barras añade &CodigoAlmacen= a los parámetros de ubicación y matrícula. El almacén deja de vaciarse: si se ha indicado SoloAlmacen, se usa ese.",
+            "ca": "FS_SGA_CodigoUbicacion_FromAlternativo rep el paràmetre CodigoAlmacen, i l'anàlisi del codi de barres afegeix &CodigoAlmacen= als paràmetres d'ubicació i matrícula. El magatzem deixa de buidar-se: si s'ha indicat SoloAlmacen, s'usa aquest."
+          },
+          "commits": [
+            "3bd68d8"
+          ],
+          "id": "c080"
+        }
+      ]
+    },
+    {
+      "numero": "2.5.0",
+      "estado": "abierta",
+      "fechaInicio": "2026-06-23",
+      "fechaFin": "2026-09-18",
+      "entradas": [
+        {
+          "fecha": "2026-06-23",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Ordenación por varios criterios en aprovisionamientos",
+            "ca": "Ordenació per diversos criteris als aprovisionaments"
+          },
+          "descripcion": {
+            "es": "Los listados de aprovisionamientos y preparaciones se pueden ordenar por varios criterios a la vez (fecha, prioridad, trabajo, número), cada uno ascendente o descendente. Antes solo se podía ordenar por un único criterio.",
+            "ca": "Els llistats d'aprovisionaments i preparacions es poden ordenar per diversos criteris alhora (data, prioritat, treball, número), cadascun ascendent o descendent. Abans només es podia ordenar per un únic criteri."
+          },
+          "tecnico": {
+            "es": "Nueva función SGA_APROV_BuildOrderBy: el parámetro OrdenarPor admite una lista separada por '|' y el prefijo '-' marca DESC (ej. \"fecha|-trabajo|aprovisionamiento\"). Añadido también el parámetro SoloMias para filtrar por el usuario que ha reservado.",
+            "ca": "Nova funció SGA_APROV_BuildOrderBy: el paràmetre OrdenarPor admet una llista separada per '|' i el prefix '-' marca DESC (ex. \"fecha|-trabajo|aprovisionamiento\"). Afegit també el paràmetre SoloMias per filtrar pel usuari que ha reservat."
+          },
+          "commits": [
+            "e69bb3c"
+          ],
+          "id": "c081"
+        },
+        {
+          "fecha": "2026-06-23",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Dos campos libres adicionales en los escaneos de preparación",
+            "ca": "Dos camps lliures addicionals als escanejos de preparació"
+          },
+          "descripcion": {
+            "es": "Cada lectura de código durante la preparación puede guardar dos datos adicionales capturados por el terminal, que quedan disponibles después para consultas y trazabilidad.",
+            "ca": "Cada lectura de codi durant la preparació pot desar dues dades addicionals capturades pel terminal, que queden disponibles després per a consultes i traçabilitat."
+          },
+          "tecnico": {
+            "es": "Campos EXTRA1 y EXTRA2 en FS_SGA_Picking_Pedido_Scans; se guardan en saveScans y se devuelven en loadScans y en la consulta de detalle de artículo.",
+            "ca": "Camps EXTRA1 i EXTRA2 a FS_SGA_Picking_Pedido_Scans; es desen a saveScans i es retornen a loadScans i a la consulta de detall d'article."
+          },
+          "commits": [
+            "e69bb3c"
+          ],
+          "id": "c082"
+        },
+        {
+          "fecha": "2026-07-06",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "El inventario ya guarda bien el stock teórico de partida",
+            "ca": "L'inventari ja desa bé l'estoc teòric de partida"
+          },
+          "descripcion": {
+            "es": "Al validar una ubicación de inventario, el sistema guarda ahora el stock que había realmente antes del recuento, incluyendo matrícula y unidades base. Antes se anotaba a cero y las diferencias del inventario no cuadraban.",
+            "ca": "En validar una ubicació d'inventari, el sistema desa ara l'estoc que hi havia realment abans del recompte, incloent-hi matrícula i unitats base. Abans s'anotava a zero i les diferències de l'inventari no quadraven."
+          },
+          "tecnico": {
+            "es": "UnidadesIniciales / UnidadesInicialesBase se calculan con un CROSS APPLY contra FS_SGA_AcumuladoStock (periodo 99 del ejercicio activo) en validarUbicacion y en el cambio de artículo. Los artículos nuevos añadidos durante el recuento consultan SGA_ALMACEN_Stock.",
+            "ca": "UnidadesIniciales / UnidadesInicialesBase es calculen amb un CROSS APPLY contra FS_SGA_AcumuladoStock (període 99 de l'exercici actiu) a validarUbicacion i al canvi d'article. Els articles nous afegits durant el recompte consulten SGA_ALMACEN_Stock."
+          },
+          "commits": [
+            "2872c3f"
+          ],
+          "id": "c083"
+        },
+        {
+          "fecha": "2026-07-06",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Regularizaciones de stock más directas y con stock negativo",
+            "ca": "Regularitzacions d'estoc més directes i amb estoc negatiu"
+          },
+          "descripcion": {
+            "es": "Las regularizaciones desde el terminal ya no lanzan el proceso de importación intermedio de Sage: el movimiento se registra directamente, con lo que el stock se actualiza antes. Además, ahora se pueden consultar y regularizar ubicaciones con saldo negativo, que antes quedaban ocultas.",
+            "ca": "Les regularitzacions des del terminal ja no llancen el procés d'importació intermedi de Sage: el moviment es registra directament, de manera que l'estoc s'actualitza abans. A més, ara es poden consultar i regularitzar ubicacions amb saldo negatiu, que abans quedaven amagades."
+          },
+          "tecnico": {
+            "es": "Eliminadas las inserciones en FS_Operations (procesos E4E8/IME) de la regularización y de la recepción; los movimientos se hacen vía SGA_FS_ALMACEN_MovimientoStock con TipoMovimientoSGA/SAGE. Los filtros UnidadesSaldo>0 pasan a <>0. Los comentarios de movimiento pasan a 'PDA Entrada/Salida regulariz.'.",
+            "ca": "Eliminades les insercions a FS_Operations (processos E4E8/IME) de la regularització i de la recepció; els moviments es fan via SGA_FS_ALMACEN_MovimientoStock amb TipoMovimientoSGA/SAGE. Els filtres UnidadesSaldo>0 passen a <>0. Els comentaris de moviment passen a 'PDA Entrada/Salida regulariz.'."
+          },
+          "commits": [
+            "2872c3f"
+          ],
+          "id": "c084"
+        },
+        {
+          "fecha": "2026-07-06",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Recepciones: números de serie solo en artículos que los tratan",
+            "ca": "Recepcions: números de sèrie només en articles que en tracten"
+          },
+          "descripcion": {
+            "es": "Al servir una recepción, ya no se asignan números de serie a artículos que no trabajan con series, y las líneas con varios detalles se emparejan correctamente. Evita entradas de stock erróneas.",
+            "ca": "En servir una recepció, ja no s'assignen números de sèrie a articles que no treballen amb sèries, i les línies amb diversos detalls s'aparellen correctament. Evita entrades d'estoc errònies."
+          },
+          "tecnico": {
+            "es": "El JOIN de detalles de serie incorpora RecepcionIdLineaDetalle, y la rama de series exige TrataNumerosSerieLc<>0. La recepción pasa a Estado=3 al servirla.",
+            "ca": "El JOIN de detalls de sèrie incorpora RecepcionIdLineaDetalle, i la branca de sèries exigeix TrataNumerosSerieLc<>0. La recepció passa a Estat=3 en servir-la."
+          },
+          "commits": [
+            "2872c3f"
+          ],
+          "id": "c085"
+        },
+        {
+          "fecha": "2026-07-13",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Expedición por escaneo de código",
+            "ca": "Expedició per escaneig de codi"
+          },
+          "descripcion": {
+            "es": "Nueva forma de expedir: el operario escanea los códigos durante la preparación y después decide, desde una pantalla con pendientes y expedidos, qué va a cada caja y palet. Se puede expedir uno a uno o todo de golpe, deshacer un escaneo concreto o vaciar la expedición entera y empezar de nuevo.",
+            "ca": "Nova forma d'expedir: l'operari escaneja els codis durant la preparació i després decideix, des d'una pantalla amb pendents i expedits, què va a cada caixa i palet. Es pot expedir un a un o tot de cop, desfer un escaneig concret o buidar l'expedició sencera i començar de nou."
+          },
+          "tecnico": {
+            "es": "Endpoints nuevos: /listscanspreparacion, /expedirscan, /expedirscanspreparacion, /desexpedirscan, /vaciarexpedicion, /checkscancodepreparacion. Función compartida FS_SGA_ExpedirUnScan, que reutiliza la lógica de expedirLinea y marca Expedido=1 + PackingListId en FS_SGA_Picking_Pedido_Scans.",
+            "ca": "Endpoints nous: /listscanspreparacion, /expedirscan, /expedirscanspreparacion, /desexpedirscan, /vaciarexpedicion, /checkscancodepreparacion. Funció compartida FS_SGA_ExpedirUnScan, que reutilitza la lògica d'expedirLinea i marca Expedido=1 + PackingListId a FS_SGA_Picking_Pedido_Scans."
+          },
+          "commits": [
+            "e790e42"
+          ],
+          "id": "c086"
+        },
+        {
+          "fecha": "2026-07-13",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Reordenar y mover cajas entre palets",
+            "ca": "Reordenar i moure caixes entre palets"
+          },
+          "descripcion": {
+            "es": "Ya se puede cambiar el orden de las cajas dentro de un palet y arrastrar una caja de un palet a otro. Las cajas se renumeran automáticamente de forma correlativa en ambos palets, sin dejar huecos ni duplicados.",
+            "ca": "Ja es pot canviar l'ordre de les caixes dins d'un palet i arrossegar una caixa d'un palet a un altre. Les caixes es renumeren automàticament de manera correlativa als dos palets, sense deixar forats ni duplicats."
+          },
+          "tecnico": {
+            "es": "Endpoints /reordenarcajaspalet y /movercajapalet. Renumeración con desplazamiento temporal (offsets 1M/2M distintos por palet) para evitar colisiones de clave primaria en FS_SGA_PackingList y FS_SGA_PackingList_PackagingCaja; se deja CajaActual apuntando a la siguiente caja libre.",
+            "ca": "Endpoints /reordenarcajaspalet i /movercajapalet. Renumeració amb desplaçament temporal (offsets 1M/2M diferents per palet) per evitar col·lisions de clau primària a FS_SGA_PackingList i FS_SGA_PackingList_PackagingCaja; es deixa CajaActual apuntant a la següent caixa lliure."
+          },
+          "commits": [
+            "e790e42"
+          ],
+          "id": "c087"
+        },
+        {
+          "fecha": "2026-07-13",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Cantidades con decimales correctas en el packing list",
+            "ca": "Quantitats amb decimals correctes al packing list"
+          },
+          "descripcion": {
+            "es": "Las cantidades con decimales enviadas por el terminal ya no se interpretan como cero en servidores configurados con otro separador decimal. Afectaba sobre todo a artículos de peso variable, cuyo pendiente no se descontaba bien.",
+            "ca": "Les quantitats amb decimals enviades pel terminal ja no s'interpreten com a zero en servidors configurats amb un altre separador decimal. Afectava sobretot els articles de pes variable, el pendent dels quals no es descomptava bé."
+          },
+          "tecnico": {
+            "es": "Sustitución de StrToFloatDef por FS_StrToFloatDef (independiente de la configuración regional) al leer Cantidad/CantidadBase en addArticuloACaja.",
+            "ca": "Substitució de StrToFloatDef per FS_StrToFloatDef (independent de la configuració regional) en llegir Cantidad/CantidadBase a addArticuloACaja."
+          },
+          "commits": [
+            "e790e42"
+          ],
+          "id": "c088"
+        },
+        {
+          "fecha": "2026-07-13",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La caja nueva hereda el tipo de embalaje del palet",
+            "ca": "La caixa nova hereta el tipus d'embalatge del palet"
+          },
+          "descripcion": {
+            "es": "Al abrir una caja nueva en un palet, toma automáticamente el mismo tipo de embalaje que la última caja de ese palet. El operario ya no tiene que volver a seleccionarlo en cada caja.",
+            "ca": "En obrir una caixa nova en un palet, pren automàticament el mateix tipus d'embalatge que l'última caixa d'aquell palet. L'operari ja no l'ha de tornar a seleccionar a cada caixa."
+          },
+          "commits": [
+            "e790e42"
+          ],
+          "id": "c089"
+        },
+        {
+          "fecha": "2026-07-15",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Renumeración automática de palets sin huecos",
+            "ca": "Renumeració automàtica de palets sense forats"
+          },
+          "descripcion": {
+            "es": "Cuando se vacía o se elimina un palet de una expedición, el resto se renumera de forma correlativa y desaparecen los palets fantasma que quedaban en los embalajes. La numeración que ve el operario y la que sale en la documentación vuelven a coincidir.",
+            "ca": "Quan es buida o s'elimina un palet d'una expedició, la resta es renumera de manera correlativa i desapareixen els palets fantasma que quedaven als embalatges. La numeració que veu l'operari i la que surt a la documentació tornen a coincidir."
+          },
+          "tecnico": {
+            "es": "Endpoint /renumerarpalets: limpia huérfanos de FS_SGA_PackingList_PackagingPalet y _PackagingCaja, renumera 1..N con offset temporal y recalcula PaletActual/CajaActual en FS_SGA_Picking_Preparaciones.",
+            "ca": "Endpoint /renumerarpalets: neteja orfes de FS_SGA_PackingList_PackagingPalet i _PackagingCaja, renumera 1..N amb offset temporal i recalcula PaletActual/CajaActual a FS_SGA_Picking_Preparaciones."
+          },
+          "commits": [
+            "1619196"
+          ],
+          "id": "c090"
+        },
+        {
+          "fecha": "2026-08-13",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Terminales más rápidos con compresión de datos",
+            "ca": "Terminals més ràpids amb compressió de dades"
+          },
+          "descripcion": {
+            "es": "Las respuestas del servidor se envían comprimidas, lo que reduce mucho los tiempos de espera en los terminales, especialmente cuando el servidor está en la nube y se accede por internet.",
+            "ca": "Les respostes del servidor s'envien comprimides, cosa que redueix molt els temps d'espera als terminals, especialment quan el servidor és al núvol i s'hi accedeix per internet."
+          },
+          "tecnico": {
+            "es": "Compresión gzip (TclGZip) aplicada solo a respuestas JSON de más de 1024 bytes y cuando el cliente envía Accept-Encoding: gzip. Activable con gbGZipEnabled/giGZipMinBytes. Corregido además el Content-Type, que duplicaba el charset.",
+            "ca": "Compressió gzip (TclGZip) aplicada només a respostes JSON de més de 1024 bytes i quan el client envia Accept-Encoding: gzip. Activable amb gbGZipEnabled/giGZipMinBytes. Corregit a més el Content-Type, que duplicava el charset."
+          },
+          "commits": [
+            "27a09ca"
+          ],
+          "id": "c091"
+        },
+        {
+          "fecha": "2026-08-13",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Cuadre automático del stock con Sage en regularizaciones",
+            "ca": "Quadratura automàtica de l'estoc amb Sage a les regularitzacions"
+          },
+          "descripcion": {
+            "es": "Nueva opción por empresa que, al regularizar, genera un único movimiento de ajuste hacia Sage por cada artículo afectado, calculado sobre el descuadre real. Así el stock de Sage y el del almacén acaban siempre iguales, sin arrastrar diferencias de movimientos intermedios.",
+            "ca": "Nova opció per empresa que, en regularitzar, genera un únic moviment d'ajust cap a Sage per cada article afectat, calculat sobre el descuadrament real. Així l'estoc de Sage i el del magatzem acaben sempre iguals, sense arrossegar diferències de moviments intermedis."
+          },
+          "tecnico": {
+            "es": "Parámetro FS_PARAMS_SGA_CuadrarStockSage. Con la opción activa los movimientos del SGA se hacen sin contrapartida Sage y, al final, se emite un movimiento de cuadre por clave (entrada antes que salida para no generar saldos negativos transitorios). Scripts SQL de apoyo o4.sql / o4_run.sql (FS_TMP_Desc_OPT4) que tienen en cuenta los movimientos pendientes de acumular para no mostrar descuadres falsos.",
+            "ca": "Paràmetre FS_PARAMS_SGA_CuadrarStockSage. Amb l'opció activa els moviments del SGA es fan sense contrapartida Sage i, al final, s'emet un moviment de quadratura per clau (entrada abans que sortida per no generar saldos negatius transitoris). Scripts SQL de suport o4.sql / o4_run.sql (FS_TMP_Desc_OPT4) que tenen en compte els moviments pendents d'acumular per no mostrar descuadraments falsos."
+          },
+          "commits": [
+            "27a09ca"
+          ],
+          "id": "c092"
+        },
+        {
+          "fecha": "2026-08-13",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Reserva nativa de stock en Sage al preparar pedidos",
+            "ca": "Reserva nativa d'estoc a Sage en preparar comandes"
+          },
+          "descripcion": {
+            "es": "Al preparar o desmontar la preparación de una línea de pedido, la reserva de stock en Sage se ajusta automáticamente. El stock preparado queda reservado y no lo puede consumir otro pedido.",
+            "ca": "En preparar o desfer la preparació d'una línia de comanda, la reserva d'estoc a Sage s'ajusta automàticament. L'estoc preparat queda reservat i no el pot consumir una altra comanda."
+          },
+          "tecnico": {
+            "es": "Nueva unidad Functions_SGA_ReservaSage y llamada a SGA_ReservaSage_AjustarGenerica en preparar/desperparar. Idempotente: ajusta la diferencia entre lo preparado y lo ya reservado nativamente en las líneas con ReservarStock_<>0. Toggle FS_PARAMS_SGA_ReservaSageNativa (179).",
+            "ca": "Nova unitat Functions_SGA_ReservaSage i crida a SGA_ReservaSage_AjustarGenerica a preparar/desparar. Idempotent: ajusta la diferència entre allò preparat i allò ja reservat nativament a les línies amb ReservarStock_<>0. Toggle FS_PARAMS_SGA_ReservaSageNativa (179)."
+          },
+          "commits": [
+            "27a09ca"
+          ],
+          "id": "c093"
+        },
+        {
+          "fecha": "2026-08-13",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Consulta de artículos de una ubicación para traspasos",
+            "ca": "Consulta d'articles d'una ubicació per a traspassos"
+          },
+          "descripcion": {
+            "es": "Nueva consulta que muestra los artículos disponibles en una ubicación pensada para la operativa de traspasos, con paginación y filtros por artículo, partida, talla y color.",
+            "ca": "Nova consulta que mostra els articles disponibles en una ubicació pensada per a l'operativa de traspassos, amb paginació i filtres per article, partida, talla i color."
+          },
+          "tecnico": {
+            "es": "Endpoint /listarticulosubicaciontraspasos.",
+            "ca": "Endpoint /listarticulosubicaciontraspasos."
+          },
+          "commits": [
+            "27a09ca"
+          ],
+          "id": "c094"
+        },
+        {
+          "fecha": "2026-08-13",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Información de licencias visible desde el terminal",
+            "ca": "Informació de llicències visible des del terminal"
+          },
+          "descripcion": {
+            "es": "Al validar la licencia, el servidor devuelve ahora el detalle de los módulos contratados, el número de terminales y la fecha de validez de cada uno.",
+            "ca": "En validar la llicència, el servidor retorna ara el detall dels mòduls contractats, el nombre de terminals i la data de validesa de cadascun."
+          },
+          "commits": [
+            "27a09ca"
+          ],
+          "id": "c095"
+        },
+        {
+          "fecha": "2026-08-18",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Simulación 3D del palet con medidas de las cajas",
+            "ca": "Simulació 3D del palet amb mides de les caixes"
+          },
+          "descripcion": {
+            "es": "La aplicación puede representar cómo queda montado el palet y avisar si la carga supera los límites, porque el servidor le envía las medidas y el peso de cada caja junto con la tolerancia que puede sobresalir del palet.",
+            "ca": "L'aplicació pot representar com queda muntat el palet i avisar si la càrrega supera els límits, perquè el servidor li envia les mides i el pes de cada caixa juntament amb la tolerància que pot sobresortir del palet."
+          },
+          "tecnico": {
+            "es": "listScansPreparacion devuelve Ancho/Fondo/Alto/PesoBruto, tomando primero el packaging de la caja y, si no, FS_SGA_TABLE_MedidasArticulo. Los packagings de palet añaden Dt_Tolerancia. Control de límites vinculado al parámetro 188.",
+            "ca": "listScansPreparacion retorna Ancho/Fondo/Alto/PesoBruto, prenent primer el packaging de la caixa i, si no, FS_SGA_TABLE_MedidasArticulo. Els packagings de palet afegeixen Dt_Tolerancia. Control de límits vinculat al paràmetre 188."
+          },
+          "commits": [
+            "a07c566"
+          ],
+          "id": "c096"
+        },
+        {
+          "fecha": "2026-08-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Los escaneos hechos desde expedición ya encuentran su línea",
+            "ca": "Els escanejos fets des d'expedició ja troben la seva línia"
+          },
+          "descripcion": {
+            "es": "Los códigos leídos directamente en la pantalla de expedición, sin partir de una línea concreta, se asignan automáticamente a la línea de pedido que todavía espera unidades. Antes daban error o se quedaban sin unidad de medida.",
+            "ca": "Els codis llegits directament a la pantalla d'expedició, sense partir d'una línia concreta, s'assignen automàticament a la línia de comanda que encara espera unitats. Abans donaven error o es quedaven sense unitat de mesura."
+          },
+          "tecnico": {
+            "es": "Con PickingId=0 la línea se resuelve por artículo/talla/color priorizando UdRetiradas<UdNecesarias, y el PickingId resultante se graba en FS_SGA_Picking_Pedido_Scans para las consultas posteriores.",
+            "ca": "Amb PickingId=0 la línia es resol per article/talla/color prioritzant UdRetiradas<UdNecesarias, i el PickingId resultant es grava a FS_SGA_Picking_Pedido_Scans per a les consultes posteriors."
+          },
+          "commits": [
+            "a07c566"
+          ],
+          "id": "c097"
+        },
+        {
+          "fecha": "2026-08-18",
+          "tipo": "nueva",
+          "clientes": [
+            "alfran"
+          ],
+          "titulo": {
+            "es": "Captura de códigos de trazabilidad en devoluciones de cliente",
+            "ca": "Captura de codis de traçabilitat en devolucions de client"
+          },
+          "descripcion": {
+            "es": "En las devoluciones de cliente se pueden escanear y guardar los códigos de trazabilidad de cada unidad, tanto de la mercancía correcta como del rechazo. El sistema avisa si un mismo código ya se ha leído en otra línea de la devolución.",
+            "ca": "A les devolucions de client es poden escanejar i desar els codis de traçabilitat de cada unitat, tant de la mercaderia correcta com del rebuig. El sistema avisa si un mateix codi ja s'ha llegit en una altra línia de la devolució."
+          },
+          "tecnico": {
+            "es": "Nueva tabla FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie (Tipo 0=correctas, 1=rechazo) que guarda el ScanCode GS1 completo para alimentar la trazabilidad de tabaco (EPCIS). Endpoints /getnumerosseriedevolucion y /checknumeroseriedevolucion; el tratamiento de series de Alfran es ficticio (_TrazabilidadVStock) y por eso no se consulta el acumulado de series.",
+            "ca": "Nova taula FS_SGA_Devoluciones_Lineas_Detalle_NumerosSerie (Tipus 0=correctes, 1=rebuig) que desa el ScanCode GS1 complet per alimentar la traçabilitat de tabac (EPCIS). Endpoints /getnumerosseriedevolucion i /checknumeroseriedevolucion; el tractament de sèries d'Alfran és fictici (_TrazabilidadVStock) i per això no es consulta l'acumulat de sèries."
+          },
+          "commits": [
+            "a07c566"
+          ],
+          "id": "c098"
+        },
+        {
+          "fecha": "2026-09-04",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Un albarán por cada pedido de la recepción",
+            "ca": "Un albarà per cada comanda de la recepció"
+          },
+          "descripcion": {
+            "es": "Cuando una recepción cubre varios pedidos del mismo proveedor, se puede anotar el albarán de cada pedido por separado y generar un albarán por pedido, en vez de uno solo para toda la recepción. Quien prefiera el albarán único lo sigue teniendo igual.",
+            "ca": "Quan una recepció cobreix diverses comandes del mateix proveïdor, es pot anotar l'albarà de cada comanda per separat i generar un albarà per comanda, en comptes d'un de sol per a tota la recepció. Qui prefereixi l'albarà únic el continua tenint igual."
+          },
+          "tecnico": {
+            "es": "Nueva tabla FS_SGA_Recepciones_Albaranes (una fila por pedido, con RefNumeroAlbaran, RefFechaAlbaran, bultos/cajas/palets y el flag EsAlbaranSage). Nuevo endpoint /getalbaranesrecepcion; updateRecepcion admite el parámetro AlbaranesPedido en JSON. La generación recorre las comandas con unidades recibidas y marca UltimoPedido para cerrar la recepción al final.",
+            "ca": "Nova taula FS_SGA_Recepciones_Albaranes (una fila per comanda, amb RefNumeroAlbaran, RefFechaAlbaran, bultos/caixes/palets i el flag EsAlbaranSage). Nou endpoint /getalbaranesrecepcion; updateRecepcion admet el paràmetre AlbaranesPedido en JSON. La generació recorre les comandes amb unitats rebudes i marca UltimoPedido per tancar la recepció al final."
+          },
+          "commits": [
+            "115ebf4"
+          ],
+          "id": "c099"
+        },
+        {
+          "fecha": "2026-09-04",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "El stock de la ubicación ya no sale vacío por la unidad de medida",
+            "ca": "L'estoc de la ubicació ja no surt buit per la unitat de mesura"
+          },
+          "descripcion": {
+            "es": "Al leer un código en una ubicación, los artículos con unidad alternativa o leídos por código de agrupación ya aparecen con su saldo. Antes el sistema decía que el artículo no existía en la ubicación aunque tuviese stock, y la conversión entre unidades no se mostraba.",
+            "ca": "En llegir un codi en una ubicació, els articles amb unitat alternativa o llegits per codi d'agrupació ja apareixen amb el seu saldo. Abans el sistema deia que l'article no existia a la ubicació encara que hi tingués estoc, i la conversió entre unitats no es mostrava."
+          },
+          "tecnico": {
+            "es": "El filtro de UnidadMedida acepta también la unidad base del artículo (Articulos.UnidadMedida2_); UnidadMedidaBase vacío pasa a significar 'cualquiera' (IN (valor,'')); la unidad base se recupera con FS_SGA_ARTICULO_UnidadBase en vez de igualarla a la de stock, y se emite después de JSonUnidadesMedida para que no la pise. Los valores 'undefined' que llegan de la PDA se normalizan a cadena vacía.",
+            "ca": "El filtre d'UnidadMedida accepta també la unitat base de l'article (Articulos.UnidadMedida2_); UnidadMedidaBase buit passa a significar 'qualsevol' (IN (valor,'')); la unitat base es recupera amb FS_SGA_ARTICULO_UnidadBase en comptes d'igualar-la a la d'estoc, i s'emet després de JSonUnidadesMedida perquè no la trepitgi. Els valors 'undefined' que arriben de la PDA es normalitzen a cadena buida."
+          },
+          "commits": [
+            "115ebf4"
+          ],
+          "id": "c100"
+        },
+        {
+          "fecha": "2026-09-04",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Navegación entre ubicaciones del inventario más clara",
+            "ca": "Navegació entre ubicacions de l'inventari més clara"
+          },
+          "descripcion": {
+            "es": "Al escanear una ubicación durante el inventario, se muestra su contenido aunque ya esté verificada, y los botones de anterior y siguiente solo aparecen cuando realmente hay adónde ir.",
+            "ca": "En escanejar una ubicació durant l'inventari, se'n mostra el contingut encara que ja estigui verificada, i els botons d'anterior i següent només apareixen quan realment hi ha on anar."
+          },
+          "tecnico": {
+            "es": "Direccion=0 posiciona en la ubicación exacta sin aplicar el filtro de pendientes; la respuesta incorpora HayAnterior/HaySiguiente.",
+            "ca": "Direccion=0 posiciona a la ubicació exacta sense aplicar el filtre de pendents; la resposta incorpora HayAnterior/HaySiguiente."
+          },
+          "commits": [
+            "115ebf4"
+          ],
+          "id": "c101"
+        },
+        {
+          "fecha": "2026-09-04",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La ficha de recepciones del artículo vuelve a mostrar el histórico",
+            "ca": "La fitxa de recepcions de l'article torna a mostrar l'històric"
+          },
+          "descripcion": {
+            "es": "Al consultar las recepciones anteriores de un artículo con un pedido seleccionado, vuelven a aparecer las recepciones históricas. Antes la ficha salía vacía con el mensaje de que no se había recibido nunca ese artículo.",
+            "ca": "En consultar les recepcions anteriors d'un article amb una comanda seleccionada, tornen a aparèixer les recepcions històriques. Abans la fitxa sortia buida amb el missatge que no s'havia rebut mai aquell article."
+          },
+          "tecnico": {
+            "es": "El filtro de pedido admite ahora los detalles con NumeroPedido=0 (no repartidos), que son la mayor parte del histórico. El tratamiento de series se lee con FS_SGA_TratamientoSeries en vez de TrataNumerosSerieLc en crudo.",
+            "ca": "El filtre de comanda admet ara els detalls amb NumeroPedido=0 (no repartits), que són la major part de l'històric. El tractament de sèries es llegeix amb FS_SGA_TratamientoSeries en comptes de TrataNumerosSerieLc en cru."
+          },
+          "commits": [
+            "115ebf4"
+          ],
+          "id": "c102"
+        },
+        {
+          "fecha": "2026-09-08",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Checklists de control desde el terminal",
+            "ca": "Checklists de control des del terminal"
+          },
+          "descripcion": {
+            "es": "Nuevo módulo de listas de comprobación que el operario rellena en el terminal asociadas a una recepción, expedición u otro proceso: preguntas de sí/no, valores numéricos con rango, opciones de lista o texto libre. Las respuestas se guardan al momento y cada cambio queda registrado.",
+            "ca": "Nou mòdul de llistes de comprovació que l'operari omple al terminal associades a una recepció, expedició o un altre procés: preguntes de sí/no, valors numèrics amb rang, opcions de llista o text lliure. Les respostes es desen a l'instant i cada canvi queda registrat."
+          },
+          "tecnico": {
+            "es": "Endpoints /listchecklists, /openchecklist, /getchecklist, /savechecklistrespuesta, /listmotivosnc. Modelo genérico del script 00139: DocTipo/DocId son campos opacos, así que añadir un proceso nuevo solo requiere dar de alta la tarea en FS_SGA_Chk_Tareas. openChecklist es idempotente por clave completa.",
+            "ca": "Endpoints /listchecklists, /openchecklist, /getchecklist, /savechecklistrespuesta, /listmotivosnc. Model genèric de l'script 00139: DocTipo/DocId són camps opacs, de manera que afegir un procés nou només requereix donar d'alta la tasca a FS_SGA_Chk_Tareas. openChecklist és idempotent per clau completa."
+          },
+          "commits": [
+            "941bec0"
+          ],
+          "id": "c103"
+        },
+        {
+          "fecha": "2026-09-08",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Validación de checklists con control de no conformidades",
+            "ca": "Validació de checklists amb control de no conformitats"
+          },
+          "descripcion": {
+            "es": "Al cerrar un checklist, el sistema comprueba que estén respondidas todas las preguntas obligatorias y avisa de las no conformidades críticas. Según la plantilla, una crítica puede simplemente avisar o impedir el cierre, dejando siempre constancia de quién validó y con qué observaciones.",
+            "ca": "En tancar un checklist, el sistema comprova que estiguin respostes totes les preguntes obligatòries i avisa de les no conformitats crítiques. Segons la plantilla, una crítica pot només avisar o impedir el tancament, deixant sempre constància de qui va validar i amb quines observacions."
+          },
+          "tecnico": {
+            "es": "Endpoint /validarchecklist. La conformidad se calcula en el servidor (FS_SGA_CHK_EvaluarConformidad: C conforme / N no conforme / X no aplica / '' no evaluada) y es un eje independiente de la respuesta. El bloqueo lo decide BloqueaSiCriticaNOK de la plantilla, no el código.",
+            "ca": "Endpoint /validarchecklist. La conformitat es calcula al servidor (FS_SGA_CHK_EvaluarConformidad: C conforme / N no conforme / X no aplica / '' no avaluada) i és un eix independent de la resposta. El bloqueig el decideix BloqueaSiCriticaNOK de la plantilla, no el codi."
+          },
+          "commits": [
+            "941bec0"
+          ],
+          "id": "c104"
+        },
+        {
+          "fecha": "2026-09-08",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Fotos como prueba de una no conformidad",
+            "ca": "Fotos com a prova d'una no conformitat"
+          },
+          "descripcion": {
+            "es": "El operario puede adjuntar fotos a las preguntas del checklist, consultarlas y borrarlas. Las imágenes se guardan dentro de la base de datos, de forma que la prueba nunca se separa del registro de auditoría.",
+            "ca": "L'operari pot adjuntar fotos a les preguntes del checklist, consultar-les i esborrar-les. Les imatges es desen dins de la base de dades, de manera que la prova mai no se separa del registre d'auditoria."
+          },
+          "tecnico": {
+            "es": "Endpoints /uploadchecklistfoto, /listchecklistfotos, /deletechecklistfoto. La imagen va al campo DataFotoBase64 (script 00140) y no a disco: el webservice corre como servicio de Windows y no tiene credenciales del recurso compartido del parámetro 151. Mismo patrón que FS_SGA_Recepciones_Lin_Fotos.",
+            "ca": "Endpoints /uploadchecklistfoto, /listchecklistfotos, /deletechecklistfoto. La imatge va al camp DataFotoBase64 (script 00140) i no a disc: el webservice corre com a servei de Windows i no té credencials del recurs compartit del paràmetre 151. Mateix patró que FS_SGA_Recepciones_Lin_Fotos."
+          },
+          "commits": [
+            "941bec0"
+          ],
+          "id": "c105"
+        },
+        {
+          "fecha": "2026-09-08",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Pesos y volúmenes de cajas y palets ya no quedan a cero",
+            "ca": "Pesos i volums de caixes i palets ja no queden a zero"
+          },
+          "descripcion": {
+            "es": "El peso y el volumen de cada caja y de cada palet se recalculan al terminar la operación, cuando las líneas ya tienen sus pesos definitivos. Antes quedaban a cero para siempre y la documentación de expedición salía sin pesos.",
+            "ca": "El pes i el volum de cada caixa i de cada palet es recalculen en acabar l'operació, quan les línies ja tenen els pesos definitius. Abans quedaven a zero per sempre i la documentació d'expedició sortia sense pesos."
+          },
+          "tecnico": {
+            "es": "Nuevo helper _RecalcPesosPackaging, que ejecuta FS_SGA_PROC_CalcularPesoVolumenPackingList (o su versión _CUSTOM) al final de la operación, antes de _RecalcPaletFromCajas. El trigger FS_SGA_TRIGGER_PackingListCUD sumaba ceros porque salta en el INSERT, cuando addArticuloACaja todavía no ha rellenado los pesos.",
+            "ca": "Nou helper _RecalcPesosPackaging, que executa FS_SGA_PROC_CalcularPesoVolumenPackingList (o la seva versió _CUSTOM) al final de l'operació, abans de _RecalcPaletFromCajas. El trigger FS_SGA_TRIGGER_PackingListCUD sumava zeros perquè salta a l'INSERT, quan addArticuloACaja encara no ha omplert els pesos."
+          },
+          "commits": [
+            "941bec0"
+          ],
+          "id": "c106"
+        },
+        {
+          "fecha": "2026-09-08",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Selección de partida con saldo y orden por caducidad",
+            "ca": "Selecció de partida amb saldo i ordre per caducitat"
+          },
+          "descripcion": {
+            "es": "Al elegir partida, la lista muestra el saldo disponible de cada una y sale ordenada por fecha de caducidad, de forma que primero aparece la que hay que consumir antes.",
+            "ca": "En triar partida, la llista mostra el saldo disponible de cadascuna i surt ordenada per data de caducitat, de manera que primer apareix la que cal consumir abans."
+          },
+          "commits": [
+            "941bec0"
+          ],
+          "id": "c107"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "nueva",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Informe de contenido de bultos para el cliente",
+            "ca": "Informe de contingut d'embalums per al client"
+          },
+          "descripcion": {
+            "es": "Nuevo informe de expedición que detalla, para cada palet y caja, los artículos que contiene, con los pesos, volúmenes y medidas del embalaje. Incluye los datos del cliente, del albarán y del transportista, tanto el del pedido como el del albarán.",
+            "ca": "Nou informe d'expedició que detalla, per a cada palet i caixa, els articles que conté, amb els pesos, volums i mesures de l'embalatge. Inclou les dades del client, de l'albarà i del transportista, tant el de la comanda com el de l'albarà."
+          },
+          "tecnico": {
+            "es": "Nueva rama Folder='expedicion' / Tipo='pakaging' en la generación de informes, con pipeline 'CajasClienteDetalle'. La consulta cruza FS_SGA_PackingList con PackagingPalet, PackagingCaja y FS_SGA_PackagingDetalle (fichas maestras de palet y caja), y añade CabeceraPedidoCliente, CabeceraAlbaranCliente y Transportistas (TRP para el pedido, TRA para el albarán). Calcula CajasPalet con MAX() OVER (PARTITION BY paletId) y la numeración correlativa de caja con DENSE_RANK() OVER (PARTITION BY IdentificadorExpedicion).",
+            "ca": "Nova branca Folder='expedicion' / Tipo='pakaging' en la generació d'informes, amb pipeline 'CajasClienteDetalle'. La consulta creua FS_SGA_PackingList amb PackagingPalet, PackagingCaja i FS_SGA_PackagingDetalle (fitxes mestres de palet i caixa), i afegeix CabeceraPedidoCliente, CabeceraAlbaranCliente i Transportistas (TRP per a la comanda, TRA per a l'albarà). Calcula CajasPalet amb MAX() OVER (PARTITION BY paletId) i la numeració correlativa de caixa amb DENSE_RANK() OVER (PARTITION BY IdentificadorExpedicion)."
+          },
+          "commits": [],
+          "id": "c108"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las etiquetas de preparación salen de su propia carpeta",
+            "ca": "Les etiquetes de preparació surten de la seva pròpia carpeta"
+          },
+          "descripcion": {
+            "es": "Al imprimir desde una preparación se estaban usando las plantillas de etiquetas de recepción. Ahora se toman las de expedición, que son las que corresponden.",
+            "ca": "En imprimir des d'una preparació s'estaven fent servir les plantilles d'etiquetes de recepció. Ara s'agafen les d'expedició, que són les que corresponen."
+          },
+          "tecnico": {
+            "es": "En TI_PREPARACION, sPathInformes pasa de '\\labels\\recepcion\\palets' a '\\labels\\expedicion\\pakaging'.",
+            "ca": "A TI_PREPARACION, sPathInformes passa de '\\labels\\recepcion\\palets' a '\\labels\\expedicion\\pakaging'."
+          },
+          "commits": [],
+          "id": "c109"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "El inventario ya no duplica líneas de una misma ubicación",
+            "ca": "L'inventari ja no duplica línies d'una mateixa ubicació"
+          },
+          "descripcion": {
+            "es": "Al modificar una línea de inventario podían quedar dos apuntes del mismo artículo en la misma ubicación. Ahora se limpia también la línea equivalente antes de guardar, y el recuento queda correcto.",
+            "ca": "En modificar una línia d'inventari podien quedar dos apunts del mateix article a la mateixa ubicació. Ara es neteja també la línia equivalent abans de desar, i el recompte queda correcte."
+          },
+          "tecnico": {
+            "es": "El DELETE sobre FS_SGA_Inventario_Detalle se mueve antes del INSERT y amplía su condición: además de Inventario_UbicacionId = OldId, borra la fila que coincida en CodigoUbicacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_ y UnidadMedida. Antes se borraba después de insertar y solo por Inventario_UbicacionId, de modo que un cambio de ubicación dejaba la fila anterior viva.",
+            "ca": "El DELETE sobre FS_SGA_Inventario_Detalle es mou abans de l'INSERT i amplia la seva condició: a més d'Inventario_UbicacionId = OldId, esborra la fila que coincideixi en CodigoUbicacion, CodigoArticulo, Partida, CodigoTalla01_, CodigoColor_ i UnidadMedida. Abans s'esborrava després d'inserir i només per Inventario_UbicacionId, de manera que un canvi d'ubicació deixava la fila anterior viva."
+          },
+          "commits": [],
+          "id": "c110"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "No se pierden los números de serie ya capturados",
+            "ca": "No es perden els números de sèrie ja capturats"
+          },
+          "descripcion": {
+            "es": "Si un artículo dejaba de estar marcado como gestionado por número de serie, las series ya registradas en sus movimientos no se trasladaban. Ahora se conservan siempre que existan.",
+            "ca": "Si un article deixava d'estar marcat com a gestionat per número de sèrie, les sèries ja registrades als seus moviments no es traslladaven. Ara es conserven sempre que existeixin."
+          },
+          "tecnico": {
+            "es": "La condición pasa de (TratamientoSeries and (CantidadSerie > 0)) a (TratamientoSeries or (CantidadSerie > 0)): basta con que el artículo trate series o con que el movimiento ya tenga cantidad de serie informada.",
+            "ca": "La condició passa de (TratamientoSeries and (CantidadSerie > 0)) a (TratamientoSeries or (CantidadSerie > 0)): n'hi ha prou que l'article tracti sèries o que el moviment ja tingui quantitat de sèrie informada."
+          },
+          "commits": [],
+          "id": "c111"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "La impresión ya no mezcla datos entre informes seguidos",
+            "ca": "La impressió ja no barreja dades entre informes seguits"
+          },
+          "descripcion": {
+            "es": "Al lanzar varios informes uno detrás de otro, alguno podía salir con los datos del anterior o quedarse a medias. Ahora cada informe espera a terminar de imprimirse antes de ceder el turno al siguiente.",
+            "ca": "En llançar diversos informes un darrere l'altre, algun podia sortir amb les dades de l'anterior o quedar-se a mitges. Ara cada informe espera a acabar d'imprimir-se abans de cedir el torn al següent."
+          },
+          "tecnico": {
+            "es": "Antes de imprimir se cierra la query y el pipeline y se reasigna ppReport1.DataPipeline; al acabar se espera con 'while ppReport1.Printing do Sleep(100)' antes de liberar la query, de modo que no se destruye el dataset mientras el informe todavía se está enviando a la impresora.",
+            "ca": "Abans d'imprimir es tanca la query i el pipeline i es reassigna ppReport1.DataPipeline; en acabar s'espera amb 'while ppReport1.Printing do Sleep(100)' abans d'alliberar la query, de manera que no es destrueix el dataset mentre l'informe encara s'està enviant a la impressora."
+          },
+          "commits": [],
+          "id": "c112"
+        }
+      ]
+    }
+  ]
+}
