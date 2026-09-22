@@ -10613,6 +10613,10 @@ begin
         '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
         '"CodigoUbicacion":"' + JSON_Str(Q.FieldByName('CodigoUbicacion').AsString) + '",' +
         '"CodigoUbicacionAlternativo":"' + JSON_Str(Q.FieldByName('CodigoUbicacionAlternativo').AsString) + '",' +
+        // Matricula del palet de donde hay que coger el material. Mas abajo se
+        // envia tambien MatriculaActual, que es el palet donde el operario esta
+        // dejando lo preparado: son dos cosas distintas.
+        '"Matricula":"' + JSON_Str(Q.FieldByName('Matricula').AsString) + '",' +
         '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
         '"Agrupacion":"' + JSON_Str(Q.FieldByName('Agrupacion').AsString) + '",' +
         '"UnidadesAgrupacion":' + SQL_FloatToStr(fUnidadesAgrupacion) + ',' +
@@ -25263,6 +25267,7 @@ var
   MACAddress: String;
   IdObjeto: Integer;
   guid: String;
+  sFUNC: string;
 {$ENDREGION}
 
 begin
@@ -25516,8 +25521,22 @@ begin
         '      PL.preparacionid = ' + inttostr(IdObjeto) +
         '    ORDER BY CPC.CodigoCliente, PL.paletId, PL.cajaId, PL.codigoArticulo ';
 
-      FS_MainWebServiceSGA.ppDBPipelineLineas.Close;
-      FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'CajasClienteDetalle';
+      if SQL_Function_Exists ( Conn, 'FS_SGA_TABLE_PackingListPDA', sFUNC ) then
+      begin
+
+        sSQL :=
+          'SELECT * ' +
+          'FROM dbo.[' + sFUNC + '] ( ' +
+          IntToStr(CodigoEmpresa.EmpresaOrigen) + ', ' +
+          IntToStr(IdObjeto) + ', ' +
+          '''''' +
+          ') ' +
+          'ORDER BY CodigoClienteCPC, paletId, cajaId, codigoArticulo';
+
+        FS_MainWebServiceSGA.ppDBPipelineLineas.Close;
+        FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'CajasClienteDetalle';
+
+      end;
 
     end;
 
@@ -33918,6 +33937,9 @@ begin
                        CodigoEmpresa.EmpresaOrigen
   );
 
+  if bCuadrarStockSage then
+    gaLogFile.Write('Cuadrar stock en Sage: TRUE' );
+
   // Detectem si hi ha canvi d'atributs (partida, talla, color, UM, data caducitat)
   bCanviAtributs :=
     (sOldPartida <> sNewPartida) or
@@ -42164,7 +42186,17 @@ var
   contentfields: TStringList;
   CodigoUsuario: Integer;
   UUID: string;
-  sIdPreparacion: string;
+  // Valor SQL de cada campo de reserva: el del tipo elegido lleva su dato y el
+  // resto, la cadena 'NULL'.
+  sTipoReserva: string;
+  sCliente: string;
+  sCadena: string;
+  sEjercicioP: string;
+  sSerieP: string;
+  sNumeroP: string;
+  sOrden: string;
+  sLineasPos: string;
+  sIdPrep: string;
 {$ENDREGION}
 
 begin
@@ -42247,55 +42279,96 @@ begin
   sMsg := '';
   bErr := FALSE;
 
+  // Una reserva son tres cosas que deben viajar juntas: el tipo, el estado y el
+  // destinatario. Escribir solo el destinatario deja el palet en un estado
+  // contradictorio -por ejemplo con CodigoCliente informado pero TipoReserva=0-
+  // y entonces no hay forma de saber a quien esta reservado.
+  //
+  // Por eso cada rama fija TipoReserva, pone el palet en RESERVADO (3) y limpia
+  // los campos de los demas tipos. Si el destinatario llega vacio se entiende
+  // que se esta retirando la reserva: TipoReserva vuelve a 0 y el palet a
+  // ACTIVO (1). Un palet BLOQUEADO (2) o DADO DE BAJA (4) conserva su estado.
+  //
+  // Es el mismo criterio de UGestionPalets.pas (btnReservarClick) en la
+  // aplicacion de escritorio.
+  // Cada campo se asigna UNA sola vez: en un UPDATE de SQL Server no se puede
+  // poner una columna a NULL y darle valor despues en la misma sentencia. Por
+  // eso los campos del tipo elegido llevan su valor y todos los demas, NULL.
+  sTipoReserva := '0';
+  sCliente     := 'NULL';
+  sCadena      := 'NULL';
+  sEjercicioP  := 'NULL';
+  sSerieP      := 'NULL';
+  sNumeroP     := 'NULL';
+  sOrden       := 'NULL';
+  sLineasPos   := 'NULL';
+  sIdPrep      := 'NULL';
+
   if Tipo='CLIENTE' then
   begin
-
-    if CodigoCliente = '' then
-      CodigoCliente := 'NULL'
-    else
-      CodigoCliente := '''' + SQL_Str(CodigoCliente) + '''';
-
-    sSQL :=
-      'UPDATE FS_SGA_Palet ' +
-      'SET ' +
-      '  CodigoCliente = ' + CodigoCliente + ' ' +
-      'WHERE ' +
-      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
-      '  AND Matricula = ''' + SQL_Str(Matricula) + '''';
-
+    if CodigoCliente <> '' then
+    begin
+      sTipoReserva := '1';
+      sCliente     := '''' + SQL_Str(CodigoCliente) + '''';
+    end;
   end else if Tipo='CADENA' then
   begin
-
-    if CodigoCadena = '' then
-      CodigoCadena := 'NULL'
-    else
-      CodigoCadena := '''' + SQL_Str(CodigoCadena) + '''';
-
-    sSQL :=
-      'UPDATE FS_SGA_Palet ' +
-      'SET ' +
-      '  CodigoCadena = ' + CodigoCadena + ' ' +
-      'WHERE ' +
-      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
-      '  AND Matricula = ''' + SQL_Str(Matricula) + '''';
-
+    if CodigoCadena <> '' then
+    begin
+      sTipoReserva := '2';
+      sCadena      := '''' + SQL_Str(CodigoCadena) + '''';
+    end;
+  end else if Tipo='PEDIDO' then
+  begin
+    if NumeroPedido <> 0 then
+    begin
+      sTipoReserva := '3';
+      sEjercicioP  := IntToStr(EjercicioPedido);
+      sSerieP      := '''' + SQL_Str(SeriePedido) + '''';
+      sNumeroP     := IntToStr(NumeroPedido);
+    end;
+  end else if Tipo='LINEAPEDIDO' then
+  begin
+    if NumeroPedido <> 0 then
+    begin
+      sTipoReserva := '4';
+      sEjercicioP  := IntToStr(EjercicioPedido);
+      sSerieP      := '''' + SQL_Str(SeriePedido) + '''';
+      sNumeroP     := IntToStr(NumeroPedido);
+      sOrden       := IntToStr(Orden);
+      sLineasPos   := '''' + SQL_Str(LineasPosicion) + '''';
+    end;
   end else if Tipo='PREPARACION' then
   begin
-
-    if IdPreparacion = 0 then
-      sIdPreparacion := 'NULL'
-    else
-      sIdPreparacion := IntToStr(IdPreparacion);
-
-    sSQL :=
-      'UPDATE FS_SGA_Palet ' +
-      'SET ' +
-      '  IdPreparacion = ' + sIdPreparacion + ' ' +
-      'WHERE ' +
-      '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
-      '  AND Matricula = ''' + SQL_Str(Matricula) + '''';
-
+    if IdPreparacion <> 0 then
+    begin
+      sTipoReserva := '5';
+      sIdPrep      := IntToStr(IdPreparacion);
+    end;
   end;
+
+  sSQL :=
+    'UPDATE FS_SGA_Palet ' +
+    'SET ' +
+    '  TipoReserva = ' + sTipoReserva + ', ' +
+    '  Estado = CASE ' +
+    '             WHEN Estado IN (2,4) THEN Estado ' +
+    '             WHEN ' + sTipoReserva + ' > 0 THEN 3 ' +
+    '             ELSE 1 ' +
+    '           END, ' +
+    '  CodigoCliente    = ' + sCliente    + ', ' +
+    '  CodigoCadena     = ' + sCadena     + ', ' +
+    '  EjercicioPedido  = ' + sEjercicioP + ', ' +
+    '  SeriePedido      = ' + sSerieP     + ', ' +
+    '  NumeroPedido     = ' + sNumeroP    + ', ' +
+    '  Orden            = ' + sOrden      + ', ' +
+    '  LineasPosicion   = ' + sLineasPos  + ', ' +
+    '  IdPreparacion    = ' + sIdPrep     + ', ' +
+    '  EjercicioTrabajo = NULL, ' +
+    '  NumeroTrabajo    = NULL ' +
+    'WHERE ' +
+    '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
+    '  AND Matricula = ''' + SQL_Str(Matricula) + '''';
 
   try
     SQL_Execute_NoRes ( Conn, sSQL );
@@ -50864,6 +50937,10 @@ begin
       '"UnidadMedidaBase":"' + JSON_Str(AnsiUpperCase(Q.FieldByName('UnidadMedidaBase').AsString)) + '",' +
       '"CodigoUbicacion":"' + JSON_Str(Q.FieldByName('CodigoUbicacion').AsString) + '",' +
       '"CodigoUbicacionAlternativo":"' + JSON_Str(Q.FieldByName('CodigoUbicacionAlternativo').AsString) + '",' +
+      // Matricula del palet de donde sale el material. No confundir con
+      // MatriculaActual, que es el palet en el que el operario esta dejando lo
+      // preparado: esta dice DE DONDE coger, aquella DONDE poner.
+      '"Matricula":"' + JSON_Str(Q.FieldByName('Matricula').AsString) + '",' +
       '"Altura":"' + JSON_Str(tmpAltura) + '",' +
       '"CodigoAgrupacion":' + IntToStr(Q.FieldByName('CodigoAgrupacion').AsInteger) + ',' +
       '"UnidadesAgrupacion":' + SQL_FloatToStr(fUnidadesAgrupacion) + ',' +
@@ -54114,9 +54191,35 @@ begin
 
   {$REGION 'Actualitzem l´estat del palet'}
 
+  // Al cambiar el tipo de reserva hay que limpiar los campos del tipo anterior:
+  // de lo contrario el palet queda, por ejemplo, con TipoReserva=PREPARACION y
+  // el CodigoCadena de una reserva previa a cadena todavia informado, y el
+  // calculo de ruta no puede saber a quien esta reservado en realidad.
+  //
+  // Estado acompaña al tipo: reservar deja el palet en RESERVADO (3) y quitar
+  // la reserva lo devuelve a ACTIVO (1). Un palet BLOQUEADO (2) o DADO DE BAJA
+  // (4) conserva su estado: quitarle la reserva no debe desbloquearlo.
+  //
+  // Es el mismo criterio que aplica la aplicación de escritorio en
+  // UGestionPalets.pas (btnReservarClick).
   sSQL :=
     'UPDATE FS_SGA_Palet ' +
-    'SET TipoReserva = ' + IntToStr(TipoReserva) + ' ' +
+    'SET TipoReserva = ' + IntToStr(TipoReserva) + ', ' +
+    '    Estado = CASE ' +
+    '               WHEN Estado IN (2,4) THEN Estado ' +
+    '               WHEN ' + IntToStr(TipoReserva) + ' > 0 THEN 3 ' +
+    '               ELSE 1 ' +
+    '             END, ' +
+    '    CodigoCliente    = NULL, ' +
+    '    CodigoCadena     = NULL, ' +
+    '    EjercicioPedido  = NULL, ' +
+    '    SeriePedido      = NULL, ' +
+    '    NumeroPedido     = NULL, ' +
+    '    Orden            = NULL, ' +
+    '    LineasPosicion   = NULL, ' +
+    '    IdPreparacion    = NULL, ' +
+    '    EjercicioTrabajo = NULL, ' +
+    '    NumeroTrabajo    = NULL ' +
     'WHERE ' +
     '  CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Stocks) + ' ' +
     '  AND Matricula = ''' + SQL_Str(Matricula) + '''';

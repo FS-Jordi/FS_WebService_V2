@@ -19,20 +19,24 @@
       "nombre": "Interno / General"
     },
     {
-      "id": "alfran",
-      "nombre": "Alfran"
-    },
-    {
-      "id": "paniker",
-      "nombre": "Paniker"
-    },
-    {
       "id": "accesfluid",
       "nombre": "AccesFluid"
     },
     {
+      "id": "alfran",
+      "nombre": "Alfran"
+    },
+    {
+      "id": "codima",
+      "nombre": "Codima"
+    },
+    {
       "id": "gemavi",
       "nombre": "Gemavi"
+    },
+    {
+      "id": "paniker",
+      "nombre": "Paniker"
     },
     {
       "id": "refigal",
@@ -1874,7 +1878,7 @@
       "numero": "2.5.0",
       "estado": "abierta",
       "fechaInicio": "2026-06-23",
-      "fechaFin": "2026-09-18",
+      "fechaFin": "2026-09-21",
       "entradas": [
         {
           "fecha": "2026-06-23",
@@ -2613,6 +2617,171 @@
             "0e85e94"
           ],
           "id": "c113"
+        },
+        {
+          "fecha": "2026-09-21",
+          "tipo": "mejora",
+          "clientes": [
+            "codima"
+          ],
+          "titulo": {
+            "es": "La ruta indica de qué palet hay que coger el material",
+            "ca": "La ruta indica de quin palet s'ha d'agafar el material"
+          },
+          "descripcion": {
+            "es": "Hasta ahora la ruta de preparación decía el hueco pero no la matrícula del palet, de modo que en una ubicación con varios palets el operario tenía que buscarlo. Ahora cada línea lleva la matrícula del palet donde está el material.",
+            "ca": "Fins ara la ruta de preparació deia el buit però no la matrícula del palet, de manera que en una ubicació amb diversos palets l'operari l'havia de buscar. Ara cada línia porta la matrícula del palet on hi ha el material."
+          },
+          "tecnico": {
+            "es": "El procedimiento ya escribía la matrícula en FS_SGA_PreparacionOrdenada, pero los endpoints listpreparacionordenada y detallepreparacionorden no la emitían en el JSON. No confundir con MatriculaActual, que es el palet donde el operario deja lo preparado.",
+            "ca": "El procediment ja escrivia la matrícula a FS_SGA_PreparacionOrdenada, però els endpoints listpreparacionordenada i detallepreparacionorden no l'emetien al JSON. No confondre amb MatriculaActual, que és el palet on l'operari deixa el que ha preparat."
+          },
+          "id": "c114"
+        },
+        {
+          "fecha": "2026-09-21",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Las reservas de palet se guardan completas",
+            "ca": "Les reserves de palet es desen completes"
+          },
+          "descripcion": {
+            "es": "Al reservar un palet desde el terminal, el destinatario y el tipo de reserva se guardaban por separado y podían quedar descuadrados: un palet reservado a un cliente pero marcado como reserva de preparación, o con datos de una reserva anterior todavía puestos. Ahora los tres datos se escriben juntos y el palet queda siempre en un estado coherente.",
+            "ca": "En reservar un palet des del terminal, el destinatari i el tipus de reserva es desaven per separat i podien quedar descompassats: un palet reservat a un client però marcat com a reserva de preparació, o amb dades d'una reserva anterior encara posades. Ara les tres dades s'escriuen juntes i el palet queda sempre en un estat coherent."
+          },
+          "tecnico": {
+            "es": "cambiartiporeserva escribía TipoReserva sin tocar Estado ni limpiar los campos del tipo anterior; updatereservapalet escribía el destinatario sin tocar TipoReserva. Ambos fijan ahora TipoReserva, Estado y destinatario en una sola sentencia, con el criterio de UGestionPalets. Se añaden además las ramas PEDIDO y LINEAPEDIDO, que se aceptaban pero no se escribían.",
+            "ca": "cambiartiporeserva escrivia TipoReserva sense tocar Estado ni netejar els camps del tipus anterior; updatereservapalet escrivia el destinatari sense tocar TipoReserva. Tots dos fixen ara TipoReserva, Estado i destinatari en una sola sentència, amb el criteri d'UGestionPalets. S'afegeixen també les branques PEDIDO i LINEAPEDIDO, que s'acceptaven però no s'escrivien."
+          },
+          "id": "c115"
+        },
+        {
+          "fecha": "2026-09-21",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "titulo": {
+            "es": "Reservar un palet a un pedido ya queda registrado",
+            "ca": "Reservar un palet a una comanda ja queda registrat"
+          },
+          "descripcion": {
+            "es": "Las reservas de palet a un pedido o a una línea de pedido se aceptaban desde el terminal pero no llegaban a guardarse, sin ningún aviso. El palet quedaba sin reservar y nadie se enteraba.",
+            "ca": "Les reserves de palet a una comanda o a una línia de comanda s'acceptaven des del terminal però no arribaven a desar-se, sense cap avís. El palet quedava sense reservar i ningú no se n'assabentava."
+          },
+          "tecnico": {
+            "es": "updatereservapalet leía EjercicioPedido, SeriePedido, NumeroPedido, Orden y LineasPosicion para los tipos PEDIDO y LINEAPEDIDO, pero no tenía rama de escritura para ellos: sSQL se quedaba con el valor anterior o vacío.",
+            "ca": "updatereservapalet llegia EjercicioPedido, SeriePedido, NumeroPedido, Orden i LineasPosicion per als tipus PEDIDO i LINEAPEDIDO, però no tenia branca d'escriptura per a ells: sSQL es quedava amb el valor anterior o buit."
+          },
+          "id": "c116"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "nueva",
+          "clientes": [
+            "codima"
+          ],
+          "origen": "common",
+          "titulo": {
+            "es": "El albarán reparte las unidades entre los palets de donde salen",
+            "ca": "L'albarà reparteix les unitats entre els palets d'on surten"
+          },
+          "descripcion": {
+            "es": "Al generar el albarán, cada línea se reparte entre las matrículas de los palets donde está el material, según el packing list. Antes el albarán no distinguía de qué palet salía cada unidad.",
+            "ca": "En generar l'albarà, cada línia es reparteix entre les matrícules dels palets on hi ha el material, segons el packing list. Abans l'albarà no distingia de quin palet sortia cada unitat."
+          },
+          "tecnico": {
+            "es": "SAGE_SGA_RepartirPorMatricula lee FS_SGA_PackingList y devuelve las unidades por matrícula. Si el packing list no cuadra con las unidades a albaranar, devuelve FALSE con el detalle del descuadre.",
+            "ca": "SAGE_SGA_RepartirPorMatricula llegeix FS_SGA_PackingList i retorna les unitats per matrícula. Si el packing list no quadra amb les unitats a albaranar, retorna FALSE amb el detall del descompàs."
+          },
+          "id": "c117"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "nueva",
+          "clientes": [
+            "codima"
+          ],
+          "origen": "common",
+          "titulo": {
+            "es": "Se comprueba el stock de cada palet antes de generar el albarán",
+            "ca": "Es comprova l'estoc de cada palet abans de generar l'albarà"
+          },
+          "descripcion": {
+            "es": "Antes de albaranar se verifica que el packing list cuadra y que cada matrícula tiene saldo suficiente. Si algo no cuadra, el aviso dice qué artículo y qué matrícula falla y con cuánto material cuenta realmente, en lugar de fallar al escribir el albarán.",
+            "ca": "Abans d'albaranar es verifica que el packing list quadra i que cada matrícula té saldo suficient. Si alguna cosa no quadra, l'avís diu quin article i quina matrícula falla i amb quant material compta realment, en comptes de fallar en escriure l'albarà."
+          },
+          "tecnico": {
+            "es": "SAGE_SGA_VerificarMatriculas se ejecuta antes de la generación y devuelve el artículo problemático, o cadena vacía si todo es correcto.",
+            "ca": "SAGE_SGA_VerificarMatriculas s'executa abans de la generació i retorna l'article problemàtic, o cadena buida si tot és correcte."
+          },
+          "id": "c118"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "mejora",
+          "clientes": [
+            "codima"
+          ],
+          "origen": "common",
+          "titulo": {
+            "es": "Los palets vacíos se dan de baja al albaranar",
+            "ca": "Els palets buits es donen de baixa en albaranar"
+          },
+          "descripcion": {
+            "es": "Cuando se genera el albarán de una preparación, los palets que han quedado sin material se dan de baja automáticamente. Así no se quedan en la lista de palets activos ni se pueden escanear por error.",
+            "ca": "Quan es genera l'albarà d'una preparació, els palets que han quedat sense material es donen de baixa automàticament. Així no es queden a la llista de palets actius ni es poden escanejar per error."
+          },
+          "tecnico": {
+            "es": "SAGE_SGA_DarDeBajaPaletsAlbaranados pasa a Estado = 4 los palets de la preparación que han quedado sin saldo. Los que conservan material no se tocan.",
+            "ca": "SAGE_SGA_DarDeBajaPaletsAlbaranados passa a Estado = 4 els palets de la preparació que han quedat sense saldo. Els que conserven material no es toquen."
+          },
+          "id": "c119"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "correccion",
+          "clientes": [
+            "general"
+          ],
+          "origen": "common",
+          "titulo": {
+            "es": "Los parámetros sin valor ya no se confunden con valor vacío",
+            "ca": "Els paràmetres sense valor ja no es confonen amb valor buit"
+          },
+          "descripcion": {
+            "es": "Al leer un parámetro de configuración, el sistema no distinguía entre «no existe» y «existe pero está vacío», y en algunos casos aplicaba un valor por defecto donde no tocaba.",
+            "ca": "En llegir un paràmetre de configuració, el sistema no distingia entre «no existeix» i «existeix però és buit», i en alguns casos aplicava un valor per defecte on no tocava."
+          },
+          "tecnico": {
+            "es": "PARAM_Read devuelve ahora un indicador Found además del valor.",
+            "ca": "PARAM_Read retorna ara un indicador Found a més del valor."
+          },
+          "id": "c120"
+        },
+        {
+          "fecha": "2026-09-18",
+          "tipo": "mejora",
+          "clientes": [
+            "general"
+          ],
+          "origen": "common",
+          "titulo": {
+            "es": "La licencia de checklists se comprueba en el servidor",
+            "ca": "La llicència de checklists es comprova al servidor"
+          },
+          "descripcion": {
+            "es": "El acceso a los checklists se valida ahora contra la licencia en el servidor, y no solo ocultando los botones en el terminal.",
+            "ca": "L'accés als checklists es valida ara contra la llicència al servidor, i no només amagant els botons al terminal."
+          },
+          "tecnico": {
+            "es": "Constante CONST_SGA_CHECKLISTS en products.inc, comprobada con LICENSE_Check en los endpoints de checklists.",
+            "ca": "Constant CONST_SGA_CHECKLISTS a products.inc, comprovada amb LICENSE_Check als endpoints de checklists."
+          },
+          "id": "c121"
         }
       ]
     }

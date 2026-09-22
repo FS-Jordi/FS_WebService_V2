@@ -57,3 +57,9 @@ libeay32.dll
 License.dll
 ssleay32.dll
 Source/FS_WebServiceSGA.identcache
+
+# Informe auditoria seguretat - no versionar (conte detall de vulnerabilitats sense pedac)
+DOCS/INFORME-SEGURETAT-FSSGA.md
+
+# Documentacio i binaris per client - no versionar
+DOCS/Codima/
