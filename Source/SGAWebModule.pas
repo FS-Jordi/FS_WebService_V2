@@ -61503,6 +61503,45 @@ end;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ Reserva de contracte de la fase 8 (checklist per línia)               │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// La fase 8 permetrà penjar un checklist d'una LÍNIA del document i no només
+// del document sencer (mirar cada palet d'una recepció és feina de moll). Els
+// seus ALTER sobre FS_SGA_Chk_Ejecuciones (DocLinea, DocSubLinea, Ambito)
+// encara NO estan aplicats.
+//
+// Els paràmetres es reserven al contracte des d'ara perquè, quan la fase 8
+// arribi, només calgui passar-los: si no hi fossin, caldria refer la navegació
+// de les tres pantalles de la PDA.
+//
+// Mentrestant han de viatjar BUITS. Si arriben amb valor s'ha de fallar de
+// manera explícita i no ignorar-los en silenci: desar un checklist de línia com
+// si fos del document sencer deixaria un registre d'auditoria mal etiquetat,
+// que és pitjor que no deixar-ne cap.
+//
+// Només cal comprovar-ho als endpoints que reben el context del document
+// (listchecklists i openchecklist). La resta treballen sobre un EjecucionId ja
+// creat, on la línia ja va quedar decidida en obrir l'execució.
+//
+// Retorna TRUE si la crida demana funcionalitat de línia, i deixa a sError el
+// missatge funcional que s'ha de retornar.
+function FS_SGA_CHK_FaseLineaNoDisponible ( contentfields: TStringList; var sError: String ): Boolean;
+begin
+
+  Result := ( Trim(contentfields.Values['DocLinea'])    <> '' ) or
+            ( Trim(contentfields.Values['DocSubLinea']) <> '' ) or
+            ( Trim(contentfields.Values['Ambito'])      <> '' );
+
+  if Result then
+    sError := 'El checklist por línea no está disponible en esta versión.'
+  else
+    sError := '';
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ Conformitat calculada al servidor                                     │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
 //
@@ -61701,6 +61740,14 @@ begin
   sUsuario      := contentfields.Values['Username'];
 
   if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  // Reserva de contracte de la fase 8: DocLinea/DocSubLinea/Ambito encara no
+  // estan desplegats i han de viatjar buits.
+  if FS_SGA_CHK_FaseLineaNoDisponible ( contentfields, sError ) then
   begin
     Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
     Exit;
@@ -61926,6 +61973,14 @@ begin
   sUsuario      := contentfields.Values['Username'];
 
   if not FS_SGA_CHK_TieneLicencia ( Conn, UUID, sRemoteAddr, sUsuario, Port, sError ) then
+  begin
+    Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
+    Exit;
+  end;
+
+  // Reserva de contracte de la fase 8: DocLinea/DocSubLinea/Ambito encara no
+  // estan desplegats i han de viatjar buits.
+  if FS_SGA_CHK_FaseLineaNoDisponible ( contentfields, sError ) then
   begin
     Result := '{"Result":"ERROR","Message":"' + JSON_StrWeb(sError) + '","Data":[]}';
     Exit;

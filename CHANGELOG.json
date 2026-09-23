@@ -1878,7 +1878,7 @@
       "numero": "2.5.0",
       "estado": "abierta",
       "fechaInicio": "2026-06-23",
-      "fechaFin": "2026-09-21",
+      "fechaFin": "2026-09-23",
       "entradas": [
         {
           "fecha": "2026-06-23",
@@ -2782,6 +2782,23 @@
             "ca": "Constant CONST_SGA_CHECKLISTS a products.inc, comprovada amb LICENSE_Check als endpoints de checklists."
           },
           "id": "c121"
+        },
+        {
+          "fecha": "2026-09-23",
+          "tipo": "mejora",
+          "titulo": {
+            "es": "Los checklists avisan si se piden por línea de documento",
+            "ca": "Els checklists avisen si es demanen per línia de document"
+          },
+          "descripcion": {
+            "es": "Los checklists se hacen sobre el documento entero (una recepción, una devolución). Poder hacerlos sobre una línea concreta es una ampliación prevista pero todavía no disponible. A partir de ahora, si se pide un checklist de línea, se recibe un aviso claro de que la función no está disponible, en lugar de guardarse como si fuera del documento completo.",
+            "ca": "Els checklists es fan sobre el document sencer (una recepció, una devolució). Poder fer-los sobre una línia concreta és una ampliació prevista però encara no disponible. A partir d'ara, si es demana un checklist de línia, es rep un avís clar que la funció no està disponible, en comptes de desar-se com si fos del document complet."
+          },
+          "tecnico": {
+            "es": "Nueva función FS_SGA_CHK_FaseLineaNoDisponible en SGAWebModule.pas, junto a FS_SGA_CHK_TieneLicencia. Comprueba los parámetros DocLinea, DocSubLinea y Ambito, reservados en el contrato para la fase 8 (checklist por línea), cuyos ALTER sobre FS_SGA_Chk_Ejecuciones aún no están aplicados. Se invoca en listchecklists y openchecklist, después del control de licencia: son los únicos endpoints que reciben contexto de documento; los otros siete trabajan sobre un EjecucionId ya creado. Devuelve ERROR con el mensaje 'El checklist por línea no está disponible en esta versión.' Reservar los parámetros ahora evita rehacer la navegación de las tres pantallas de la PDA cuando llegue la fase 8.",
+            "ca": "Nova funció FS_SGA_CHK_FaseLineaNoDisponible a SGAWebModule.pas, al costat de FS_SGA_CHK_TieneLicencia. Comprova els paràmetres DocLinea, DocSubLinea i Ambito, reservats al contracte per a la fase 8 (checklist per línia), amb els ALTER sobre FS_SGA_Chk_Ejecuciones encara no aplicats. Es crida a listchecklists i openchecklist, després del control de llicència: són els únics endpoints que reben context de document; els altres set treballen sobre un EjecucionId ja creat. Retorna ERROR amb el missatge 'El checklist por línea no está disponible en esta versión.' Reservar els paràmetres ara evita refer la navegació de les tres pantalles de la PDA quan arribi la fase 8."
+          },
+          "id": "c122"
         }
       ]
     }
