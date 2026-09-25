@@ -8520,6 +8520,11 @@ begin
   CodigoColor    := contentfields.values['CodigoColor'];
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_DesglosarPreparacionesPorLinea, bSepararPorLinea, CodigoEmpresa.EmpresaOrigen );
+  // En la expedicion las lineas SIEMPRE se separan por linea de pedido: cada linea (agrupada o no)
+  // se expide por la cantidad que pide. Con el param 74=False dos lineas del mismo articulo
+  // compartian el consumo (USADAS agrupado por articulo) y bloqueaban la segunda linea.
+  // Forzamos la version por linea independientemente del parametro 74 (solo en la expedicion).
+  bSepararPorLinea := True;
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_MostrarTiposArticuloEXP, sMostrarTipos, CodigoEmpresa.EmpresaOrigen );
 
   sTiposArt := '''M''';
@@ -30311,6 +30316,14 @@ var
   SP: TServirPreparacion;
   contentfields: TStringList;
   MetodoExp: String;
+  // Validació: matrícules de l'expedició que s'han mogut fora de la ubicació
+  // d'expedició. Es retornen al JSON perquè la PDA bloquegi la generació de
+  // l'albarà i llisti quins palets cal tornar.
+  CodigoAlmacenPrep: String;
+  DefaultUbiPrep: TDefaultUbicaciones;
+  UbicacionExpedicion: String;
+  sMatriculasMal: String;
+  bPrimeraMatricula: Boolean;
 {$ENDREGION}
 
 begin
@@ -30372,6 +30385,73 @@ begin
 
   {$ENDREGION}
 
+  {$REGION 'Validació: matrícules mogudes fora de la ubicació d''expedició'}
+  // Quan s'expedeix amb matrícules i per falta d'espai s'han mogut palets a
+  // una altra ubicació, cal avisar abans de generar l'albarà i llistar quins
+  // palets s'han de tornar. Es compara la ubicació actual de cada palet
+  // (FS_SGA_Palet.CodigoUbicacionActual) amb la ubicació d'expedició de
+  // l'almacén de la preparació (FS_SGA_Almacenes.UbicacionExpedicion).
+  sMatriculasMal := '';
+  bPrimeraMatricula := TRUE;
+
+  // Almacén de la preparació -> ubicació d'expedició
+  sSQL :=
+    'SELECT AlmacenPreparacion FROM FS_SGA_Picking_Preparaciones WITH (NOLOCK) ' +
+    'WHERE PreparacionId = ' + IntToStr(IdPreparacion);
+  CodigoAlmacenPrep := SQL_Execute ( Conn, sSQL );
+
+  UbicacionExpedicion := '';
+  if (CodigoAlmacenPrep <> '') and (CodigoAlmacenPrep <> '0') then
+  begin
+    FS_SGA_ObtenerUbicacionesAlmacen ( Conn, CodigoEmpresa, CodigoAlmacenPrep, DefaultUbiPrep );
+    UbicacionExpedicion := DefaultUbiPrep.UbicacionExpediciones;
+  end;
+
+  // Només es valida si l'almacén té ubicació d'expedició configurada. Sense
+  // ella no es toca res: no hi ha referència amb què comparar.
+  if UbicacionExpedicion <> '' then
+  begin
+    // Matrícules usades a l'expedició (FS_SGA_PackingList.Matricula) que ARA
+    // no són a la ubicació d'expedició. El JOIN va només per Matricula: el
+    // PackingList guarda l'empresa origen i FS_SGA_Palet l'empresa de stocks,
+    // i la matrícula (GS1-18) és única per ella mateixa.
+    // El codi alternatiu de la ubicació actual (FS_SGA_ESTR_UBICA) es retorna
+    // perquè la PDA pugui mostrar la ubicació segons el paràmetre 32
+    // (configCodigoUbicacion), igual que a la resta de l'aplicació.
+    sSQL :=
+      'SELECT DISTINCT p.Matricula, p.CodigoUbicacionActual, ' +
+      '  ISNULL(u.CodigoAlternativo, '''') AS CodigoUbicacionActualAlternativo ' +
+      'FROM FS_SGA_PackingList pl WITH (NOLOCK) ' +
+      'INNER JOIN FS_SGA_Palet p WITH (NOLOCK) ' +
+      '  ON p.Matricula = pl.Matricula ' +
+      'LEFT JOIN FS_SGA_ESTR_UBICA u WITH (NOLOCK) ' +
+      '  ON u.CodigoEmpresa = p.CodigoEmpresa ' +
+      '  AND u.CodigoUbicacion = p.CodigoUbicacionActual ' +
+      'WHERE pl.preparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND ISNULL(pl.Matricula, '''') <> '''' ' +
+      '  AND p.CodigoUbicacionActual <> ''' + SQL_Str(UbicacionExpedicion) + ''' ' +
+      'ORDER BY p.Matricula';
+
+    Q := SQL_PrepareQuery ( Conn, sSQL );
+    Q.Open;
+    while not Q.Eof do
+    begin
+      if not bPrimeraMatricula then
+        sMatriculasMal := sMatriculasMal + ',';
+      bPrimeraMatricula := FALSE;
+
+      sMatriculasMal := sMatriculasMal +
+        '{"Matricula":"' + JSON_Str(Q.FieldByName('Matricula').AsString) + '",' +
+        '"UbicacionActual":"' + JSON_Str(Q.FieldByName('CodigoUbicacionActual').AsString) + '",' +
+        '"UbicacionActualAlternativo":"' + JSON_Str(Q.FieldByName('CodigoUbicacionActualAlternativo').AsString) + '"}';
+
+      Q.Next;
+    end;
+    Q.Close;
+    FreeAndNil ( Q );
+  end;
+  {$ENDREGION}
+
   Result := '{"Result":"OK","Error":"","Data":[{' +
     '"Estado":' + IntToStr(SP.Estado) + ',' +
     '"LineasAPreparar":' + IntToStr(SP.LineasAPreparar) + ',' +
@@ -30384,7 +30464,8 @@ begin
     '"bPendienteExpedir":' + SQL_BooleanToStr(SP.bPendienteExpedir) + ',' +
     '"Msg":"' + JSON_Str(SP.Msg) + '",' +
     '"Cajas":' + IntToStr(SP.Cajas) + ',' +
-    '"Palets":' + IntToStr(SP.Palets) + '}]}';
+    '"Palets":' + IntToStr(SP.Palets) + ',' +
+    '"MatriculasMalUbicadas":[' + sMatriculasMal + ']}]}';
 
 end;
 
@@ -36049,6 +36130,10 @@ begin
   {$REGION 'Recuperació de totals'}
 
   PARAM_Read ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_DesglosarPreparacionesPorLinea, bSepararPorLinea, CodigoEmpresa.EmpresaOrigen );
+  // En la expedicion las lineas SIEMPRE se separan por linea de pedido: las partidas se asignan
+  // a la linea concreta (LineasPosicion) y no a GUID0. Forzamos la version por linea
+  // independientemente del parametro 74 (solo en la expedicion).
+  bSepararPorLinea := True;
   if bSepararPorLinea then
   begin
     sSQL :=
@@ -36061,19 +36146,27 @@ begin
     LineasPosicion := GUID0;
   end;
 
-  sSQL := 'SELECT COUNT(DISTINCT Partida) ' +
-          'FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) ' +
-          'WHERE ' +
-          '  IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
-          //'  AND PickingId = ' + IntToStr(PickingId) + ' ' +
-          '  AND CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-          '  AND Partida<>'''' ' +
-          '  AND CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
-          '  AND CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
-          '  AND Partida IS NOT NULL ' +
-          '  AND CantidadBase > 0 ' +
-          '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
-          'GROUP BY LineaPedidoAsignada';
+  // Compta partides distintes que compleixen el mateix criteri que el SELECT de dades
+  // (disponible restant al GUID0 o be expedit d'aquesta linia), per paginar correctament.
+  sSQL := 'SELECT COUNT(*) FROM ( ' +
+          '  SELECT fsap.Partida ' +
+          '  FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fsap ' +
+          '  WHERE ' +
+          '    fsap.IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+          '    AND fsap.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
+          '    AND fsap.Partida<>'''' ' +
+          '    AND fsap.Partida IS NOT NULL ' +
+          '    AND fsap.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
+          '    AND fsap.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
+          '    AND fsap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ) ' +
+          '    AND fsap.CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
+          '  GROUP BY fsap.Partida ' +
+          '  HAVING ' +
+          '    ISNULL(SUM(CASE WHEN fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(GUID0) + ''' THEN fsap.Cantidad ELSE 0 END),0) > 0 ' +
+          '    OR ISNULL(SUM(CASE WHEN fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(GUID0) + ''' THEN fsap.CantidadBase ELSE 0 END),0) > 0 ' +
+          '    OR ISNULL(SUM(CASE WHEN fsap.LineaPedidoCliente <> ''' + SQL_GUID_ToStr(GUID0) + ''' AND fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' THEN fsap.Cantidad ELSE 0 END),0) > 0 ' +
+          '    OR ISNULL(SUM(CASE WHEN fsap.LineaPedidoCliente <> ''' + SQL_GUID_ToStr(GUID0) + ''' AND fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' THEN fsap.CantidadBase ELSE 0 END),0) > 0 ' +
+          ') AS SUB';
   try
     iTotalRegs := SQL_Execute ( Conn, sSQL );
   except
@@ -36101,48 +36194,35 @@ begin
 
   end;
 
-  sSQL := 'SELECT DISTINCT ' +
-          '  fsap.Partida, fsap.FechaCaduca, ' +
-          '  fsap.Cantidad AS CantidadDisponible, ' +
-          '  fsap.CantidadBase AS CantidadDisponibleBase, ' +
-          '  ( ' +
-          '    SELECT ' +
-          '      ISNULL(SUM(Cantidad),0) ' +
-          '    FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fsap2 ' +
-          '    WHERE ' +
-          '      fsap2.IdPreparacion = fsap.IdPreparacion ' +
-          '    	 AND fsap2.CodigoArticulo = fsap.CodigoArticulo ' +
-          '      AND fsap2.CodigoTalla01_ = fsap.CodigoTalla01_ ' +
-          '      AND fsap2.CodigoColor_ = fsap.CodigoColor_ ' +
-          '      AND fsap2.Partida = fsap.Partida ' +
-          '      AND fsap2.LineaPedidoCliente <> ''00000000-0000-0000-0000-000000000000'' ' +
-          '      AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
-          '  ) AS CantidadExpedida, ' +
-          '  ( ' +
-          '    SELECT ' +
-          '      ISNULL(SUM(CantidadBase),0) ' +
-          '    FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fsap2 ' +
-          '    WHERE ' +
-          '      fsap2.IdPreparacion = fsap.IdPreparacion ' +
-          '      AND fsap2.CodigoArticulo = fsap.CodigoArticulo ' +
-          '      AND fsap2.CodigoTalla01_ = fsap.CodigoTalla01_ ' +
-          '      AND fsap2.CodigoColor_ = fsap.CodigoColor_ ' +
-          '      AND fsap2.Partida = fsap.Partida ' +
-          '      AND fsap2.LineaPedidoCliente <> ''00000000-0000-0000-0000-000000000000'' ' +
-          '      AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
-          '  ) AS CantidadExpedidaBase ' +
+  // Disponible per partida = només l'estoc PREPARAT no assignat a cap línia (LineaPedidoAsignada=GUID0).
+  // Les files EXPEDIDES (LineaPedidoCliente<>GUID0) NO son disponibles: son consum.
+  // CantidadExpedida = ja expedit NOMES per la linia que s'esta editant (LineaPedidoAsignada=LineasPosicion),
+  // per tal que el maxim editable = disponible restant + el ja expedit d'aquesta linia (frontend suma cantidadUsadaPartida).
+  // Agrupem per Partida perque hi ha una fila GUID0 (preparat) i N files expedides (una per linia).
+  sSQL := 'SELECT ' +
+          '  fsap.Partida, ' +
+          '  MAX(fsap.FechaCaduca) AS FechaCaduca, ' +
+          '  ISNULL(SUM(CASE WHEN fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(GUID0) + ''' THEN fsap.Cantidad ELSE 0 END),0) AS CantidadDisponible, ' +
+          '  ISNULL(SUM(CASE WHEN fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(GUID0) + ''' THEN fsap.CantidadBase ELSE 0 END),0) AS CantidadDisponibleBase, ' +
+          '  ISNULL(SUM(CASE WHEN fsap.LineaPedidoCliente <> ''' + SQL_GUID_ToStr(GUID0) + ''' AND fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' THEN fsap.Cantidad ELSE 0 END),0) AS CantidadExpedida, ' +
+          '  ISNULL(SUM(CASE WHEN fsap.LineaPedidoCliente <> ''' + SQL_GUID_ToStr(GUID0) + ''' AND fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' THEN fsap.CantidadBase ELSE 0 END),0) AS CantidadExpedidaBase ' +
           'FROM dbo.FS_SGA_TABLE_AcumuladoPendiente ( ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) fsap ' +
           'WHERE ' +
           '  fsap.IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
-          //'  AND fsap.PickingId = 0 ' +
           '  AND fsap.CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' ' +
-          '  AND (fsap.Cantidad>0 OR fsap.CantidadBase>0) ' +
           '  AND fsap.Partida<>'''' ' +
           '  AND fsap.Partida IS NOT NULL ' +
           '  AND fsap.CodigoTalla01_ = ''' + SQL_Str(CodigoTalla) + ''' ' +
           '  AND fsap.CodigoColor_ = ''' + SQL_Str(CodigoColor) + ''' ' +
           '  AND fsap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', ''' + SQL_GUID_ToStr(LineasPosicion) + ''' ) ' +
           '  AND CodigoAgrupacion = ' + IntToStr(CodigoAgrupacion) + ' ' +
+          'GROUP BY fsap.Partida ' +
+          // nomes partides amb disponible restant o amb expedit d'aquesta linia (per poder editar-les)
+          'HAVING ' +
+          '  ISNULL(SUM(CASE WHEN fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(GUID0) + ''' THEN fsap.Cantidad ELSE 0 END),0) > 0 ' +
+          '  OR ISNULL(SUM(CASE WHEN fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(GUID0) + ''' THEN fsap.CantidadBase ELSE 0 END),0) > 0 ' +
+          '  OR ISNULL(SUM(CASE WHEN fsap.LineaPedidoCliente <> ''' + SQL_GUID_ToStr(GUID0) + ''' AND fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' THEN fsap.Cantidad ELSE 0 END),0) > 0 ' +
+          '  OR ISNULL(SUM(CASE WHEN fsap.LineaPedidoCliente <> ''' + SQL_GUID_ToStr(GUID0) + ''' AND fsap.LineaPedidoAsignada = ''' + SQL_GUID_ToStr(LineasPosicion) + ''' THEN fsap.CantidadBase ELSE 0 END),0) > 0 ' +
           'ORDER BY ' +
           '  fsap.Partida ' +
           'OFFSET ' + IntToStr(iPage*iPageSize) + ' ROWS ' +

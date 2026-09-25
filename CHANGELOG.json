@@ -1878,7 +1878,7 @@
       "numero": "2.5.0",
       "estado": "abierta",
       "fechaInicio": "2026-06-23",
-      "fechaFin": "2026-09-23",
+      "fechaFin": "2026-09-25",
       "entradas": [
         {
           "fecha": "2026-06-23",
@@ -2799,6 +2799,92 @@
             "ca": "Nova funció FS_SGA_CHK_FaseLineaNoDisponible a SGAWebModule.pas, al costat de FS_SGA_CHK_TieneLicencia. Comprova els paràmetres DocLinea, DocSubLinea i Ambito, reservats al contracte per a la fase 8 (checklist per línia), amb els ALTER sobre FS_SGA_Chk_Ejecuciones encara no aplicats. Es crida a listchecklists i openchecklist, després del control de llicència: són els únics endpoints que reben context de document; els altres set treballen sobre un EjecucionId ja creat. Retorna ERROR amb el missatge 'El checklist por línea no está disponible en esta versión.' Reservar els paràmetres ara evita refer la navegació de les tres pantalles de la PDA quan arribi la fase 8."
           },
           "id": "c122"
+        },
+        {
+          "fecha": "2026-09-25",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Detección de matrículas movidas fuera de la ubicación de expedición",
+            "ca": "Detecció de matrícules mogudes fora de la ubicació d'expedició"
+          },
+          "descripcion": {
+            "es": "El servidor comprueba, al preparar el albarán, si alguna de las matrículas usadas en la expedición se ha movido fuera de la ubicación de expedición del almacén, y devuelve la lista con su ubicación actual para que la PDA pueda avisar y bloquear la generación del albarán.",
+            "ca": "El servidor comprova, en preparar l'albarà, si alguna de les matrícules usades a l'expedició s'ha mogut fora de la ubicació d'expedició del magatzem, i retorna la llista amb la seva ubicació actual perquè la PDA pugui avisar i bloquejar la generació de l'albarà."
+          },
+          "tecnico": {
+            "es": "prepareServirPrep obtiene UbicacionExpedicion (FS_SGA_ObtenerUbicacionesAlmacen) del almacén de la preparación y consulta las matrículas (JOIN FS_SGA_PackingList/FS_SGA_Palet por Matricula) cuya CodigoUbicacionActual difiere; añade MatriculasMalUbicadas[] al JSON con Matricula, UbicacionActual y UbicacionActualAlternativo (FS_SGA_ESTR_UBICA).",
+            "ca": "prepareServirPrep obté UbicacionExpedicion (FS_SGA_ObtenerUbicacionesAlmacen) del magatzem de la preparació i consulta les matrícules (JOIN FS_SGA_PackingList/FS_SGA_Palet per Matricula) amb CodigoUbicacionActual diferent; afegeix MatriculasMalUbicadas[] al JSON amb Matricula, UbicacionActual i UbicacionActualAlternativo (FS_SGA_ESTR_UBICA)."
+          },
+          "id": "c123"
+        },
+        {
+          "fecha": "2026-09-25",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "Cada línea de pedido se expide por separado",
+            "ca": "Cada línia de comanda s'expedeix per separat"
+          },
+          "descripcion": {
+            "es": "En pedidos con dos líneas del mismo artículo, el consumo se calculaba por artículo y bloqueaba la segunda línea. Ahora, en la expedición, cada línea se separa y se expide por su cantidad, con independencia de la configuración de desglose de preparaciones.",
+            "ca": "En comandes amb dues línies del mateix article, el consum es calculava per article i bloquejava la segona línia. Ara, en l'expedició, cada línia se separa i s'expedeix per la seva quantitat, amb independència de la configuració de desglossament de preparacions."
+          },
+          "tecnico": {
+            "es": "detalleExpedicionTC y expedicionPartidasArticuloTC fuerzan bSepararPorLinea=TRUE tras leer el parámetro 74: la subconsulta USADAS agrupa por LineaPedidoAsignada y se une por LineasPosicion. No se tocan los endpoints de preparación.",
+            "ca": "detalleExpedicionTC i expedicionPartidasArticuloTC forcen bSepararPorLinea=TRUE després de llegir el paràmetre 74: la subconsulta USADAS agrupa per LineaPedidoAsignada i s'uneix per LineasPosicion. No es toquen els endpoints de preparació."
+          },
+          "id": "c124"
+        },
+        {
+          "fecha": "2026-09-25",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "Disponible por partida sin contar lo ya expedido",
+            "ca": "Disponible per partida sense comptar el que ja s'ha expedit"
+          },
+          "descripcion": {
+            "es": "El cálculo del disponible de cada partida en la expedición contaba como disponible las unidades ya expedidas. Ahora solo cuenta el stock preparado pendiente y, para la línea que se edita, lo ya expedido de esa misma línea.",
+            "ca": "El càlcul del disponible de cada partida en l'expedició comptava com a disponible les unitats ja expedides. Ara només compta l'estoc preparat pendent i, per a la línia que s'edita, el que ja s'ha expedit d'aquesta mateixa línia."
+          },
+          "tecnico": {
+            "es": "expedicionPartidasArticuloTC reescribe el SELECT agrupando por Partida: CantidadDisponible desde las filas GUID0 (preparado) y CantidadExpedida solo de LineaPedidoAsignada=LineasPosicion; HAVING para mantener partidas editables aunque el disponible sea 0. El COUNT de paginación se alinea con el mismo criterio.",
+            "ca": "expedicionPartidasArticuloTC reescriu el SELECT agrupant per Partida: CantidadDisponible des de les files GUID0 (preparat) i CantidadExpedida només de LineaPedidoAsignada=LineasPosicion; HAVING per mantenir partides editables encara que el disponible sigui 0. El COUNT de paginació s'alinea amb el mateix criteri."
+          },
+          "id": "c125"
+        },
+        {
+          "fecha": "2026-09-25",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Parámetro para permitir exceso de expedición",
+            "ca": "Paràmetre per permetre excés d'expedició"
+          },
+          "descripcion": {
+            "es": "Nuevo parámetro de configuración que permite expedir más cantidad de la pedida en la línea mientras haya preparado disponible. Por defecto está desactivado. El valor se sirve a la PDA como cualquier otro parámetro.",
+            "ca": "Nou paràmetre de configuració que permet expedir més quantitat de la demanada a la línia mentre hi hagi preparat disponible. Per defecte està desactivat. El valor se serveix a la PDA com qualsevol altre paràmetre."
+          },
+          "tecnico": {
+            "es": "Parámetro 194 (EXPEDICIONES, bool, default FALSE), script 00152. Constante FS_PARAMS_SGA_PermitirExcesoExpedicion en Functions_PARAMS. Se sirve por el endpoint readparams (genérico), sin lógica adicional en el webservice.",
+            "ca": "Paràmetre 194 (EXPEDICIONES, bool, default FALSE), script 00152. Constant FS_PARAMS_SGA_PermitirExcesoExpedicion a Functions_PARAMS. Es serveix per l'endpoint readparams (genèric), sense lògica addicional al webservice."
+          },
+          "origen": "common",
+          "id": "c126"
+        },
+        {
+          "fecha": "2026-09-25",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "Reparto correcto de partidas en la expedición automática",
+            "ca": "Repartiment correcte de partides en l'expedició automàtica"
+          },
+          "descripcion": {
+            "es": "En la expedición automática, cuando dos líneas del mismo artículo pedían partidas distintas y las preparadas no coincidían, toda la cantidad iba a parar a una sola línea. Ahora cada línea recibe la cantidad que le corresponde, priorizando la partida exacta y luego el resto (FEFO).",
+            "ca": "En l'expedició automàtica, quan dues línies del mateix article demanaven partides diferents i les preparades no coincidien, tota la quantitat anava a parar a una sola línia. Ara cada línia rep la quantitat que li correspon, prioritzant la partida exacta i després la resta (FEFO)."
+          },
+          "tecnico": {
+            "es": "FS_SGA_PROC_ExpedirPreparacion_CUSTOM (Redisco) se reescribe con la arquitectura #Prep del procedimiento estándar (cursor externo por líneas, interno por partidas, orden por coincidencia de partida y FEFO) más la casuística de Lote_: una línea con UdNecesarias=0 y Lote_<>0 (LineasPedidoCliente) expide todo lo preparado. Script 00153. Probado en Redisco(SGA), preparación 10: reparto 50/50.",
+            "ca": "FS_SGA_PROC_ExpedirPreparacion_CUSTOM (Redisco) es reescriu amb l'arquitectura #Prep del procediment estàndard (cursor extern per línies, intern per partides, ordre per coincidència de partida i FEFO) més la casuística de Lote_: una línia amb UdNecesarias=0 i Lote_<>0 (LineasPedidoCliente) expedeix tot el preparat. Script 00153. Provat a Redisco(SGA), preparació 10: repartiment 50/50."
+          },
+          "id": "c127"
         }
       ]
     }
