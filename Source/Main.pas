@@ -2697,6 +2697,23 @@ begin
       bAsyncRequest := True;
     end
 
+    else if (sCommand='/bajacajas') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1bajaCajasAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/traspasostock') then
     begin
       TAsyncWebModuleThread.Create(

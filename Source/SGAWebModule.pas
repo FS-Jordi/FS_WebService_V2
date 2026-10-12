@@ -95,6 +95,7 @@ procedure WebModule1paisesAction ( Conn: TADOConnection; sParams, sRemoteAddr: S
 procedure WebModule1cabeceraPedidoVentaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cabeceraPedidoCompraAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1salidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1bajaCajasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1traspasoStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cambiarUnidadMedidaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1regularizacionStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -8827,6 +8828,18 @@ begin
     '  T.DescripcionTalla01_ as DescripcionTalla, C.Color_ AS DescripcionColor, ' +
     '  fsppl.CodigoAgrupacion, fsppl.UnidadesAgrupacion, ISNULL(agrup.Agrupacion, ''Unidades'') as Agrupacion, ' +
     '  ISNULL(USADAS.Cantidad,0) AS UdUsadas, ISNULL(USADAS.CantidadBase,0) AS UdUsadasBase, ' +
+    // Preparat que encara no s'ha expedit: el que queda sense assignar a cap línia
+    // a FS_SGA_AcumuladoPendiente (mateix criteri que bPendienteExpedir de l'albarà).
+    '  ISNULL(PENDEXP.Cantidad,0) AS UdPendientesExpedir, ISNULL(PENDEXP.CantidadBase,0) AS UdPendientesExpedirBase, ' +
+    // Línies de la preparació amb el mateix article / talla / color / UM / agrupació:
+    // si n'hi ha més d'una, la PDA no deixa expedir-ne de més lliscant la línia.
+    '  (SELECT COUNT(*) FROM FS_SGA_Picking_Pedido_Lineas rep WITH (NOLOCK) ' +
+    '    WHERE rep.PreparacionId = fsppl.PreparacionId ' +
+    '      AND rep.CodigoArticulo = fsppl.CodigoArticulo ' +
+    '      AND rep.CodigoTalla01_ = fsppl.CodigoTalla01_ ' +
+    '      AND rep.CodigoColor_ = fsppl.CodigoColor_ ' +
+    '      AND rep.UnidadMedida = fsppl.UnidadMedida ' +
+    '      AND rep.CodigoAgrupacion = fsppl.CodigoAgrupacion) AS NumLineasArticulo, ' +
     '  ISNULL(fspl_last.CajaActual,1) AS CajaActual, ' + // <— canvia fspl per fspl_last
     '  art.Colores_ AS TratamientoColores, CPC.Nombre, art.TipoArticulo, fsppl.DescripcionLinea ' +
     'FROM FS_SGA_Picking_Pedido_Lineas fsppl WITH (NOLOCK) ' +
@@ -8879,6 +8892,23 @@ begin
       ' AND USADAS.UnidadMedida = fsppl.UnidadMedida ' +
       ' AND USADAS.CodigoAgrupacion = fsppl.CodigoAgrupacion ';
   end;
+
+  // Preparat pendent d'expedir, per article / talla / color / UM / agrupació
+  sSQL := sSQL +
+    'LEFT JOIN ( ' +
+    '  SELECT CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, CodigoAgrupacion, ' +
+    '  SUM(Cantidad) AS Cantidad, SUM(CantidadBase) AS CantidadBase ' +
+    '  FROM FS_SGA_AcumuladoPendiente WITH (NOLOCK) ' +
+    '  WHERE ' +
+    '    IdPreparacion = ' + IntToStr(IdPreparacion) + ' ' +
+    '    AND LineaPedidoCliente = ''' + SQL_Str(GUID0) + ''' ' +
+    '  GROUP BY CodigoArticulo, CodigoTalla01_, CodigoColor_, UnidadMedida, CodigoAgrupacion ) PENDEXP ' +
+    'ON '+
+    '  PENDEXP.CodigoArticulo = fsppl.CodigoArticulo ' +
+    '  AND PENDEXP.CodigoTalla01_ = fsppl.CodigoTalla01_ ' +
+    '  AND PENDEXP.CodigoColor_ = fsppl.CodigoColor_ ' +
+    '  AND PENDEXP.UnidadMedida = fsppl.UnidadMedida ' +
+    '  AND PENDEXP.CodigoAgrupacion = fsppl.CodigoAgrupacion ';
 
   sSQL := sSQL +
     'INNER JOIN FS_SGA_Picking_Preparaciones fspp WITH (NOLOCK) ' +
@@ -9127,6 +9157,9 @@ begin
       '"UdExpedidasBase":' + SQL_FloatToStr(Q.FieldByName('UdExpedidasBase').AsFloat) + ',' +
       '"UdUsadas":' + SQL_FloatToStr(Q.FieldByName('UdUsadas').AsFloat) + ',' +
       '"UdUsadasBase":' + SQL_FloatToStr(Q.FieldByName('UdUsadasBase').AsFloat) + ',' +
+      '"UdPendientesExpedir":' + SQL_FloatToStr(Q.FieldByName('UdPendientesExpedir').AsFloat) + ',' +
+      '"UdPendientesExpedirBase":' + SQL_FloatToStr(Q.FieldByName('UdPendientesExpedirBase').AsFloat) + ',' +
+      '"NumLineasArticulo":' + IntToStr(Q.FieldByName('NumLineasArticulo').AsInteger) + ',' +
       '"Expedicion":[' + sDetallePartidas + '],' +
       '"GrupoTalla":' + IntToStr(Q.FieldByName('GrupoTalla_').AsInteger) + ',' +
       '"CodigoTalla":"' + JSON_Str(Q.FieldByName('CodigoTalla01_').AsString) + '",' +
@@ -21288,9 +21321,12 @@ begin
     end;
   end;
 
-  // Recalcula els totals del palet sumant les caixes + els valors propis del nou packaging.
-  // Si la suma de caixes és 0 respecta el valor actual del palet (vegeu _RecalcPaletFromCajas).
-  _RecalcPaletFromCajas(Conn, CodigoEmpresa.EmpresaOrigen, IdPreparacion, IdPalet, PaletPesoBruto, PaletPesoNeto, PaletVolumen);
+  // No cridem _RecalcPaletFromCajas: sobreescriuria el pes brut i el volum que
+  // l'usuari acaba d'introduir amb la suma de caixes + packaging. El modal ja
+  // proposa aquests valors en canviar el tipus de palet; aquí manen els desats.
+  PaletPesoBruto := PesoBruto;
+  PaletPesoNeto  := PesoNeto;
+  PaletVolumen   := Volumen;
 
   Result := '{"Result":"OK","Error":"","Message":"","Data":[{' +
     '"PaletPesoBruto":' + SQL_FloatToStr(PaletPesoBruto) + ',' +
@@ -25392,7 +25428,7 @@ begin
     if Tipo='pakaging' then
     begin
       sSQL :=
-        'SELECT  CPC.CodigoCliente, CPC.RazonSocial, '+
+        'SELECT  CPC.*, '+
         '    CAC.*, PPL.*, PL.*, ' +
 
              //-- Pes total de tots els palets de la preparació
@@ -25483,9 +25519,9 @@ begin
         '    TRA.Matricula AS _TRANS_ALBARAN_MATRICULA , ' +
         '    TRA.Conductor AS _TRANS_ALBARAN_CONDUCTOR , ' +
 
-        '        MAX(PL.cajaId) OVER (PARTITION BY PL.paletId) AS CajasPalet , ' +
+        '    MAX(PL.cajaId) OVER (PARTITION BY PL.paletId) AS CajasPalet , ' +
 
-        '        DENSE_RANK() OVER ( PARTITION BY PL.IdentificadorExpedicion ORDER BY PL.cajaid ) AS NumeroCajaCorrelatiu ' +
+        '    DENSE_RANK() OVER ( PARTITION BY PL.IdentificadorExpedicion ORDER BY PL.cajaid ) AS NumeroCajaCorrelatiu ' +
 
         ' FROM FS_SGA_PAckinglist PL WITH (NOLOCK)  ' +
 
@@ -25526,6 +25562,7 @@ begin
         '      PL.preparacionid = ' + inttostr(IdObjeto) +
         '    ORDER BY CPC.CodigoCliente, PL.paletId, PL.cajaId, PL.codigoArticulo ';
 
+      (*
       if SQL_Function_Exists ( Conn, 'FS_SGA_TABLE_PackingListPDA', sFUNC ) then
       begin
 
@@ -25542,6 +25579,7 @@ begin
         FS_MainWebServiceSGA.ppDBPipelineLineas.UserName := 'CajasClienteDetalle';
 
       end;
+      *)
 
     end;
 
@@ -28425,8 +28463,10 @@ begin
 
       if FS_SGA_ExisteAcumuladoPendiente ( Conn, LineaPL ) then
       begin
+        gaLogFile.Write('existe');
         FS_SGA_UpdateAcumuladoPendiente ( Conn, CodigoEmpresa, LineaPL );
       end else begin
+        gaLogFile.Write('no existe');
         FS_SGA_InsertAcumuladoPendiente ( Conn, CodigoEmpresa, LineaPL );
       end;
 
@@ -34867,6 +34907,151 @@ end;
 
 
 // ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ DESA ELS CODIS DE CAIXA ESCANEJATS EN UN MOVIMENT D'STOCK             │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// Entrades i sortides manuals i traspassos de la PDA. El paràmetre Scans arriba
+// com {"List":[{"FechaLectura","Cantidad","CantidadBase","ScanCode","EXTRA1",
+// "EXTRA2"}]} i cada lectura es desa a FS_SGA_MovimientosAlmacen_Scans amb el
+// MovPosicion de la fila que el moviment ha escrit a FS_SGA_MovimientosAlmacen
+// (en un traspàs, MovPosicion = sortida de l'origen i MovPosicionDestino =
+// entrada al destí).
+//
+// Només es desa si les lectures sumen la quantitat del moviment: si l'operari
+// l'ha teclejada, les caixes ja no quadren i no se'n desa cap. Quan s'arriba
+// aquí el moviment ja està fet, així que un error en desar les lectures només
+// es registra al log i no fa fallar l'operació.
+procedure _MOVSCANS_Guardar (
+  Conn: TADOConnection;
+  const Mov: TSGAMovimientoStock;
+  const OrigenMovimiento: String;
+  const MovPosicionDestino: String;
+  const CodigoAlmacenDestino: String;
+  const CodigoUbicacionDestino: String;
+  const Scans: String
+);
+var
+  JSonObject: TJSONObject;
+  JSonPair: TJSONPair;
+  JSonArray: TJSONArray;
+  lJSonValue: TJSonValue;
+  fTotal, fTotalBase: Double;
+  iNum: Integer;
+  dLectura: TDateTime;
+  sLectura: String;
+  sMovPosicionDestino: String;
+  fs: TFormatSettings;
+  sSQL: String;
+begin
+
+  if Trim(Scans)='' then Exit;
+
+  JSonObject := _Parse_JSonObject ( Scans );
+  if JSonObject=nil then Exit;
+
+  sSQL := '';
+  try
+    try
+
+      JSonPair := JSonObject.Get('List');
+      if (JSonPair=nil) or not (JSonPair.JsonValue is TJSONArray) then Exit;
+      JSonArray := TJSONArray(JSonPair.JsonValue);
+
+      // Les lectures han de sumar la quantitat del moviment (en la unitat del
+      // moviment o en la base: amb factor de conversió 0 només quadra una de les dues).
+      fTotal     := 0;
+      fTotalBase := 0;
+      iNum       := 0;
+      for lJSonValue in JSonArray do
+      begin
+        fTotal     := fTotal     + FS_StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ), 0 );
+        fTotalBase := fTotalBase + FS_StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'CantidadBase' ), 0 );
+        Inc(iNum);
+      end;
+
+      if iNum=0 then Exit;
+
+      if (Abs(fTotal - Mov.Unidades) > 0.0001) and (Abs(fTotalBase - Mov.UnidadesBase) > 0.0001) then
+      begin
+        gaLogFile.Write (
+          'Escaneos del movimiento no guardados: la suma (' + FloatToStr(fTotal) + ' / ' + FloatToStr(fTotalBase) +
+          ') no coincide con las unidades del movimiento (' + FloatToStr(Mov.Unidades) + ' / ' + FloatToStr(Mov.UnidadesBase) + ')',
+          CONST_LOGID_GENERAL, LOG_LEVEL_INFO );
+        Exit;
+      end;
+
+      // La PDA envia la data de lectura com yyyy-mm-dd hh:nn:ss, independent
+      // de la configuració regional del servidor.
+      fs := TFormatSettings.Create;
+      fs.DateSeparator   := '-';
+      fs.ShortDateFormat := 'yyyy-mm-dd';
+      fs.TimeSeparator   := ':';
+      fs.LongTimeFormat  := 'hh:nn:ss';
+
+      if MovPosicionDestino='' then
+        sMovPosicionDestino := 'NULL'
+      else
+        sMovPosicionDestino := '''' + SQL_GUID_ToStr(MovPosicionDestino) + '''';
+
+      for lJSonValue in JSonArray do
+      begin
+
+        dLectura := StrToDateTimeDef ( _Get_JSonValue ( lJSonValue, 'FechaLectura' ), 0, fs );
+        if dLectura=0 then
+          sLectura := 'NULL'
+        else
+          sLectura := SQL_DateTimeToStr(dLectura);
+
+        sSQL :=
+          'INSERT INTO FS_SGA_MovimientosAlmacen_Scans ( CodigoEmpresa, Ejercicio, FechaRegistro, FechaLectura, ' +
+          '  CodigoUsuario, OrigenMovimiento, MovPosicion, MovPosicionDestino, MovOrigen, CodigoAlmacen, ' +
+          '  CodigoUbicacion, CodigoAlmacenDestino, CodigoUbicacionDestino, Matricula, CodigoArticulo, Partida, ' +
+          '  CodigoTalla01_, CodigoColor_, UnidadMedida, UnidadMedidaBase, Cantidad, CantidadBase, ' +
+          '  ScanCode, EXTRA1, EXTRA2 ) ' +
+          'VALUES ( ' +
+          IntToStr(Mov.CodigoEmpresa) + ', ' +
+          IntToStr(Mov.Ejercicio) + ', ' +
+          'GETDATE(), ' +
+          sLectura + ', ' +
+          IntToStr(Mov.CodigoUsuario) + ', ' +
+          '''' + SQL_Str(OrigenMovimiento) + ''', ' +
+          '''' + SQL_GUID_ToStr(Mov.MovPosicion) + ''', ' +
+          sMovPosicionDestino + ', ' +
+          '''' + SQL_GUID_ToStr(Mov.MovOrigen) + ''', ' +
+          '''' + SQL_Str(Mov.CodigoAlmacen) + ''', ' +
+          '''' + SQL_Str(Mov.CodigoUbicacion) + ''', ' +
+          '''' + SQL_Str(CodigoAlmacenDestino) + ''', ' +
+          '''' + SQL_Str(CodigoUbicacionDestino) + ''', ' +
+          '''' + SQL_Str(Mov.Matricula) + ''', ' +
+          '''' + SQL_Str(Mov.CodigoArticulo) + ''', ' +
+          '''' + SQL_Str(Mov.Partida) + ''', ' +
+          '''' + SQL_Str(Mov.CodigoTalla) + ''', ' +
+          '''' + SQL_Str(Mov.CodigoColor) + ''', ' +
+          '''' + SQL_Str(Mov.UnidadMedida) + ''', ' +
+          '''' + SQL_Str(Mov.UnidadMedidaBase) + ''', ' +
+          SQL_FloatToStr(FS_StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ), 0 )) + ', ' +
+          SQL_FloatToStr(FS_StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'CantidadBase' ), 0 )) + ', ' +
+          '''' + SQL_Str(Copy(_Get_JSonValue ( lJSonValue, 'ScanCode' ), 1, 255)) + ''', ' +
+          '''' + SQL_Str(Copy(_Get_JSonValue ( lJSonValue, 'EXTRA1' ), 1, 255)) + ''', ' +
+          '''' + SQL_Str(Copy(_Get_JSonValue ( lJSonValue, 'EXTRA2' ), 1, 255)) + ''' ' +
+          ')';
+
+        SQL_Execute_NoRes ( Conn, sSQL );
+
+      end;
+
+    except
+      on E:Exception do
+        gaLogFile.Write_DBException ( E, sSQL, 'Error al guardar los escaneos del movimiento', CONST_LOGID_BBDD );
+    end;
+  finally
+    JSonObject.Free;
+  end;
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
 // │ REALITZAR UN MOVIMENT D'ENTRADA D'STOCK                               │ \\
 // └───────────────────────────────────────────────────────────────────────┘ \\
 procedure WebModule1entradaStockAction
@@ -35338,6 +35523,10 @@ begin
         sMsg := E.Message;
       end;
     end;
+
+    // Caixes escanejades, vinculades al MovPosicion de la fila que s'acaba d'escriure
+    if not bErr then
+      _MOVSCANS_Guardar ( Conn, gaMov, 'E', '', '', '', contentfields.values['Scans'] );
 
   end;
 
@@ -37294,6 +37483,9 @@ begin
       Exit;
     end;
 
+    // Caixes escanejades, vinculades al MovPosicion de la fila que s'acaba d'escriure
+    _MOVSCANS_Guardar ( Conn, gaMov, 'S', '', '', '', contentfields.values['Scans'] );
+
   end;
 
   {$REGION 'Quadre de l''stock de SAGE amb el del SGA'}
@@ -37429,6 +37621,311 @@ begin
   *)
 
   {$ENDREGION}
+
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ DONAR DE BAIXA CAIXES (SORTIDA D'STOCK DE DIVERSOS ARTICLES ALHORA)   │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// Opció "Dar de baja cajas" de la PDA (paràmetre 195). Rep la ubicació (i
+// matrícula) d'origen i totes les caixes escanejades:
+//
+//   Scans={"List":[{"CodigoArticulo","Partida","CodigoTalla","CodigoColor",
+//          "GrupoTalla","UnidadMedida","UnidadMedidaBase","Cantidad",
+//          "CantidadBase","FechaLectura","ScanCode","EXTRA1","EXTRA2"}]}
+//
+// Les agrupa per article / partida / talla / color / unitat de mesura i fa una
+// sortida per grup cridant WebModule1salidaStockAction, de manera que cada
+// grup passa exactament per la mateixa lògica que una sortida manual (SGA,
+// Sage, quadre d'estoc i FS_SGA_MovimientosAlmacen_Scans amb el seu
+// MovPosicion).
+//
+// Abans de fer cap moviment es comprova l'estoc de tots els grups: si en falta
+// en algun, no se'n fa cap.
+procedure WebModule1bajaCajasAction
+ ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+type
+  TBajaCajasGrupo = record
+    CodigoArticulo: String;
+    Partida: String;
+    CodigoTalla: String;
+    CodigoColor: String;
+    GrupoTalla: Integer;
+    UnidadMedida: String;
+    UnidadMedidaBase: String;
+    Unidades: Double;
+    UnidadesBase: Double;
+    Scans: String;
+    NumScans: Integer;
+  end;
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  CodigoUsuario: Integer;
+  UUID: String;
+  CodigoAlmacen: String;
+  CodigoUbicacion: String;
+  Matricula: String;
+  Comentario: String;
+  JSonObject: TJSONObject;
+  JSonPair: TJSONPair;
+  JSonArray: TJSONArray;
+  lJSonValue: TJSonValue;
+  Grupos: array of TBajaCajasGrupo;
+  slClaves: TStringList;
+  sClave: String;
+  i, idx, iNumScans: Integer;
+  fStock, fStockBase: Double;
+  sUMBase: String;
+  sMsg: String;
+  sParamsGrupo: String;
+  sResultGrupo: String;
+  iStatusGrupo: Integer;
+  sStatusGrupo: String;
+  iFetes: Integer;
+{$ENDREGION}
+
+  function _Msg ( const Texto: String ): String;
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(Texto) + '","Data":[]}';
+  end;
+
+  function _DescripcionGrupo ( const G: TBajaCajasGrupo ): String;
+  begin
+    Result := G.CodigoArticulo;
+    if G.Partida<>'' then Result := Result + ' partida ' + G.Partida;
+    if G.CodigoTalla<>'' then Result := Result + ' talla ' + G.CodigoTalla;
+    if G.CodigoColor<>'' then Result := Result + ' color ' + G.CodigoColor;
+    Result := Result + ' (' + G.UnidadMedida + ')';
+  end;
+
+  // Missatge d'error de la resposta JSON de WebModule1salidaStockAction
+  function _MensajeResultado ( const R: String ): String;
+  var
+    JO: TJSONObject;
+  begin
+    Result := '';
+    JO := _Parse_JSonObject ( R );
+    if JO=nil then Exit;
+    try
+      Result := _Get_JSonValue ( JO, 'Message' );
+    finally
+      JO.Free;
+    end;
+  end;
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0 );
+  if EmpresaOrigen=0 then begin
+    Result := _Msg('Código de empresa no especificado');
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  CodigoUsuario := StrToIntDef(contentfields.Values['CodigoUsuario'], 0 );
+  UUID          := contentfields.values['UUID'];
+  CodigoAlmacen := contentfields.values['CodigoAlmacen'];
+  Matricula     := contentfields.values['Matricula'];
+  Comentario    := contentfields.values['Comentario'];
+  if Comentario='' then
+    Comentario := 'Baja de cajas PDA';
+
+  if CodigoAlmacen='' then begin
+    Result := _Msg('Código de almacén no especificado');
+    Exit;
+  end;
+
+  CodigoUbicacion := FS_SGA_CodigoUbicacion_FromAlternativo ( Conn, CodigoEmpresa, contentfields.values['CodigoUbicacion'] );
+  if CodigoUbicacion='' then begin
+    Result := _Msg('Código de ubicación no especificado');
+    Exit;
+  end;
+
+  JSonObject := _Parse_JSonObject ( contentfields.values['Scans'] );
+  if JSonObject=nil then begin
+    Result := _Msg('No se han especificado las cajas');
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  slClaves := TStringList.Create;
+  try
+
+    {$REGION 'Agrupar les caixes per article / partida / talla / color / UM'}
+
+    JSonPair := JSonObject.Get('List');
+    if (JSonPair=nil) or not (JSonPair.JsonValue is TJSONArray) then begin
+      Result := _Msg('No se han especificado las cajas');
+      Exit;
+    end;
+    JSonArray := TJSONArray(JSonPair.JsonValue);
+
+    iNumScans := 0;
+    SetLength ( Grupos, 0 );
+
+    for lJSonValue in JSonArray do
+    begin
+
+      sClave :=
+        AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'CodigoArticulo' )) + '|' +
+        AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'Partida' )) + '|' +
+        AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'CodigoTalla' )) + '|' +
+        AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'CodigoColor' )) + '|' +
+        AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'UnidadMedida' ));
+
+      idx := slClaves.IndexOf ( sClave );
+      if idx<0 then
+      begin
+        idx := Length(Grupos);
+        SetLength ( Grupos, idx+1 );
+        slClaves.Add ( sClave );
+        Grupos[idx].CodigoArticulo   := _Get_JSonValue ( lJSonValue, 'CodigoArticulo' );
+        Grupos[idx].Partida          := _Get_JSonValue ( lJSonValue, 'Partida' );
+        Grupos[idx].CodigoTalla      := _Get_JSonValue ( lJSonValue, 'CodigoTalla' );
+        Grupos[idx].CodigoColor      := _Get_JSonValue ( lJSonValue, 'CodigoColor' );
+        Grupos[idx].GrupoTalla       := StrToIntDef ( _Get_JSonValue ( lJSonValue, 'GrupoTalla' ), 0 );
+        Grupos[idx].UnidadMedida     := AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'UnidadMedida' ));
+        Grupos[idx].UnidadMedidaBase := AnsiUpperCase(_Get_JSonValue ( lJSonValue, 'UnidadMedidaBase' ));
+        Grupos[idx].Unidades         := 0;
+        Grupos[idx].UnidadesBase     := 0;
+        Grupos[idx].Scans            := '';
+        Grupos[idx].NumScans         := 0;
+      end;
+
+      Grupos[idx].Unidades     := Grupos[idx].Unidades     + FS_StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'Cantidad' ), 0 );
+      Grupos[idx].UnidadesBase := Grupos[idx].UnidadesBase + FS_StrToFloatDef ( _Get_JSonValue ( lJSonValue, 'CantidadBase' ), 0 );
+      if Grupos[idx].Scans<>'' then
+        Grupos[idx].Scans := Grupos[idx].Scans + ',';
+      Grupos[idx].Scans := Grupos[idx].Scans + lJSonValue.ToJSON;
+      Inc ( Grupos[idx].NumScans );
+      Inc ( iNumScans );
+
+    end;
+
+    if Length(Grupos)=0 then begin
+      Result := _Msg('No se han especificado las cajas');
+      Exit;
+    end;
+
+    {$ENDREGION}
+
+    {$REGION 'Comprovar l''estoc de TOTS els grups abans de fer cap moviment'}
+
+    sMsg := '';
+    for i := 0 to High(Grupos) do
+    begin
+
+      if ARTICULO_TratamientoSeries ( Conn, CodigoEmpresa, Grupos[i].CodigoArticulo ) then
+      begin
+        sMsg := sMsg + 'El artículo ' + Grupos[i].CodigoArticulo + ' tiene números de serie: no se puede dar de baja por cajas. ';
+        Continue;
+      end;
+
+      sUMBase := Grupos[i].UnidadMedidaBase;
+      FS_SGA_Check_UnidadMedidaBase ( Conn, CodigoEmpresa, Grupos[i].CodigoArticulo, Grupos[i].UnidadMedida, sUMBase );
+      if (Grupos[i].UnidadMedida<>'') and (sUMBase='') then
+        sUMBase := Grupos[i].UnidadMedida;
+      Grupos[i].UnidadMedidaBase := sUMBase;
+
+      fStock :=
+        SGA_ALMACEN_Stock (
+          Conn,
+          CodigoEmpresa,
+          CodigoAlmacen,
+          CodigoUbicacion,
+          Grupos[i].CodigoArticulo,
+          Grupos[i].Partida,
+          Grupos[i].CodigoTalla,
+          Grupos[i].CodigoColor,
+          Matricula,
+          Grupos[i].UnidadMedida,
+          Grupos[i].UnidadMedidaBase,
+          fStockBase,
+          gbTratamientoSimplificado
+        );
+
+      if (Grupos[i].Unidades > fStock + 0.0001) or (Grupos[i].UnidadesBase > fStockBase + 0.0001) then
+        sMsg := sMsg + 'No hay stock suficiente de ' + _DescripcionGrupo(Grupos[i]) +
+          ': se dan de baja ' + FloatToStr(Grupos[i].Unidades) + ' y hay ' + FloatToStr(fStock) + '. ';
+
+    end;
+
+    if sMsg<>'' then begin
+      Result := _Msg ( Trim(sMsg) + ' No se ha realizado ningún movimiento.' );
+      Exit;
+    end;
+
+    {$ENDREGION}
+
+    {$REGION 'Una sortida per grup, amb la mateixa lògica que /salidastock'}
+
+    iFetes := 0;
+    for i := 0 to High(Grupos) do
+    begin
+
+      // Main.pas ja ha descodificat el cos de la petició abans de partir-lo
+      // per '&', així que aquí es passen els valors tal qual.
+      sParamsGrupo :=
+        'CodigoEmpresa=' + IntToStr(EmpresaOrigen) +
+        '&CodigoUsuario=' + IntToStr(CodigoUsuario) +
+        '&UUID=' + UUID +
+        '&CodigoAlmacen=' + CodigoAlmacen +
+        '&CodigoUbicacion=' + CodigoUbicacion +
+        '&Matricula=' + Matricula +
+        '&CodigoArticulo=' + Grupos[i].CodigoArticulo +
+        '&Partida=' + Grupos[i].Partida +
+        '&CodigoTalla01_=' + Grupos[i].CodigoTalla +
+        '&CodigoColor_=' + Grupos[i].CodigoColor +
+        '&GrupoTalla_=' + IntToStr(Grupos[i].GrupoTalla) +
+        '&UnidadMedida=' + Grupos[i].UnidadMedida +
+        '&UnidadMedidaBase=' + Grupos[i].UnidadMedidaBase +
+        '&Unidades=' + SQL_FloatToStr(Grupos[i].Unidades) +
+        '&UnidadesBase=' + SQL_FloatToStr(Grupos[i].UnidadesBase) +
+        '&Comentario=' + Comentario +
+        '&Scans={"List":[' + Grupos[i].Scans + ']}';
+
+      sResultGrupo := '';
+      iStatusGrupo := 200;
+      sStatusGrupo := '';
+      WebModule1salidaStockAction ( Conn, sParamsGrupo, sRemoteAddr, iStatusGrupo, sStatusGrupo, sResultGrupo );
+
+      if Pos('"Result":"OK"', sResultGrupo)=0 then
+      begin
+        // L'estoc ja s'havia comprovat; si arriba aquí és un error inesperat a
+        // mig camí. Es diu quins grups s'han donat de baja i quins no.
+        sMsg := 'Error al dar de baja ' + _DescripcionGrupo(Grupos[i]) + ': ' + _MensajeResultado ( sResultGrupo ) + '.';
+        if iFetes>0 then
+          sMsg := sMsg + ' Ya se habían dado de baja ' + IntToStr(iFetes) + ' de ' + IntToStr(Length(Grupos)) + ' artículos.';
+        gaLogFile.Write ( 'BAJA CAJAS: ' + sMsg, CONST_LOGID_GENERAL, LOG_LEVEL_INFO );
+        Result := _Msg ( sMsg );
+        Exit;
+      end;
+
+      Inc ( iFetes );
+
+    end;
+
+    {$ENDREGION}
+
+    Result := '{"Result":"OK","Error":"","Data":[{"Salidas":' + IntToStr(iFetes) + ',"Cajas":' + IntToStr(iNumScans) + '}]}';
+
+  finally
+    FreeAndNil ( slClaves );
+    JSonObject.Free;
+  end;
 
 end;
 
@@ -40343,6 +40840,7 @@ var
   FactorConversion: Double;
   IdAprovisionamiento: Integer;
   gaMov: TSGAMovimientoStock;
+  gaMovSalidaScans: TSGAMovimientoStock;
   contentfields: TStringList;
   dFechaCaduca: TDate;
   EjercicioTrabajo: Integer;
@@ -40880,6 +41378,10 @@ begin
         Exit;
       end;
 
+      // Ens guardem la fila de sortida: les caixes escanejades s'hi vinculen
+      // quan s'hagi escrit també la d'entrada.
+      gaMovSalidaScans := gaMov;
+
     end;
 
     // Fem el moviment d'entrada a les taules del SGA
@@ -40920,7 +41422,15 @@ begin
     gaMov.TipoMovimiento         := 1;
     gaMov.Importe	               := gaMov.Precio * gaMov.UnidadesBase;
     gaMov.OrigenMovimiento       := OrigenMovimiento;
-    gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    // Entrada al destí. Amb canvi de magatzem (sense sèries), Sage genera ell mateix
+    // la contrapartida (RebajeStock) amb MovPosicion = MovTraspaso de la sortida.
+    // L'entrada del SGA ha de portar aquest mateix MovPosicion, com fa l'escriptori:
+    // si no, els triggers de MovimientoStock d'alguns clients (Picolor) no la troben
+    // i creen una segona entrada al SGA.
+    if bCambioMagatzem and (not TratamientoSeries) and (gaMov.MovTraspaso<>'') and (gaMov.MovTraspaso<>GUID0) then
+      gaMov.MovPosicion := gaMov.MovTraspaso
+    else
+      gaMov.MovPosicion := SQL_Execute ( Conn, 'SELECT NEWID()' );
 
     if TratamientoSeries then
     begin
@@ -41010,6 +41520,11 @@ begin
         gaLogFile.Write ( 'ERROR: ' + Result, sIDCall );
         Exit;
       end;
+
+      // Caixes escanejades: MovPosicion = fila de sortida de l'origen,
+      // MovPosicionDestino = fila d'entrada al destí que s'acaba d'escriure.
+      _MOVSCANS_Guardar ( Conn, gaMovSalidaScans, 'T', gaMov.MovPosicion,
+        CodigoAlmacenDestino, CodigoUbicacionDestino, contentfields.values['Scans'] );
 
     end;
 
@@ -42824,6 +43339,12 @@ begin
 
   CodigoArticulo := (contentfields.values['CodigoArticulo']);
   LineasPosicion := SQL_GUID_ToStr((contentfields.values['LineasPosicion']));
+
+  // LineaPedidoAsignada la decideix el paràmetre 74 (llegit de BBDD), no la PDA:
+  // si la PDA no ha recarregat els paràmetres podria enviar la línia quan no toca.
+  if not bSepararPorLinea then
+    LineasPosicion := GUID0;
+
   sFechaCaduca   := Trim(contentfields.values['FechaCaducidad']);
 
   if sFechaCaduca<>'' then
@@ -55944,10 +56465,14 @@ begin
 
       // SORTIDA sense sèries: SGA + (si canvi de magatzem) SAGE com un sol moviment T (RebajeStock fa la contrapartida).
       gaMov.TipoMovimientoSGA  := [tmsgaMovimientoStock];
-      if bCambioMagatzem then
-        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock]
-      else
+      if bCambioMagatzem then begin
+        gaMov.TipoMovimientoSAGE := [tmsageMovimientoStock];
+        // Sage farà la contrapartida amb aquest MovTraspaso com a MovPosicion
+        gaMov.MovTraspaso        := SQL_Execute ( Conn, 'SELECT NEWID()' );
+      end else begin
         gaMov.TipoMovimientoSAGE := [];
+        gaMov.MovTraspaso        := GUID0;
+      end;
 
       if not bErr then try
         gaLogFile.Write ( 'SGA_FS_ALMACEN_MovimientoStock salida', sIDCall );
@@ -55973,7 +56498,15 @@ begin
     gaMov.CodigoUbicacion        := aUbicacionDestino.CodigoUbicacion;
     gaMov.TipoMovimiento         := 1;
     gaMov.Matricula              := MatriculaDestino;
-    gaMov.MovPosicion            := SQL_Execute ( Conn, 'SELECT NEWID()' );
+    // Entrada al destí. Amb canvi de magatzem (sense sèries), Sage genera ell mateix
+    // la contrapartida (RebajeStock) amb MovPosicion = MovTraspaso de la sortida.
+    // L'entrada del SGA ha de portar aquest mateix MovPosicion, com fa l'escriptori:
+    // si no, els triggers de MovimientoStock d'alguns clients (Picolor) no la troben
+    // i creen una segona entrada al SGA.
+    if bCambioMagatzem and (not TratamientoSeries) and (gaMov.MovTraspaso<>'') and (gaMov.MovTraspaso<>GUID0) then
+      gaMov.MovPosicion := gaMov.MovTraspaso
+    else
+      gaMov.MovPosicion := SQL_Execute ( Conn, 'SELECT NEWID()' );
 
     gaMov.Precio :=
       ARTICULO_ConsultarPrecioStock (
