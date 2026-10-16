@@ -2697,6 +2697,24 @@ begin
       bAsyncRequest := True;
     end
 
+    // Plano del almacen en la PDA (parametro 199): solo lectura.
+    else if (sCommand='/planoalmacen') then
+    begin
+      TAsyncWebModuleThread.Create(
+        SQLConn.ConnectionString,
+      sParams,
+      AConnection.PeerIP,
+      @WebModule1planoAlmacenAction,
+      HttpServer,
+      AConnection,
+      AConnection.ResponseHeader.ContentType,
+      AConnection.ResponseHeader.CharSet,
+      AConnection.ResponseHeader.ContentLanguage,
+      SLHeader
+      );
+      bAsyncRequest := True;
+    end
+
     else if (sCommand='/bajacajas') then
     begin
       TAsyncWebModuleThread.Create(

@@ -1878,7 +1878,7 @@
       "numero": "2.5.0",
       "estado": "abierta",
       "fechaInicio": "2026-06-23",
-      "fechaFin": "2026-09-25",
+      "fechaFin": "2026-10-16",
       "entradas": [
         {
           "fecha": "2026-06-23",
@@ -2885,6 +2885,245 @@
             "ca": "FS_SGA_PROC_ExpedirPreparacion_CUSTOM (Redisco) es reescriu amb l'arquitectura #Prep del procediment estàndard (cursor extern per línies, intern per partides, ordre per coincidència de partida i FEFO) més la casuística de Lote_: una línia amb UdNecesarias=0 i Lote_<>0 (LineasPedidoCliente) expedeix tot el preparat. Script 00153. Provat a Redisco(SGA), preparació 10: repartiment 50/50."
           },
           "id": "c127"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Dar de baja cajas de varios artículos a la vez",
+            "ca": "Donar de baixa caixes de diversos articles alhora"
+          },
+          "descripcion": {
+            "es": "Desde el terminal se escanean todas las cajas que salen de una ubicación o matrícula y se da salida de todas en una sola operación. Si falta stock de alguna, no se mueve ninguna.",
+            "ca": "Des del terminal s'escanegen totes les caixes que surten d'una ubicació o matrícula i se'n dona sortida en una sola operació. Si en falta estoc d'alguna, no se'n mou cap."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /bajacajas (parámetro 195). Agrupa los escaneos por artículo/partida/talla/color/UM y hace una salida por grupo con WebModule1salidaStockAction. Comprueba el stock de todos los grupos antes de mover nada.",
+            "ca": "Nou endpoint /bajacajas (paràmetre 195). Agrupa els escanejos per article/partida/talla/color/UM i fa una sortida per grup amb WebModule1salidaStockAction. Comprova l'estoc de tots els grups abans de moure res."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c128"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Las cajas escaneadas quedan registradas en cada movimiento",
+            "ca": "Les caixes escanejades queden registrades a cada moviment"
+          },
+          "descripcion": {
+            "es": "En entradas, salidas manuales y traspasos se guarda qué cajas se han leído, vinculadas al movimiento de stock. Si la cantidad se ha tecleado y no cuadra con las lecturas, no se guardan.",
+            "ca": "A les entrades, sortides manuals i traspassos es desa quines caixes s'han llegit, vinculades al moviment d'estoc. Si la quantitat s'ha teclejat i no quadra amb les lectures, no es desen."
+          },
+          "tecnico": {
+            "es": "Parámetro Scans ({\"List\":[...]}) guardado en FS_SGA_MovimientosAlmacen_Scans con el MovPosicion de la fila escrita (en traspasos, MovPosicion = salida y MovPosicionDestino = entrada). Un error al guardar solo se registra en el log.",
+            "ca": "Paràmetre Scans ({\"List\":[...]}) desat a FS_SGA_MovimientosAlmacen_Scans amb el MovPosicion de la fila escrita (en traspassos, MovPosicion = sortida i MovPosicionDestino = entrada). Un error en desar només es registra al log."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c129"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "Los traspasos entre almacenes ya no duplican la entrada",
+            "ca": "Els traspassos entre magatzems ja no dupliquen l'entrada"
+          },
+          "descripcion": {
+            "es": "Al traspasar stock a otro almacén desde el terminal, en algunas instalaciones la entrada aparecía dos veces en el SGA. Ahora se registra una sola, igual que desde el escritorio.",
+            "ca": "En traspassar estoc a un altre magatzem des del terminal, en algunes instal·lacions l'entrada sortia dues vegades al SGA. Ara se'n registra una sola, igual que des de l'escriptori."
+          },
+          "tecnico": {
+            "es": "La entrada del SGA lleva como MovPosicion el MovTraspaso de la salida, que es el que Sage usa en su contrapartida (RebajeStock). Así los triggers de MovimientoStock la encuentran y no crean otra.",
+            "ca": "L'entrada del SGA porta com a MovPosicion el MovTraspaso de la sortida, que és el que Sage fa servir a la seva contrapartida (RebajeStock). Així els triggers de MovimientoStock la troben i no en creen una altra."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c130"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "mejora",
+          "titulo": {
+            "es": "No se puede expedir de más en artículos con varias líneas",
+            "ca": "No es pot expedir de més en articles amb diverses línies"
+          },
+          "descripcion": {
+            "es": "Cuando una preparación tiene varias líneas del mismo artículo, el terminal sabe cuánto queda preparado pendiente de expedir y no deja pasarse cambiando de línea.",
+            "ca": "Quan una preparació té diverses línies del mateix article, el terminal sap quant en queda de preparat pendent d'expedir i no deixa passar-se'n canviant de línia."
+          },
+          "tecnico": {
+            "es": "/detalleexpediciontc devuelve UdPendientesExpedir(Base) (FS_SGA_AcumuladoPendiente con LineaPedidoCliente = GUID0) y NumLineasArticulo.",
+            "ca": "/detalleexpediciontc retorna UdPendientesExpedir(Base) (FS_SGA_AcumuladoPendiente amb LineaPedidoCliente = GUID0) i NumLineasArticulo."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c131"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "Se respeta el peso y volumen del palet que introduce el usuario",
+            "ca": "Es respecta el pes i el volum del palet que introdueix l'usuari"
+          },
+          "descripcion": {
+            "es": "Al guardar los datos de un palet en el packing list, el peso bruto y el volumen tecleados ya no se sustituyen por la suma de las cajas.",
+            "ca": "En desar les dades d'un palet al packing list, el pes brut i el volum teclejats ja no se substitueixen per la suma de les caixes."
+          },
+          "tecnico": {
+            "es": "updatePackingListPalet deja de llamar a _RecalcPaletFromCajas y devuelve los valores guardados.",
+            "ca": "updatePackingListPalet deixa de cridar _RecalcPaletFromCajas i retorna els valors desats."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c132"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "La preparación separa por línea según el parámetro actual",
+            "ca": "La preparació separa per línia segons el paràmetre actual"
+          },
+          "descripcion": {
+            "es": "Al preparar, el servidor decide si el material se asigna a la línea del pedido según el parámetro de desglose por línea, aunque el terminal no haya recargado los parámetros tras cambiarlo.",
+            "ca": "En preparar, el servidor decideix si el material s'assigna a la línia de la comanda segons el paràmetre de desglossament per línia, encara que el terminal no hagi recarregat els paràmetres després de canviar-lo."
+          },
+          "tecnico": {
+            "es": "WebModule1updateUnidadesPreparacionAction aplica el parámetro 74 leído de BBDD (LineasPosicion = GUID0 si es FALSE), igual que las versiones TC. LineaPedidoAsignada de FS_SGA_AcumuladoPendiente ya no depende de la PDA. Requiere además el script 00162 del SGA: la VERSIÓN 2 de la ruta leía el 74 al revés y devolvía GUID0 en /listpreparacionordenada.",
+            "ca": "WebModule1updateUnidadesPreparacionAction aplica el paràmetre 74 llegit de BBDD (LineasPosicion = GUID0 si és FALSE), igual que les versions TC. LineaPedidoAsignada de FS_SGA_AcumuladoPendiente ja no depèn de la PDA. Cal també l'script 00162 del SGA: la VERSIÓ 2 de la ruta llegia el 74 al revés i retornava GUID0 a /listpreparacionordenada."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c133"
+        },
+        {
+          "fecha": "2026-10-12",
+          "tipo": "mejora",
+          "titulo": {
+            "es": "El informe de packing list dispone de todos los datos del cliente",
+            "ca": "L'informe de packing list disposa de totes les dades del client"
+          },
+          "descripcion": {
+            "es": "Las plantillas del packing list pueden mostrar cualquier dato del cliente del pedido, no solo el código y la razón social.",
+            "ca": "Les plantilles del packing list poden mostrar qualsevol dada del client de la comanda, no només el codi i la raó social."
+          },
+          "commits": [
+            "b5b15c7"
+          ],
+          "id": "c134"
+        },
+        {
+          "fecha": "2026-10-16",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Plano del almacén en el terminal",
+            "ca": "Plànol del magatzem al terminal"
+          },
+          "descripcion": {
+            "es": "El terminal puede mostrar el plano del almacén dibujado desde el escritorio, con las ubicaciones bloqueadas, las que tienen stock y dónde está el artículo que se busca.",
+            "ca": "El terminal pot mostrar el plànol del magatzem dibuixat des de l'escriptori, amb les ubicacions bloquejades, les que tenen estoc i on és l'article que es busca."
+          },
+          "tecnico": {
+            "es": "Nuevo endpoint /planoalmacen (solo lectura, parámetro 199). Devuelve PlanoJson de FS_SGA_Planos y las ubicaciones de todos los almacenes del plano con estado y stock. Sin tablas o sin plano: \"plano\": null.",
+            "ca": "Nou endpoint /planoalmacen (només lectura, paràmetre 199). Retorna PlanoJson de FS_SGA_Planos i les ubicacions de tots els magatzems del plànol amb estat i estoc. Sense taules o sense plànol: \"plano\": null."
+          },
+          "id": "c135"
+        },
+        {
+          "fecha": "2026-10-16",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Ruta de preparación repartida por partida",
+            "ca": "Ruta de preparació repartida per partida"
+          },
+          "descripcion": {
+            "es": "Cuando la ruta reparte una línea entre varias partidas o ubicaciones, el terminal muestra cuánto coger de cada una y da cada tramo por terminado al completarlo, aunque la línea siga pendiente.",
+            "ca": "Quan la ruta reparteix una línia entre diverses partides o ubicacions, el terminal mostra quant n'ha d'agafar de cadascuna i dona cada tram per acabat en completar-lo, encara que la línia continuï pendent."
+          },
+          "tecnico": {
+            "es": "Parámetro 198 con cálculo de ruta VERSIÓN 2 (141). /listpreparacionordenada añade UdRetiradasFila(Base) por partida y filtra las filas ya cogidas; el detalle de la línea devuelve \"Ruta\" con todas sus filas. Sin el parámetro, sin cambios.",
+            "ca": "Paràmetre 198 amb càlcul de ruta VERSIÓ 2 (141). /listpreparacionordenada afegeix UdRetiradasFila(Base) per partida i filtra les files ja agafades; el detall de la línia retorna \"Ruta\" amb totes les seves files. Sense el paràmetre, sense canvis."
+          },
+          "id": "c136"
+        },
+        {
+          "fecha": "2026-10-16",
+          "tipo": "correccion",
+          "titulo": {
+            "es": "Un error en una regularización ya no bloquea el servidor",
+            "ca": "Un error en una regularització ja no bloqueja el servidor"
+          },
+          "descripcion": {
+            "es": "Si una regularización de stock fallaba a medias, podía dejar el servidor sin poder hacer más operaciones (\"se superó la capacidad\"). Ahora la operación se deshace y se informa del error.",
+            "ca": "Si una regularització d'estoc fallava a mitges, podia deixar el servidor sense poder fer més operacions (\"se superó la capacidad\"). Ara l'operació es desfà i s'informa de l'error."
+          },
+          "tecnico": {
+            "es": "Todo el bloque dentro de la transacción de regularización queda protegido con try/except: una excepción marca bErr y se hace rollback en vez de salir con la transacción abierta.",
+            "ca": "Tot el bloc dins la transacció de regularització queda protegit amb try/except: una excepció marca bErr i es fa rollback en lloc de sortir amb la transacció oberta."
+          },
+          "id": "c137"
+        },
+        {
+          "fecha": "2026-10-16",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "Albarán nuevo para la recepción de restos",
+            "ca": "Albarà nou per a la recepció de restes"
+          },
+          "descripcion": {
+            "es": "Opcionalmente, la recepción del material que faltaba genera su propio albarán en lugar de continuar el de la recepción original.",
+            "ca": "Opcionalment, la recepció del material que faltava genera el seu propi albarà en lloc de continuar el de la recepció original."
+          },
+          "tecnico": {
+            "es": "Parámetro 200 (FS_PARAMS_SGA_AlbaranNuevoRestosRecepcion), por defecto FALSE. Con TRUE no se reutiliza el albarán de la recepción vinculada (174).",
+            "ca": "Paràmetre 200 (FS_PARAMS_SGA_AlbaranNuevoRestosRecepcion), per defecte FALSE. Amb TRUE no es reaprofita l'albarà de la recepció vinculada (174)."
+          },
+          "id": "c138"
+        },
+        {
+          "fecha": "2026-10-16",
+          "tipo": "mejora",
+          "titulo": {
+            "es": "Listado de checklists con los de todos y filtro de fechas",
+            "ca": "Llistat de checklists amb els de tothom i filtre de dates"
+          },
+          "descripcion": {
+            "es": "El listado de checklists del menú principal incluye los abiertos y los terminados, puede mostrar los de todos los usuarios y filtrarse por fecha. Indica quién lo empezó y cuándo se validó.",
+            "ca": "El llistat de checklists del menú principal inclou els oberts i els acabats, pot mostrar els de tots els usuaris i filtrar-se per data. Indica qui el va començar i quan es va validar."
+          },
+          "tecnico": {
+            "es": "/listchecklists: nuevo Mode=MINE (estado <> anulado), SoloMios=0 y FechaDesde/FechaHasta (yyyymmdd) también en PENDING. Devuelve UsuarioInicio, UsuarioTxt y FechaValidacion.",
+            "ca": "/listchecklists: nou Mode=MINE (estat <> anul·lat), SoloMios=0 i FechaDesde/FechaHasta (yyyymmdd) també a PENDING. Retorna UsuarioInicio, UsuarioTxt i FechaValidacion."
+          },
+          "id": "c139"
+        },
+        {
+          "fecha": "2026-10-16",
+          "tipo": "nueva",
+          "titulo": {
+            "es": "El palet conserva su matrícula al entrar en el almacén de destino",
+            "ca": "El palet conserva la matrícula en entrar al magatzem de destinació"
+          },
+          "descripcion": {
+            "es": "En albaranes con almacén de contrapartida, el palet entra en el almacén de destino con su matrícula y queda en la ubicación de recepción, así se puede escanear allí. Se puede configurar para que entre suelto, como antes.",
+            "ca": "En albarans amb magatzem de contrapartida, el palet entra al magatzem de destinació amb la seva matrícula i queda a la ubicació de recepció, de manera que s'hi pot escanejar. Es pot configurar perquè entri solt, com abans."
+          },
+          "tecnico": {
+            "es": "Parámetro 201 (FS_PARAMS_SGA_EntradaContrapartidaConMatricula, por defecto TRUE). SAGE_SGA_DarDeBajaPaletsAlbaranados mueve el palet a la ubicación de la entrada de contrapartida en vez de darlo de baja, si todo su material está allí.",
+            "ca": "Paràmetre 201 (FS_PARAMS_SGA_EntradaContrapartidaConMatricula, per defecte TRUE). SAGE_SGA_DarDeBajaPaletsAlbaranados mou el palet a la ubicació de l'entrada de contrapartida en lloc de donar-lo de baixa, si tot el seu material hi és."
+          },
+          "origen": "common",
+          "id": "c140"
         }
       ]
     }

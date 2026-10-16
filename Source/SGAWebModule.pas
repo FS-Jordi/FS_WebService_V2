@@ -96,6 +96,7 @@ procedure WebModule1cabeceraPedidoVentaAction ( Conn: TADOConnection; sParams, s
 procedure WebModule1cabeceraPedidoCompraAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1salidaStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1bajaCajasAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+procedure WebModule1planoAlmacenAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1traspasoStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1cambiarUnidadMedidaAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 procedure WebModule1regularizacionStockAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
@@ -10123,6 +10124,256 @@ begin
 
 end;
 
+// Parametro 198 (Repartir la ruta por partida) activo y calculo de ruta
+// VERSION 2 (141). Con la VERSION 1 la ruta no esta completa y no se puede
+// repartir una linea entre partidas. Sin el parametro, todo como antes.
+function FS_SGA_RutaPorPartidaActiva ( Conn: TADOConnection; EmpresaOrigen: Integer ): Boolean;
+var
+  s198, s141: String;
+begin
+  s198 := SQL_Execute ( Conn,
+    'SELECT TOP 1 UPPER(parametro_value) FROM FS_SGA_Parametros WITH (NOLOCK) ' +
+    'WHERE parametro_CodigoEmpresa IN ( 0, ' + IntToStr(EmpresaOrigen) + ' ) AND parametro_id = 198 ' +
+    'ORDER BY parametro_CodigoEmpresa DESC' );
+  s141 := SQL_Execute ( Conn,
+    'SELECT TOP 1 UPPER(parametro_value) FROM FS_SGA_Parametros WITH (NOLOCK) ' +
+    'WHERE parametro_CodigoEmpresa IN ( 0, ' + IntToStr(EmpresaOrigen) + ' ) AND parametro_id = 141 ' +
+    'ORDER BY parametro_CodigoEmpresa DESC' );
+  // 'VERSIÓN 2': se mira solo el final para no depender del acento.
+  Result := ( Trim(s198) = 'TRUE' ) and AnsiEndsStr ( ' 2', Trim(s141) );
+end;
+
+// Campos UdRetiradasFila(Base) de /listpreparacionordenada. Solo existen en la
+// consulta con el parametro 198 activo: NO usar IfThen aqui, porque evalua los
+// dos argumentos y el FieldByName fallaria con el parametro desactivado.
+function FS_SGA_JSON_RetiradasFila ( Q: TADOQuery; bRutaPorPartida: Boolean ): String;
+begin
+  Result := '';
+  if not bRutaPorPartida then Exit;
+  Result :=
+    '"UdRetiradasFila":' + SQL_FloatToStr(Q.FieldByName('UdRetiradasFila').AsFloat) + ',' +
+    '"UdRetiradasFilaBase":' + SQL_FloatToStr(Q.FieldByName('UdRetiradasFilaBase').AsFloat) + ',';
+end;
+
+
+// ┌───────────────────────────────────────────────────────────────────────┐ \\
+// │ PLANO DEL ALMACEN PARA LA PDA (parametro 199)                         │ \\
+// └───────────────────────────────────────────────────────────────────────┘ \\
+//
+// POST /planoalmacen  &CodigoAlmacen=ALM5 [&CodigoArticulo=XXX]
+//
+// Solo lectura. Devuelve el plano guardado desde el escritorio (Consultas >
+// Plano del almacen) que contiene el almacen, y las ubicaciones de todos los
+// almacenes del plano con lo minimo para pintarlo en la PDA:
+//
+//   Data[0] = { "plano": <PlanoJson tal cual, o null si no hay>,
+//               "idPlano", "nombre", "almacenes": [codigos],
+//               "ubicaciones": [{c, al, p ('alm|pasillo'), e, a, f,
+//                                b (bloqueada), i (inactiva),
+//                                n (articulos con stock), art (1 = tiene el
+//                                articulo pedido)}] }
+//
+// El formato de "plano" y la clave 'alm|pasillo' son los de la pagina del
+// escritorio (PlanoAlmacen\uPlanoAlmacen_Data.pas): la PDA pinta el mismo
+// dibujo. Sin el parametro 199 activo responde con error; sin las tablas del
+// plano o sin plano para el almacen, con "plano": null.
+procedure WebModule1planoAlmacenAction ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
+
+{$REGION 'Declaració de variables'}
+var
+  CodigoEmpresa: TOrigenCodigoEmpresa;
+  contentfields: TStringList;
+  EmpresaOrigen: Integer;
+  CodigoAlmacen: String;
+  CodigoArticulo: String;
+  iIdPlano: Integer;
+  sNombre: String;
+  sPlanoJson: String;
+  sAlms: String;
+  sAlmsJson: String;
+  sUbic: String;
+  sSQL: String;
+  YY: Word;
+  Q: TADOQuery;
+{$ENDREGION}
+
+  function _Error ( const Texto: String ): String;
+  begin
+    Result := '{"Request":"' + JSON_StrWeb(contentfields.Text) + '","Result":"ERROR","Message":"' + JSON_Str(Texto) + '","Data":[]}';
+  end;
+
+begin
+
+  REQUEST_Split ( sParams, contentfields );
+
+  {$REGION 'Recuperació de paràmetres'}
+
+  EmpresaOrigen := StrToIntDef(contentfields.Values['CodigoEmpresa'], 0);
+  if EmpresaOrigen = 0 then
+  begin
+    Result := _Error('Código de empresa no especificado');
+    Exit;
+  end;
+
+  SAGE_GetEmpresasStocks ( Conn, EmpresaOrigen, '', CodigoEmpresa );
+
+  if UpperCase(Trim(VarToStr(SQL_Execute ( Conn,
+       'SELECT TOP 1 UPPER(parametro_value) FROM FS_SGA_Parametros WITH (NOLOCK) ' +
+       'WHERE parametro_CodigoEmpresa IN ( 0, ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ) AND parametro_id = 199 ' +
+       'ORDER BY parametro_CodigoEmpresa DESC' )))) <> 'TRUE' then
+  begin
+    Result := _Error('El plano del almacén no está activado en la PDA (parámetro 199)');
+    Exit;
+  end;
+
+  CodigoAlmacen  := Trim(contentfields.Values['CodigoAlmacen']);
+  CodigoArticulo := Trim(contentfields.Values['CodigoArticulo']);
+  if CodigoAlmacen = '' then
+  begin
+    Result := _Error('Almacén no especificado');
+    Exit;
+  end;
+
+  {$ENDREGION}
+
+  {$REGION 'Plano del almacén'}
+
+  // Las tablas del plano las crea PlanoAlmacen_Instalar.sql: sin ellas, sin plano.
+  if VarToStr(SQL_Execute ( Conn,
+       'SELECT CASE WHEN OBJECT_ID(''dbo.FS_SGA_Planos'') IS NULL OR OBJECT_ID(''dbo.FS_SGA_Planos_Almacenes'') IS NULL ' +
+       'THEN 0 ELSE 1 END' )) <> '1' then
+  begin
+    Result := '{"Result":"OK","Message":"","Data":[{"plano":null}]}';
+    Exit;
+  end;
+
+  iIdPlano   := 0;
+  sNombre    := '';
+  sPlanoJson := '';
+
+  Q := SQL_PrepareQuery ( Conn,
+    'SELECT TOP 1 p.IdPlano, p.Nombre, p.PlanoJson ' +
+    'FROM dbo.FS_SGA_Planos_Almacenes pa WITH (NOLOCK) ' +
+    'INNER JOIN dbo.FS_SGA_Planos p WITH (NOLOCK) ' +
+    '   ON p.CodigoEmpresa = pa.CodigoEmpresa AND p.IdPlano = pa.IdPlano ' +
+    'WHERE pa.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND pa.CodigoAlmacen = ''' + SQL_Str(CodigoAlmacen) + ''' ' );
+  try
+    Q.Open;
+    if not Q.Eof then
+    begin
+      iIdPlano   := Q.FieldByName('IdPlano').AsInteger;
+      sNombre    := Q.FieldByName('Nombre').AsString;
+      sPlanoJson := Trim(Q.FieldByName('PlanoJson').AsString);
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  if (iIdPlano = 0) or (sPlanoJson = '') then
+  begin
+    Result := '{"Result":"OK","Message":"","Data":[{"plano":null}]}';
+    Exit;
+  end;
+
+  // Almacenes del plano: las ubicaciones se cargan de todos (naves anexas).
+  sAlms     := '';
+  sAlmsJson := '';
+  Q := SQL_PrepareQuery ( Conn,
+    'SELECT CodigoAlmacen FROM dbo.FS_SGA_Planos_Almacenes WITH (NOLOCK) ' +
+    'WHERE CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' AND IdPlano = ' + IntToStr(iIdPlano) );
+  try
+    Q.Open;
+    while not Q.Eof do
+    begin
+      if sAlms <> '' then
+      begin
+        sAlms     := sAlms + ',';
+        sAlmsJson := sAlmsJson + ',';
+      end;
+      sAlms     := sAlms + '''' + SQL_Str(Trim(Q.FieldByName('CodigoAlmacen').AsString)) + '''';
+      sAlmsJson := sAlmsJson + '"' + JSON_Str(Trim(Q.FieldByName('CodigoAlmacen').AsString)) + '"';
+      Q.Next;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  if sAlms = '' then
+    sAlms := '''' + SQL_Str(CodigoAlmacen) + '''';
+
+  {$ENDREGION}
+
+  {$REGION 'Ubicaciones y stock'}
+
+  YY := SAGE_FECHA_AnoActivo ( Conn, CodigoEmpresa, Now() );
+
+  sSQL :=
+    'SELECT u.CodigoAlmacen, u.CodigoUbicacion, u.CodigoPasillo, u.CodigoEstanteria, u.Altura, u.Fondo, ' +
+    '  Bloq = ISNULL(u.Bloqueada,0), Inac = ISNULL(u.Inactiva,0), ' +
+    '  Refs = ISNULL(s.Refs,0), Art = ISNULL(s.Art,0) ' +
+    'FROM dbo.FS_SGA_ESTR_UBICA u WITH (NOLOCK) ' +
+    'LEFT JOIN ( ' +
+    '  SELECT CodigoAlmacen, CodigoUbicacion, COUNT(DISTINCT CodigoArticulo) AS Refs, ' +
+    '    MAX(CASE WHEN CodigoArticulo = ''' + SQL_Str(CodigoArticulo) + ''' THEN 1 ELSE 0 END) AS Art ' +
+    '  FROM dbo.FS_SGA_TABLE_AcumuladoStockActual ( ' + IntToStr(CodigoEmpresa.Stocks) + ', ' + IntToStr(YY) + ' ) ' +
+    '  WHERE UnidadesSaldoBase <> 0 AND CodigoAlmacen IN ( ' + sAlms + ' ) ' +
+    '  GROUP BY CodigoAlmacen, CodigoUbicacion ' +
+    ') s ON s.CodigoAlmacen = u.CodigoAlmacen AND s.CodigoUbicacion = u.CodigoUbicacion ' +
+    'WHERE u.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.EmpresaOrigen) + ' ' +
+    '  AND u.CodigoAlmacen IN ( ' + sAlms + ' )';
+
+  sUbic := '';
+  Q := SQL_PrepareQuery ( Conn, sSQL );
+  try
+    try
+      Q.Open;
+    except
+      on E:Exception do
+      begin
+        gaLogFile.Write_DBException ( E, sSQL, 'Error al recuperar las ubicaciones del plano', CONST_LOGID_BBDD );
+        Result := _Error(E.Message);
+        Exit;
+      end;
+    end;
+
+    while not Q.Eof do
+    begin
+      if sUbic <> '' then sUbic := sUbic + ',';
+      sUbic := sUbic + '{' +
+        '"c":"'  + JSON_Str(Trim(Q.FieldByName('CodigoUbicacion').AsString)) + '",' +
+        '"al":"' + JSON_Str(Trim(Q.FieldByName('CodigoAlmacen').AsString)) + '",' +
+        '"p":"'  + JSON_Str(Trim(Q.FieldByName('CodigoAlmacen').AsString) + '|' + Trim(Q.FieldByName('CodigoPasillo').AsString)) + '",' +
+        '"e":"'  + JSON_Str(Trim(Q.FieldByName('CodigoEstanteria').AsString)) + '",' +
+        '"a":"'  + JSON_Str(Trim(Q.FieldByName('Altura').AsString)) + '",' +
+        '"f":"'  + JSON_Str(Trim(Q.FieldByName('Fondo').AsString)) + '",' +
+        '"b":'   + IntToStr(Ord(Q.FieldByName('Bloq').AsBoolean)) + ',' +
+        '"i":'   + IntToStr(Ord(Q.FieldByName('Inac').AsBoolean)) + ',' +
+        '"n":'   + IntToStr(Q.FieldByName('Refs').AsInteger) + ',' +
+        '"art":' + IntToStr(Q.FieldByName('Art').AsInteger) +
+        '}';
+      Q.Next;
+    end;
+  finally
+    SQL_CloseFree ( Q );
+  end;
+
+  {$ENDREGION}
+
+  // PlanoJson se guarda como JSON valido (lo escribe el escritorio con
+  // JSON.stringify): va tal cual, sin volver a serializar.
+  Result :=
+    '{"Result":"OK","Message":"","Data":[{' +
+      '"idPlano":' + IntToStr(iIdPlano) + ',' +
+      '"nombre":"' + JSON_Str(sNombre) + '",' +
+      '"almacenes":[' + sAlmsJson + '],' +
+      '"plano":' + sPlanoJson + ',' +
+      '"ubicaciones":[' + sUbic + ']' +
+    '}]}';
+
+end;
+
+
 procedure WebModule1detallePreparacionOrdenAction
  ( Conn: TADOConnection; sParams, sRemoteAddr: String; var statusCode: Integer; var statusText: String; var Result: String );
 
@@ -10146,6 +10397,8 @@ var
   CodigoArticulo: String;
   sUbicaciones: String;
   sMovimientosRealizados: String;
+  sRuta: String;
+  QR: TADOQuery;
   Partida: String;
   PartidaSugerida: String;
   bError: Boolean;
@@ -10596,6 +10849,53 @@ begin
       Q.FieldByName('TrataNumerosSerieLc').AsInteger<>0
     );
 
+    // Totes les files de la ruta de la MATEIXA línia (una per ubicació +
+    // partida), amb el que la ruta ha assignat a cadascuna. La PDA en mostra
+    // la de la ubicació/partida triada i avisa si n'és fora. Es lliguen a la
+    // fila actual per rn per no haver de comparar el GUID de LineasPosicion.
+    sRuta := '';
+    if FS_SGA_RutaPorPartidaActiva ( Conn, CodigoEmpresa.EmpresaOrigen ) then
+    begin
+    QR := SQL_PrepareQuery ( Conn,
+      'SELECT r.CodigoUbicacion, ISNULL(r.PartidaSugerida,'''') AS PartidaSugerida, ' +
+      '  ISNULL(r.UdPickable,0) AS UdPickable, ISNULL(r.UdPickableBase,0) AS UdPickableBase ' +
+      'FROM FS_SGA_PreparacionOrdenada r WITH (NOLOCK) ' +
+      'INNER JOIN FS_SGA_PreparacionOrdenada c WITH (NOLOCK) ' +
+      '   ON c.CodigoEmpresa  = r.CodigoEmpresa ' +
+      '  AND c.PreparacionId  = r.PreparacionId ' +
+      '  AND c.rn             = ' + IntToStr(Q.FieldByName('rn').AsInteger) + ' ' +
+      '  AND c.CodigoArticulo = r.CodigoArticulo ' +
+      '  AND ISNULL(c.UnidadMedida,'''')   = ISNULL(r.UnidadMedida,'''') ' +
+      '  AND ISNULL(c.Partida,'''')        = ISNULL(r.Partida,'''') ' +
+      '  AND ISNULL(c.CodigoTalla01_,'''') = ISNULL(r.CodigoTalla01_,'''') ' +
+      '  AND ISNULL(c.CodigoColor_,'''')   = ISNULL(r.CodigoColor_,'''') ' +
+      '  AND c.LineasPosicion = r.LineasPosicion ' +
+      'WHERE r.PreparacionId = ' + IntToStr(IdPreparacion) + ' ' +
+      '  AND ISNULL(r.CodigoUbicacion,'''') <> '''' ' +
+      'ORDER BY r.rn' );
+    try
+      QR.Open;
+      while not QR.Eof do
+      begin
+        if sRuta <> '' then sRuta := sRuta + ',';
+        sRuta := sRuta + '{' +
+          '"CodigoUbicacion":"' + JSON_Str(QR.FieldByName('CodigoUbicacion').AsString) + '",' +
+          '"Partida":"' + JSON_Str(QR.FieldByName('PartidaSugerida').AsString) + '",' +
+          '"UdPickable":' + SQL_FloatToStr(QR.FieldByName('UdPickable').AsFloat) + ',' +
+          '"UdPickableBase":' + SQL_FloatToStr(QR.FieldByName('UdPickableBase').AsFloat) +
+          '}';
+        QR.Next;
+      end;
+    except
+      on E:Exception do
+      begin
+        gaLogFile.Write ( 'ERROR Ruta linea: ' + E.Message, sIDCall );
+        sRuta := '';
+      end;
+    end;
+    SQL_CloseFree ( QR );
+    end;
+
     if not bError then begin
 
       fUnidadesAgrupacion := Q.FieldByName('UnidadesAgrupacion').AsFloat;
@@ -10670,6 +10970,7 @@ begin
         '"UdPickable":' + SQL_FloatToStr(Q.FieldByName('UdPickable').AsFloat) + ',' +
         '"UdPickableBase":' + SQL_FloatToStr(Q.FieldByName('UdPickableBase').AsFloat) + ',' +
         '"FechaCaducaMin":"' + sFechaCaducaMin + '",' +
+        IfThen ( sRuta <> '', '"Ruta":[' + sRuta + '],', '' ) +
         JSonUnidadesMedida + ',' +
         sUbicaciones + ',' +
         sMovimientosRealizados +
@@ -34256,6 +34557,14 @@ begin
     end;
   end;
 
+  // Tot el que hi ha dins de la transaccio va protegit: una excepcio no
+  // capturada sortia del procediment sense commit ni rollback i la deixava
+  // oberta. En tancar la connexio del fil, ADO falla (transaccio pendent) i la
+  // sessio podia tornar al pool amb la transaccio viva: el seguent BeginTrans
+  // donava "No se puede crear una nueva transaccion, se supero la capacidad".
+  if not bErr then
+  try
+
   SGA_FS_ALMACEN_PrepareMov ( Conn, CodigoEmpresa, gaMov );
 
   gaMov.CodigoEmpresa          := CodigoEmpresa.Stocks;
@@ -34859,6 +35168,14 @@ begin
     end;
   end;
   *)
+
+  except
+    on E:Exception do begin
+      bErr := TRUE;
+      sMsg := 'Error en la regularización: ' + E.Message;
+      gaLogFile.Write ( 'regularizacion: excepción dentro de la transacción: ' + E.Message, CONST_LOGID_SGA, LOG_LEVEL_EXCEPTION );
+    end;
+  end;
 
   // Commit o rollback segons bErr
   if bTransOk then
@@ -40023,6 +40340,7 @@ var
   sGUIDOperacion: string;
   bIsCustomReport: Boolean;
   bMantenerAbierta: Boolean;
+  bAlbaranNuevoRestos: Boolean;
   // Albarà per comanda (veure el bloc de generació)
   QPed: TADOQuery;
   bAlbaranPorPedido: Boolean;
@@ -40144,6 +40462,10 @@ begin
   Q.Close;
   FreeAndNil(Q);
 
+  // Recepció de restes (paràmetre 174). Paràmetre 200 desactivat: continua
+  // l'albarà de la recepció original. Activat: genera un albarà nou.
+  PARAM_Read_Default ( Conn, 'FS_SGA_Parametros', FS_PARAMS_SGA_AlbaranNuevoRestosRecepcion, bAlbaranNuevoRestos, FALSE, CodigoEmpresa.EmpresaOrigen );
+
   if RecepcionIdVinculada>0 then
   begin
 
@@ -40155,7 +40477,16 @@ begin
     Q := SQL_PrepareQuery ( Conn, sSQL );
     Q.Open;
 
-    if not Q.EOF then
+    if bAlbaranNuevoRestos then
+    begin
+      // Si l'albarà de la recepció és el copiat de l'original (servei antic), no
+      // el continuem
+      if (not Q.EOF) and (Albaran<>'') and (Albaran = Q.FieldByName('Albaran').AsString) then
+      begin
+        Albaran      := '';
+        IdAlbaranPro := GUID0;
+      end;
+    end else if not Q.EOF then
     begin
       Albaran      := Q.FieldByName('Albaran').AsString;
       IdAlbaranPro := SQL_GUID_ToStr(Q.FieldByName('IdAlbaranPro').AsString);
@@ -51127,6 +51458,7 @@ procedure WebModule1listPreparacionOrdenadaAction
 
 {$REGION 'Declaració de variables'}
 var
+  bRutaPorPartida: Boolean;
   CodigoEmpresa: TOrigenCodigoEmpresa;
   IdPreparacion: Integer;
   sSQL: String;
@@ -51365,9 +51697,14 @@ begin
 
   sFieldTratamientoSeries := FS_SGA_TratamientoSeries ( Conn, CodigoEmpresa, gsCustomerCode, 'ART', '' );
 
+  // Parametro 198: preparado por fila (partida). Sin el, todo como antes.
+  bRutaPorPartida := FS_SGA_RutaPorPartidaActiva ( Conn, CodigoEmpresa.EmpresaOrigen );
+
   sSQL := 'SELECT ' +
           //'  ISNULL(fssa.UnidadesSaldo,0) AS UnidadesSaldo, '
           '  fspo.*, agrup.Agrupacion as Agrupacion, ' +
+          IfThen ( bRutaPorPartida,
+          '  ISNULL(ret.UdRetiradasFila,0) AS UdRetiradasFila, ISNULL(ret.UdRetiradasFilaBase,0) AS UdRetiradasFilaBase, ', '' ) +
           '  C.Color_ AS DescripcionColor, T.DescripcionTalla01_ AS DescripcionTalla, ' +
           '  ART.CodigoAlternativo, ART.CodigoAlternativo2, CTC.CodigoAlternativo AS CodigoAlternativoTC, ' +
           '  ART.GrupoTalla_ AS TratamientoTallas, ART.Colores_ AS TratamientoColores, ' + sFieldTratamientoSeries + ' AS TrataNumerosSerieLc ' +
@@ -51396,6 +51733,22 @@ begin
           '  AND CTC.CodigoArticulo = fspo.CodigoArticulo ' +
           '  AND CTC.CodigoTalla01_ = fspo.CodigoTalla01_ ' +
           '  AND CTC.CodigoColor_ = fspo.CodigoColor_ ' +
+          // Lo ya preparado de la partida de ESTA fila. UdRetiradas es de toda
+          // la linea y se repite en todas sus filas: con la linea repartida
+          // entre partidas, cada fila parecia tener lo de las otras.
+          // FS_SGA_AcumuladoPendiente guarda la partida pero no la ubicacion.
+          IfThen ( bRutaPorPartida,
+          'OUTER APPLY ( ' +
+          '  SELECT SUM(ap.Cantidad) AS UdRetiradasFila, SUM(ap.CantidadBase) AS UdRetiradasFilaBase ' +
+          '  FROM FS_SGA_AcumuladoPendiente ap WITH (NOLOCK) ' +
+          '  WHERE ap.IdPreparacion = fspo.PreparacionId ' +
+          '    AND ap.CodigoArticulo = fspo.CodigoArticulo ' +
+          '    AND ISNULL(ap.CodigoTalla01_,'''') = ISNULL(fspo.CodigoTalla01_,'''') ' +
+          '    AND ISNULL(ap.CodigoColor_,'''') = ISNULL(fspo.CodigoColor_,'''') ' +
+          '    AND ISNULL(ap.Partida,'''') = ISNULL(fspo.PartidaSugerida,'''') ' +
+          '    AND ap.PickingId = 0 ' +
+          '    AND ap.LineaPedidoAsignada IN ( ''' + SQL_GUID_ToStr(GUID0) + ''', fspo.LineasPosicion ) ' +
+          ') ret ', '' ) +
           {'LEFT JOIN ( ' +
           '  SELECT ' +
           '    CodigoUbicacion, CodigoArticulo, SUM(UnidadesSaldo) AS UnidadesSaldo  ' +
@@ -51421,7 +51774,17 @@ begin
           //'  AND ISNULL(fspo.CodigoUbicacion,'''') NOT IN ( ' + CodigoUbicacionesExcluidas + ' ) ';
 
   if Pendientes then
+  begin
      sSQL := sSQL + 'AND (fspo.UdNecesarias > fspo.Udretiradas) '; // OR fspo.UdNecesariasBase > fspo.UdRetiradasBase) ';
+     if bRutaPorPartida then
+     // Una fila de una linea repartida entre partidas deja de estar pendiente
+     // cuando ya se ha cogido lo que la ruta le asigno, aunque la linea siga
+     // pendiente por las otras filas.
+     sSQL := sSQL +
+       'AND ( ISNULL(fspo.UdPickableBase,0) <= 0 ' +
+       '   OR fspo.UdPickableBase >= fspo.UdNecesariasBase ' +
+       '   OR ISNULL(ret.UdRetiradasFilaBase,0) < fspo.UdPickableBase ) ';
+  end;
 
   if SoloConStock=1 then
      sSQL := sSQL + 'AND fspo.CodigoUbicacion IS NOT NULL ';
@@ -51554,6 +51917,7 @@ begin
       '"UdReservadasBase":' + SQL_FloatToStr(Q.FieldByName('UdReservadasExternasBase').AsFloat) + ',' +
       '"UdPickable":' + SQL_FloatToStr(Q.FieldByName('UdPickable').AsFloat) + ',' +
       '"UdPickableBase":' + SQL_FloatToStr(Q.FieldByName('UdPickableBase').AsFloat) + ',' +
+      FS_SGA_JSON_RetiradasFila ( Q, bRutaPorPartida ) +
       '"FechaCaducaMin":"' + sFechaCaducaMin + '"' +
       '}';
 
@@ -62303,6 +62667,12 @@ end;
 // POST /listchecklists
 //      &Mode=DOCUMENT &TareaId=REC &DocTipo=REC &DocId=626
 //      &Mode=PENDING   (execucions obertes de l'usuari, de qualsevol tasca)
+//      &Mode=MINE      (totes les execucions de l'usuari, obertes i acabades;
+//                       les anul·lades no. Llistat del menú principal)
+//                       &SoloMios=0 -> les de tots els usuaris
+//                       (SoloMios i dates valen també a Mode=PENDING)
+//                       &FechaDesde=yyyymmdd &FechaHasta=yyyymmdd (data
+//                       d'inici, tots dos dies inclosos; buit = sense límit)
 //      &Mode=FREE      (plantilles de tasca LIB, sense document)
 //
 // Retorna les plantilles ACTIVES d'aquella tasca amb l'estat de la seva
@@ -62324,6 +62694,9 @@ var
   sUsuario: String;
   sError: String;
   sMode: String;
+  bSoloMios: Boolean;
+  sFechaDesde: String;
+  sFechaHasta: String;
   sTareaId: String;
   sDocTipo: String;
   iDocId: Integer;
@@ -62371,6 +62744,19 @@ begin
   sTareaId := Trim(contentfields.Values['TareaId']);
   sDocTipo := Trim(contentfields.Values['DocTipo']);
   iDocId   := StrToIntDef(contentfields.Values['DocId'], 0);
+  // Només a MINE. Per defecte, les de l'usuari: és el que esperen les PDA
+  // que encara no envien el paràmetre.
+  bSoloMios := ( (sMode <> 'MINE') and (sMode <> 'PENDING') ) or ( Trim(contentfields.Values['SoloMios']) <> '0' );
+
+  // Dates en format ISO compacte (yyyymmdd), que SQL Server llegeix igual sigui
+  // quin sigui l'idioma de la sessió. Només s'accepten 8 xifres: el valor va
+  // concatenat a la SQL.
+  sFechaDesde := Trim(contentfields.Values['FechaDesde']);
+  sFechaHasta := Trim(contentfields.Values['FechaHasta']);
+  if ((sMode <> 'MINE') and (sMode <> 'PENDING')) or (Length(sFechaDesde) <> 8) or (StrToIntDef(sFechaDesde, -1) < 19000101) then
+    sFechaDesde := '';
+  if ((sMode <> 'MINE') and (sMode <> 'PENDING')) or (Length(sFechaHasta) <> 8) or (StrToIntDef(sFechaHasta, -1) < 19000101) then
+    sFechaHasta := '';
 
   {$ENDREGION}
 
@@ -62378,7 +62764,7 @@ begin
 
   sData := '';
 
-  if sMode = 'PENDING' then
+  if (sMode = 'PENDING') or (sMode = 'MINE') then
   begin
 
     // Execucions obertes d'aquest usuari, de qualsevol tasca. Resol el forat
@@ -62388,9 +62774,10 @@ begin
       'SELECT ' +
       '  e.EjecucionId, e.PlantillaId, e.TareaId, e.Estado, e.Flags, ' +
       '  DocTipo = ISNULL(e.DocTipo,''''), DocId = ISNULL(e.DocId,0), ' +
-      '  e.FechaInicio, ' +
+      '  e.FechaInicio, e.FechaValidacion, ' +
       '  p.Codigo, p.Descripcion, ' +
       '  t.Descripcion AS TareaTxt, ' +
+      '  e.UsuarioInicio, UsuarioTxt = ISNULL(u.NombreUsuario,''''), ' +
       '  x.Total, x.Respondidas, x.NoConformes, x.CriticasNOK, x.Pendientes ' +
       'FROM FS_SGA_Chk_Ejecuciones e WITH (NOLOCK) ' +
       'INNER JOIN FS_SGA_Chk_Plantillas p WITH (NOLOCK) ' +
@@ -62399,10 +62786,14 @@ begin
       'LEFT JOIN FS_SGA_Chk_Tareas t WITH (NOLOCK) ' +
       '       ON t.CodigoEmpresa = e.CodigoEmpresa ' +
       '      AND t.TareaId       = e.TareaId ' +
+      'LEFT JOIN FS_SGA_Usuarios u WITH (NOLOCK) ' +
+      '       ON u.CodigoUsuario = e.UsuarioInicio ' +
       'CROSS APPLY FS_SGA_TABLE_Chk_Resumen ( e.CodigoEmpresa, e.EjecucionId ) x ' +
       'WHERE e.CodigoEmpresa = ' + IntToStr(CodigoEmpresa.Almacenes) + ' ' +
-      '  AND e.Estado = 0 ' +
-      '  AND e.UsuarioInicio = ' + IntToStr(CodigoUsuario) + ' ' +
+      IfThen ( sMode = 'MINE', '  AND e.Estado <> 3 ', '  AND e.Estado = 0 ' ) +
+      IfThen ( bSoloMios, '  AND e.UsuarioInicio = ' + IntToStr(CodigoUsuario) + ' ', '' ) +
+      IfThen ( sFechaDesde <> '', '  AND e.FechaInicio >= ''' + sFechaDesde + ''' ', '' ) +
+      IfThen ( sFechaHasta <> '', '  AND e.FechaInicio < DATEADD(DAY, 1, ''' + sFechaHasta + ''') ', '' ) +
       'ORDER BY e.FechaInicio DESC';
 
   end
@@ -62474,13 +62865,15 @@ begin
 
       if sData <> '' then sData := sData + ',';
 
-      if sMode = 'PENDING' then
+      if (sMode = 'PENDING') or (sMode = 'MINE') then
         sData := sData +
           '{' +
           '"EjecucionId":'  + IntToStr(Q.FieldByName('EjecucionId').AsInteger) + ',' +
           '"PlantillaId":'  + IntToStr(Q.FieldByName('PlantillaId').AsInteger) + ',' +
           '"TareaId":"'     + JSON_StrWeb(Q.FieldByName('TareaId').AsString) + '",' +
           '"TareaTxt":"'    + JSON_StrWeb(Q.FieldByName('TareaTxt').AsString) + '",' +
+          '"UsuarioInicio":' + IntToStr(Q.FieldByName('UsuarioInicio').AsInteger) + ',' +
+          '"UsuarioTxt":"'  + JSON_StrWeb(Q.FieldByName('UsuarioTxt').AsString) + '",' +
           '"Codigo":"'      + JSON_StrWeb(Q.FieldByName('Codigo').AsString) + '",' +
           '"Descripcion":"' + JSON_StrWeb(Q.FieldByName('Descripcion').AsString) + '",' +
           '"DocTipo":"'     + JSON_StrWeb(Q.FieldByName('DocTipo').AsString) + '",' +
@@ -62488,6 +62881,9 @@ begin
           '"Estado":'       + IntToStr(Q.FieldByName('Estado').AsInteger) + ',' +
           '"Flags":"'       + JSON_StrWeb(Q.FieldByName('Flags').AsString) + '",' +
           '"FechaInicio":"' + FormatDateTime('dd/mm/yyyy hh:nn', Q.FieldByName('FechaInicio').AsDateTime) + '",' +
+          // Buida mentre no està validada.
+          '"FechaValidacion":"' + IfThen ( Q.FieldByName('FechaValidacion').IsNull, '',
+                                           FormatDateTime('dd/mm/yyyy hh:nn', Q.FieldByName('FechaValidacion').AsDateTime) ) + '",' +
           '"Total":'        + IntToStr(Q.FieldByName('Total').AsInteger) + ',' +
           '"Respondidas":'  + IntToStr(Q.FieldByName('Respondidas').AsInteger) + ',' +
           '"NoConformes":'  + IntToStr(Q.FieldByName('NoConformes').AsInteger) + ',' +
